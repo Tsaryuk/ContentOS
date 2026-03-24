@@ -3,11 +3,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-function getSupabase(): SupabaseClient {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  )
+function getSupabase(): SupabaseClient | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  return createClient(url, key)
 }
 
 const CHANNEL_ID = 'UCSNzUPA6aagf1XD37oXQWsw'
@@ -70,12 +70,14 @@ export default function YouTubePage() {
   }
   const supabase = supabaseRef.current
   const [videos, setVideos] = useState<Video[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [filter, setFilter] = useState<string>('all')
   const [stats, setStats] = useState({ total: 0, done: 0, pending: 0, errors: 0 })
 
-  useEffect(() => { loadVideos() }, [filter])
+  const configured = !!supabase
+
+  useEffect(() => { if (configured) loadVideos() }, [filter, configured])
 
   async function loadVideos() {
     if (!supabase) return
@@ -148,6 +150,15 @@ export default function YouTubePage() {
       </div>
 
       <div className="p-5 flex flex-col gap-4">
+
+        {!configured && (
+          <div className="bg-[#1a1a1c] border border-warn/30 rounded-lg px-5 py-4 text-sm">
+            <div className="text-warn font-medium mb-1">Supabase не подключён</div>
+            <div className="text-muted text-xs">
+              Добавьте NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY в Vercel Settings &rarr; Environment Variables, затем редеплойте.
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-2.5">
