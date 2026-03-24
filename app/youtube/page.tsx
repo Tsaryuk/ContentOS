@@ -34,12 +34,13 @@ type VideoItem = {
 
 type ContentType = 'videos' | 'shorts' | 'podcasts'
 
-const SHORTS_MAX = 60
-const PODCAST_MIN = 1200 // 20 minutes
+const SHORTS_MAX = 180       // до 3 минут
+const VIDEO_MAX = 3000       // до 50 минут
+// от 50 минут — подкасты
 
 function classifyVideo(v: VideoItem): ContentType {
   if (v.duration_seconds <= SHORTS_MAX) return 'shorts'
-  if (v.duration_seconds >= PODCAST_MIN) return 'podcasts'
+  if (v.duration_seconds > VIDEO_MAX) return 'podcasts'
   return 'videos'
 }
 
@@ -83,7 +84,7 @@ export default function YouTubePage() {
   const [allVideos, setAllVideos] = useState<VideoItem[]>([])
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
-  const [activeTab, setActiveTab] = useState<ContentType>('videos')
+  const [activeTab, setActiveTab] = useState<ContentType>('podcasts')
 
   useEffect(() => { if (configured) loadVideos() }, [configured])
 
@@ -122,9 +123,9 @@ export default function YouTubePage() {
   const podcasts = allVideos.filter(v => classifyVideo(v) === 'podcasts')
 
   const tabs = [
+    { id: 'podcasts' as ContentType, label: 'Подкасты', icon: <Mic className="w-4 h-4" />, count: podcasts.length },
     { id: 'videos' as ContentType, label: 'Видео', icon: <Video className="w-4 h-4" />, count: videos.length },
     { id: 'shorts' as ContentType, label: 'Shorts', icon: <Film className="w-4 h-4" />, count: shorts.length },
-    { id: 'podcasts' as ContentType, label: 'Подкасты', icon: <Mic className="w-4 h-4" />, count: podcasts.length },
   ]
 
   const currentVideos = activeTab === 'videos' ? videos : activeTab === 'shorts' ? shorts : podcasts
@@ -231,8 +232,6 @@ export default function YouTubePage() {
             </div>
           ) : activeTab === 'shorts' ? (
             <ShortsGrid videos={currentVideos} />
-          ) : activeTab === 'podcasts' ? (
-            <PodcastList videos={currentVideos} />
           ) : (
             <VideoGrid videos={currentVideos} />
           )}
