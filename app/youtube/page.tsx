@@ -1,16 +1,14 @@
-// app/youtube/page.tsx
-// ContentOS — страница управления YouTube
-// Часть общей системы управления контентом
-
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { useEffect, useState, useRef } from 'react'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+function getSupabase(): SupabaseClient {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  )
+}
 
 const CHANNEL_ID = 'UCSNzUPA6aagf1XD37oXQWsw'
 
@@ -29,14 +27,25 @@ type Video = {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending:      { label: 'Не начато',    color: '#888' },
-  transcribing: { label: 'Транскрипция', color: '#6b9ff0' },
-  generating:   { label: 'AI генерация', color: '#a67ff0' },
-  thumbnail:    { label: 'Обложка',      color: '#f0b84a' },
-  review:       { label: 'На проверке',  color: '#f0b84a' },
-  publishing:   { label: 'Публикация',   color: '#4caf82' },
-  done:         { label: 'Готово',       color: '#4caf82' },
-  error:        { label: 'Ошибка',       color: '#e05a5a' },
+  pending:      { label: 'Не начато',    color: 'text-muted' },
+  transcribing: { label: 'Транскрипция', color: 'text-accent' },
+  generating:   { label: 'AI генерация', color: 'text-purple' },
+  thumbnail:    { label: 'Обложка',      color: 'text-warn' },
+  review:       { label: 'На проверке',  color: 'text-warn' },
+  publishing:   { label: 'Публикация',   color: 'text-green' },
+  done:         { label: 'Готово',        color: 'text-green' },
+  error:        { label: 'Ошибка',        color: 'text-danger' },
+}
+
+const STATUS_DOT: Record<string, string> = {
+  pending:      'bg-muted',
+  transcribing: 'bg-accent',
+  generating:   'bg-purple',
+  thumbnail:    'bg-warn',
+  review:       'bg-warn',
+  publishing:   'bg-green',
+  done:         'bg-green',
+  error:        'bg-danger',
 }
 
 function fmtDuration(s: number) {
@@ -44,17 +53,22 @@ function fmtDuration(s: number) {
   const m = Math.floor((s % 3600) / 60)
   const sec = s % 60
   return h > 0
-    ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
-    : `${m}:${String(sec).padStart(2,'0')}`
+    ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+    : `${m}:${String(sec).padStart(2, '0')}`
 }
 
 function fmtViews(n: number) {
-  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M'
-  if (n >= 1000) return (n/1000).toFixed(0) + 'K'
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(0) + 'K'
   return String(n)
 }
 
 export default function YouTubePage() {
+  const supabaseRef = useRef<SupabaseClient | null>(null)
+  if (!supabaseRef.current && typeof window !== 'undefined') {
+    supabaseRef.current = getSupabase()
+  }
+  const supabase = supabaseRef.current
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -64,6 +78,7 @@ export default function YouTubePage() {
   useEffect(() => { loadVideos() }, [filter])
 
   async function loadVideos() {
+    if (!supabase) return
     setLoading(true)
     let q = supabase
       .from('yt_videos')
@@ -75,7 +90,6 @@ export default function YouTubePage() {
     const { data } = await q
     setVideos(data || [])
 
-    // stats
     const { data: all } = await supabase.from('yt_videos').select('status')
     if (all) {
       setStats({
@@ -108,61 +122,59 @@ export default function YouTubePage() {
     }
   }
 
-  const filters = ['all','pending','transcribing','generating','review','done','error']
+  const filters = ['all', 'pending', 'transcribing', 'generating', 'review', 'done', 'error']
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0e0e0f', color: '#f0ede8', fontFamily: 'system-ui, sans-serif' }}>
+    <div className="min-h-screen bg-bg text-cream font-sans">
 
       {/* Header */}
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="border-b border-border px-6 py-4 flex items-center gap-3">
         <div>
-          <span style={{ fontSize: 13, color: '#7a7875' }}>ContentOS /</span>
-          <span style={{ fontSize: 15, fontWeight: 500, marginLeft: 6 }}>YouTube</span>
+          <span className="text-[13px] text-muted">ContentOS /</span>
+          <span className="text-[15px] font-medium ml-1.5">YouTube</span>
         </div>
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         <button
           onClick={handleSync}
           disabled={syncing}
-          style={{
-            background: syncing ? '#333' : '#c4a96a',
-            color: syncing ? '#888' : '#0e0e0f',
-            border: 'none', borderRadius: 7, padding: '8px 16px',
-            fontSize: 12, fontWeight: 600, cursor: syncing ? 'not-allowed' : 'pointer'
-          }}
+          className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+            syncing
+              ? 'bg-[#333] text-muted cursor-not-allowed'
+              : 'bg-gold text-bg cursor-pointer hover:bg-gold/90'
+          }`}
         >
-          {syncing ? 'Синхронизация...' : '↓ Синхронизировать канал'}
+          {syncing ? 'Синхронизация...' : '\u2193 Синхронизировать канал'}
         </button>
       </div>
 
-      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="p-5 flex flex-col gap-4">
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+        <div className="grid grid-cols-4 gap-2.5">
           {[
-            { label: 'Всего видео',       value: stats.total,   color: '#f0ede8' },
-            { label: 'Готово',            value: stats.done,    color: '#4caf82' },
-            { label: 'Ожидают обработки', value: stats.pending, color: '#f0b84a' },
-            { label: 'Ошибки',           value: stats.errors,  color: '#e05a5a' },
+            { label: 'Всего видео',       value: stats.total,   cls: 'text-cream' },
+            { label: 'Готово',             value: stats.done,    cls: 'text-green' },
+            { label: 'Ожидают обработки',  value: stats.pending, cls: 'text-warn' },
+            { label: 'Ошибки',             value: stats.errors,  cls: 'text-danger' },
           ].map(s => (
-            <div key={s.label} style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, color: '#7a7875', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{s.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 500, color: s.color }}>{s.value}</div>
+            <div key={s.label} className="bg-surface border border-border rounded-[10px] px-4 py-3.5">
+              <div className="text-[11px] text-muted uppercase tracking-wider mb-1.5">{s.label}</div>
+              <div className={`text-2xl font-medium ${s.cls}`}>{s.value}</div>
             </div>
           ))}
         </div>
 
         {/* Filters */}
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="flex gap-1.5">
           {filters.map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              style={{
-                padding: '5px 12px', borderRadius: 20, fontSize: 11, cursor: 'pointer',
-                border: filter === f ? '1px solid #c4a96a' : '1px solid rgba(255,255,255,0.1)',
-                background: filter === f ? 'rgba(196,169,106,0.1)' : 'transparent',
-                color: filter === f ? '#c4a96a' : '#7a7875',
-              }}
+              className={`px-3 py-1 rounded-full text-[11px] cursor-pointer transition-colors ${
+                filter === f
+                  ? 'border border-gold bg-gold/10 text-gold'
+                  : 'border border-border text-muted hover:text-cream'
+              }`}
             >
               {f === 'all' ? 'Все' : STATUS_LABELS[f]?.label || f}
             </button>
@@ -170,68 +182,67 @@ export default function YouTubePage() {
         </div>
 
         {/* Video list */}
-        <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden' }}>
+        <div className="bg-surface border border-border rounded-[10px] overflow-hidden">
 
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '48px 1fr 100px 90px 80px 80px', gap: 12, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            {['', 'Видео', 'Статус', 'Просмотры', 'Длина', 'AI'].map((h,i) => (
-              <span key={i} style={{ fontSize: 10, color: '#4a4845', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
+          <div className="grid grid-cols-[48px_1fr_100px_90px_80px_80px] gap-3 px-4 py-2.5 border-b border-border">
+            {['', 'Видео', 'Статус', 'Просмотры', 'Длина', 'AI'].map((h, i) => (
+              <span key={i} className="text-[10px] text-dim uppercase tracking-wider">{h}</span>
             ))}
           </div>
 
           {loading ? (
-            <div style={{ padding: 32, textAlign: 'center', color: '#7a7875', fontSize: 13 }}>Загрузка...</div>
+            <div className="py-8 text-center text-muted text-[13px]">Загрузка...</div>
           ) : videos.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: '#7a7875', fontSize: 13 }}>
-              Нет видео. Нажми "Синхронизировать канал" чтобы загрузить.
+            <div className="py-8 text-center text-muted text-[13px]">
+              Нет видео. Нажми &laquo;Синхронизировать канал&raquo; чтобы загрузить.
             </div>
           ) : (
             videos.map(v => {
               const st = STATUS_LABELS[v.status] || STATUS_LABELS.pending
+              const dotCls = STATUS_DOT[v.status] || STATUS_DOT.pending
               return (
                 <div
                   key={v.id}
-                  style={{
-                    display: 'grid', gridTemplateColumns: '48px 1fr 100px 90px 80px 80px',
-                    gap: 12, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                    alignItems: 'center', cursor: 'pointer', transition: 'background 0.12s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#1e1e21')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  className="grid grid-cols-[48px_1fr_100px_90px_80px_80px] gap-3 px-4 py-2.5 border-b border-border/50 items-center cursor-pointer hover:bg-[#1e1e21] transition-colors"
                 >
                   {/* Thumbnail */}
-                  <div style={{ width: 48, height: 30, borderRadius: 4, background: '#2a2a2e', overflow: 'hidden', flexShrink: 0 }}>
+                  <div className="w-12 h-[30px] rounded bg-[#2a2a2e] overflow-hidden shrink-0">
                     {v.current_thumbnail && (
-                      <img src={v.current_thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                      <img src={v.current_thumbnail} className="w-full h-full object-cover" alt="" />
                     )}
                   </div>
 
                   {/* Title */}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: '#f0ede8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-cream truncate">
                       {v.generated_title || v.current_title}
                     </div>
-                    <div style={{ fontSize: 10, color: '#7a7875', marginTop: 2 }}>
+                    <div className="text-[10px] text-muted mt-0.5">
                       {new Date(v.published_at).toLocaleDateString('ru-RU')}
-                      {v.generated_title && <span style={{ color: '#4caf82', marginLeft: 6 }}>✓ обновлён</span>}
+                      {v.generated_title && <span className="text-green ml-1.5">&#10003; обновлён</span>}
                     </div>
                   </div>
 
                   {/* Status */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: st.color, flexShrink: 0 }} />
-                    <span style={{ fontSize: 10, color: st.color, whiteSpace: 'nowrap' }}>{st.label}</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-[5px] h-[5px] rounded-full shrink-0 ${dotCls}`} />
+                    <span className={`text-[10px] whitespace-nowrap ${st.color}`}>{st.label}</span>
                   </div>
 
                   {/* Views */}
-                  <div style={{ fontSize: 11, color: '#7a7875' }}>{fmtViews(v.view_count)}</div>
+                  <div className="text-[11px] text-muted">{fmtViews(v.view_count)}</div>
 
                   {/* Duration */}
-                  <div style={{ fontSize: 11, color: '#7a7875' }}>{fmtDuration(v.duration_seconds)}</div>
+                  <div className="text-[11px] text-muted">{fmtDuration(v.duration_seconds)}</div>
 
                   {/* AI Score */}
-                  <div style={{ fontSize: 11, color: v.ai_score ? (v.ai_score > 70 ? '#4caf82' : v.ai_score > 40 ? '#f0b84a' : '#e05a5a') : '#4a4845' }}>
-                    {v.ai_score ? `${v.ai_score}%` : '—'}
+                  <div className={`text-[11px] ${
+                    v.ai_score
+                      ? v.ai_score > 70 ? 'text-green' : v.ai_score > 40 ? 'text-warn' : 'text-danger'
+                      : 'text-dim'
+                  }`}>
+                    {v.ai_score ? `${v.ai_score}%` : '\u2014'}
                   </div>
                 </div>
               )
