@@ -74,7 +74,7 @@
 6. **Настройки** — gear icon
 
 **Flyout:**
-- Появляется слева от сайдбара при hover на иконку платформы
+- Появляется справа от сайдбара при hover на иконку платформы
 - Фон: `#161618` (dark) / `#fff` (light)
 - Border: `1px solid rgba(255,255,255,0.08)`
 - Shadow: `0 8px 32px rgba(0,0,0,0.5)`
@@ -110,7 +110,7 @@ Props: нет (использует `usePathname()` для подсветки а
 | Подписчики (суммарно) | `accent` (#6b9ff0) | Сумма по всем каналам |
 | Просмотры (суммарно) | `purple` (#a67ff0) | Сумма по всем каналам |
 | Контент (кол-во публикаций) | `cream` / `#1a1a1a` | Счётчик публикаций |
-| Engagement (средний %) | `green` (#4caf82) | Среднее по каналам |
+| Engagement (средний %) | `green` (#4ade80 dark / #16a34a light) | Среднее взвешенное по подключённым каналам |
 
 Каждая карточка:
 - Фон: `rgba(255,255,255,0.03)` (dark) / `#fff` с `box-shadow: 0 1px 3px rgba(0,0,0,0.04)` (light)
@@ -217,6 +217,11 @@ CSS-переменные в `globals.css`:
 
 Tailwind `darkMode: 'class'` в `tailwind.config.ts`. Компоненты используют `dark:` префикс.
 
+**Миграция цветовых токенов:**
+- Статические цвета в `tailwind.config.ts` (`bg`, `surface`, `border`, `cream` и т.д.) заменяются на CSS-переменные: `bg: 'var(--bg)'`, `surface: 'var(--bg-surface)'` и т.д.
+- Существующая страница `/youtube` продолжит работать без изменений — её hardcoded значения (`bg-[#09090b]`, `text-white`) совпадают с dark-темой, а миграция на CSS-переменные будет отдельным follow-up.
+- Канонический зелёный: `#4ade80` (dark) / `#16a34a` (light). Старый `#4caf82` из `tailwind.config.ts` заменяется.
+
 ## Файловая структура (новые файлы)
 
 ```
@@ -238,7 +243,7 @@ app/
   layout.tsx               — обновить: обернуть в Sidebar
   page.tsx                 — заменить: Dashboard
   globals.css              — обновить: CSS-переменные для тем
-tailwind.config.ts         — обновить: darkMode: 'class'
+tailwind.config.ts         — обновить: darkMode: 'class', content: добавить './components/**/*.{ts,tsx}', цвета на CSS-переменные
 ```
 
 ## Данные
@@ -246,7 +251,7 @@ tailwind.config.ts         — обновить: darkMode: 'class'
 ### Тип `Channel`
 
 ```typescript
-type Platform = 'youtube' | 'telegram' | 'instagram' | 'tiktok' | 'threads' | 'email' | 'website'
+type Platform = 'youtube' | 'youtube-shorts' | 'telegram' | 'instagram' | 'tiktok' | 'threads' | 'email' | 'website'
 
 type Channel = {
   id: string
@@ -260,10 +265,17 @@ type Channel = {
     views: number
     contentCount: number
     growthPercent: number          // за последний месяц
-    engagement?: number
+    engagement?: number           // engagement rate в процентах
   } | null                        // null если не подключён
   href: string                    // куда ведёт клик (/youtube, /channel/x)
 }
+```
+
+**Engagement формула (YouTube):** `(like_count / view_count) * 100`. Если данных недостаточно (< 5 видео или нет просмотров), карточка показывает "--" вместо числа.
+
+**Агрегация Hero метрик:**
+- Подписчики / Просмотры / Контент: сумма по каналам с `connected: true`
+- Engagement: среднее взвешенное по просмотрам среди подключённых каналов. "--" если нет данных.
 ```
 
 ### Источники данных
@@ -271,6 +283,14 @@ type Channel = {
 - **YouTube:** реальные данные из `yt_videos` и `yt_channels` (Supabase)
 - **Остальные платформы:** конфиг в `lib/channels.ts` с `connected: false` и `metrics: null`
 - **Hero метрики:** агрегация по всем каналам с `connected: true`
+
+## Интеграция с существующими страницами
+
+Добавление глобального сайдбара через `layout.tsx` затрагивает существующую страницу `/youtube`. Необходимые изменения:
+
+- Удалить `min-h-screen` и `bg-[#09090b]` из корневого `<div>` в `/youtube/page.tsx` — фон и высота теперь приходят из layout
+- Контент-область внутри layout занимает `flex: 1` и `overflow-y: auto`
+- Хедер страницы `/youtube` (breadcrumb, кнопка синхронизации) остаётся без изменений — он специфичен для модуля YouTube
 
 ## Что НЕ входит в scope
 
@@ -280,3 +300,4 @@ type Channel = {
 - Реальные данные для платформ кроме YouTube
 - Графики и чарты (будущее)
 - Мобильная адаптация сайдбара (будущее, сейчас desktop-first)
+- Полная миграция `/youtube` на CSS-переменные (follow-up)
