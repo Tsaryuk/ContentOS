@@ -4,6 +4,7 @@ import { createReadStream, existsSync, statSync, readdirSync, mkdirSync } from '
 import { unlink, rm } from 'fs/promises'
 import { join } from 'path'
 import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { updateVideoStatus, logJob, getVideoWithChannel } from '@/lib/process/helpers'
 
@@ -15,6 +16,73 @@ const TMP_DIR = '/tmp/contentos-audio'
 
 function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
+}
+
+function getAnthropic() {
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+}
+
+async function proofreadTranscript(
+  segments: { start: number; end: number; text: string }[],
+  videoTitle: string,
+): Promise<{ start: number; end: number; text: string }[]> {
+  const anthropic = getAnthropic()
+
+  // Process in batches of ~50 segments to stay within token limits
+  const BATCH_SIZE = 50
+  const corrected: { start: number; end: number; text: string }[] = []
+
+  for (let i = 0; i < segments.length; i += BATCH_SIZE) {
+    const batch = segments.slice(i, i + BATCH_SIZE)
+
+    const numbered = batch
+      .map((seg, idx) => `${idx}|${seg.text}`)
+      .join('\n')
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8192,
+      system: `Ты — корректор транскриптов подкастов на русском языке.
+
+Правила:
+1. Исправь ошибки распознавания речи (неправильные слова, имена, термины)
+2. Добавь пунктуацию (точки, запятые, вопросительные/восклицательные знаки)
+3. Исправь регистр (начало предложений с заглавной)
+4. НЕ меняй смысл, НЕ добавляй/удаляй слова, НЕ перефразируй
+5. НЕ объединяй и НЕ разделяй строки — количество строк на входе и выходе ОДИНАКОВОЕ
+6. Формат: номер|исправленный текст (один в один как на входе)
+
+Контекст видео: "${videoTitle}"`,
+      messages: [{
+        role: 'user',
+        content: `Исправь каждую строку. Верни ровно ${batch.length} строк в формате номер|текст:\n\n${numbered}`,
+      }],
+    })
+
+    const responseText = message.content
+      .filter(b => b.type === 'text')
+      .map(b => (b as any).text)
+      .join('')
+
+    const lines = responseText.trim().split('\n').filter(l => l.includes('|'))
+
+    // Map corrections back to segments
+    for (let j = 0; j < batch.length; j++) {
+      const seg = batch[j]
+      const correctedLine = lines.find(l => l.startsWith(`${j}|`))
+      const correctedText = correctedLine
+        ? correctedLine.substring(correctedLine.indexOf('|') + 1).trim()
+        : seg.text
+
+      corrected.push({
+        start: seg.start,
+        end: seg.end,
+        text: correctedText || seg.text,
+      })
+    }
+  }
+
+  return corrected
 }
 
 function ensureTmpDir() {
@@ -143,12 +211,15 @@ export async function POST(req: NextRequest) {
       allSegments.push(...result.segments)
     }
 
-    // Step 4: Build formatted transcript with timestamps
-    const transcript = allSegments
+    // Step 4: Proofread with Claude (fix speech recognition errors, add punctuation)
+    const proofread = await proofreadTranscript(allSegments, video.current_title)
+
+    // Step 5: Build formatted transcript with timestamps
+    const transcript = proofread
       .map(seg => `[${formatTimestamp(seg.start)}]\n${seg.text}`)
       .join('\n')
 
-    const transcriptChunks = allSegments.map(seg => ({
+    const transcriptChunks = proofread.map(seg => ({
       start: seg.start,
       end: seg.end,
       text: seg.text,
