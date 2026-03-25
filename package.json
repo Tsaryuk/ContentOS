@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@21st-sdk/agent": "^0.0.14",
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@distube/ytdl-core": "^4.16.12",
     "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.100.0",
     "class-variance-authority": "^0.7.1",
@@ -17,6 +19,7 @@
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.0.1",
     "next": "^14.2.0",
+    "openai": "^6.32.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "tailwind-merge": "^3.5.0",

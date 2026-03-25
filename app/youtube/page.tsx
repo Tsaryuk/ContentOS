@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { Video, Film, Mic, RefreshCw, Eye, Clock, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import Link from 'next/link'
 
 function getSupabase(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -247,7 +248,8 @@ function VideoGrid({ videos }: { videos: VideoItem[] }) {
       {videos.map(v => {
         const st = STATUS_CONFIG[v.status] || STATUS_CONFIG.pending
         return (
-          <Card key={v.id} className="group cursor-pointer hover:border-white/10 transition-colors">
+          <Link key={v.id} href={`/youtube/${v.id}`}>
+          <Card className="group cursor-pointer hover:border-white/10 transition-colors">
             <div className="aspect-video bg-white/[0.02] relative overflow-hidden">
               {v.current_thumbnail ? (
                 <img src={v.current_thumbnail} className="w-full h-full object-cover" alt="" />
@@ -279,6 +281,7 @@ function VideoGrid({ videos }: { videos: VideoItem[] }) {
               </div>
             </div>
           </Card>
+          </Link>
         )
       })}
     </div>
@@ -289,7 +292,8 @@ function ShortsGrid({ videos }: { videos: VideoItem[] }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
       {videos.map(v => (
-        <Card key={v.id} className="group cursor-pointer hover:border-white/10 transition-colors">
+        <Link key={v.id} href={`/youtube/${v.id}`}>
+        <Card className="group cursor-pointer hover:border-white/10 transition-colors">
           <div className="aspect-[9/16] bg-white/[0.02] relative overflow-hidden">
             {v.current_thumbnail ? (
               <img src={v.current_thumbnail} className="w-full h-full object-cover" alt="" />
@@ -310,6 +314,7 @@ function ShortsGrid({ videos }: { videos: VideoItem[] }) {
             </div>
           </div>
         </Card>
+        </Link>
       ))}
     </div>
   )
