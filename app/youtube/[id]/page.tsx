@@ -231,6 +231,7 @@ export default function VideoDetailPage() {
                 <FileText className="w-4 h-4" /> Транскрипт
               </h3>
               <TranscriptViewer
+                videoTitle={video.current_title}
                 chunks={video.transcript_chunks}
                 transcript={video.transcript}
               />
