@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, unlink, mkdir, readdir, rm } from 'fs/promises'
+import { createReadStream, existsSync, statSync } from 'fs'
 import { execSync } from 'child_process'
-import { createReadStream, existsSync, statSync, readdirSync, mkdirSync } from 'fs'
-import { unlink, rm } from 'fs/promises'
 import { join } from 'path'
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
@@ -10,8 +10,9 @@ import { updateVideoStatus, logJob, getVideoWithChannel } from '@/lib/process/he
 
 export const maxDuration = 300
 
+const AUDIO_API_URL = 'http://72.56.5.248:8787/download'
 const CHUNK_MINUTES = 20
-const MAX_FILE_SIZE = 24 * 1024 * 1024 // 24MB safety margin (Whisper limit 25MB)
+const MAX_FILE_SIZE = 24 * 1024 * 1024
 const TMP_DIR = '/tmp/contentos-audio'
 
 function getOpenAI() {
@@ -22,22 +23,86 @@ function getAnthropic() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 }
 
+async function ensureTmpDir() {
+  if (!existsSync(TMP_DIR)) await mkdir(TMP_DIR, { recursive: true })
+}
+
+async function downloadAudio(ytVideoId: string): Promise<string> {
+  const outPath = join(TMP_DIR, `${ytVideoId}.mp3`)
+
+  const res = await fetch(AUDIO_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ videoId: ytVideoId }),
+    signal: AbortSignal.timeout(240000),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Audio download failed: ${err}`)
+  }
+
+  const buffer = Buffer.from(await res.arrayBuffer())
+  await writeFile(outPath, buffer)
+  return outPath
+}
+
+function splitAudio(audioPath: string, ytVideoId: string): string[] {
+  const stat = statSync(audioPath)
+
+  if (stat.size <= MAX_FILE_SIZE) {
+    return [audioPath]
+  }
+
+  const chunkDir = join(TMP_DIR, `${ytVideoId}-chunks`)
+  if (!existsSync(chunkDir)) {
+    execSync(`mkdir -p "${chunkDir}"`)
+  }
+
+  const chunkSeconds = CHUNK_MINUTES * 60
+  execSync(
+    `ffmpeg -i "${audioPath}" -f segment -segment_time ${chunkSeconds} ` +
+    `-ac 1 -ab 48k -y "${chunkDir}/chunk_%03d.mp3"`,
+    { timeout: 120000, stdio: 'pipe' }
+  )
+
+  const chunks = execSync(`ls -1 "${chunkDir}"/chunk_*.mp3`)
+    .toString().trim().split('\n').filter(Boolean).sort()
+
+  return chunks
+}
+
+async function transcribeChunk(
+  openai: OpenAI,
+  chunkPath: string,
+  offsetSeconds: number,
+): Promise<{ start: number; end: number; text: string }[]> {
+  const response = await openai.audio.transcriptions.create({
+    file: createReadStream(chunkPath),
+    model: 'whisper-1',
+    response_format: 'verbose_json',
+    timestamp_granularities: ['segment'],
+    language: 'ru',
+  })
+
+  return ((response as any).segments ?? []).map((seg: any) => ({
+    start: Math.round(seg.start + offsetSeconds),
+    end: Math.round(seg.end + offsetSeconds),
+    text: seg.text.trim(),
+  })).filter((s: any) => s.text.length > 0)
+}
+
 async function proofreadTranscript(
   segments: { start: number; end: number; text: string }[],
   videoTitle: string,
 ): Promise<{ start: number; end: number; text: string }[]> {
   const anthropic = getAnthropic()
-
-  // Process in batches of ~50 segments to stay within token limits
   const BATCH_SIZE = 50
   const corrected: { start: number; end: number; text: string }[] = []
 
   for (let i = 0; i < segments.length; i += BATCH_SIZE) {
     const batch = segments.slice(i, i + BATCH_SIZE)
-
-    const numbered = batch
-      .map((seg, idx) => `${idx}|${seg.text}`)
-      .join('\n')
+    const numbered = batch.map((seg, idx) => `${idx}|${seg.text}`).join('\n')
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -74,7 +139,6 @@ async function proofreadTranscript(
 
     const lines = responseText.trim().split('\n').filter(l => l.includes('|'))
 
-    // Map corrections back to segments
     for (let j = 0; j < batch.length; j++) {
       const seg = batch[j]
       const correctedLine = lines.find(l => l.startsWith(`${j}|`))
@@ -91,90 +155,6 @@ async function proofreadTranscript(
   }
 
   return corrected
-}
-
-function ensureTmpDir() {
-  if (!existsSync(TMP_DIR)) mkdirSync(TMP_DIR, { recursive: true })
-}
-
-function downloadAudio(ytVideoId: string): string {
-  const outPath = join(TMP_DIR, `${ytVideoId}.mp3`)
-
-  // Use OAuth token to authenticate yt-dlp (bypasses bot detection)
-  const tokenCmd = `curl -s -X POST https://oauth2.googleapis.com/token ` +
-    `-d "client_id=${process.env.YOUTUBE_CLIENT_ID}" ` +
-    `-d "client_secret=${process.env.YOUTUBE_CLIENT_SECRET}" ` +
-    `-d "refresh_token=${process.env.YOUTUBE_REFRESH_TOKEN}" ` +
-    `-d "grant_type=refresh_token"`
-
-  const tokenResult = execSync(tokenCmd, { timeout: 10000 }).toString()
-  const token = JSON.parse(tokenResult).access_token
-
-  if (!token) throw new Error('Failed to get YouTube OAuth token for yt-dlp')
-
-  // Write OAuth token header for yt-dlp
-  const headerArgs = `--add-header "Authorization: Bearer ${token}"`
-
-  execSync(
-    `yt-dlp -x --audio-format mp3 --postprocessor-args "ffmpeg:-ac 1 -ab 48k" ` +
-    `${headerArgs} --no-check-certificates ` +
-    `-o "${outPath}" "https://www.youtube.com/watch?v=${ytVideoId}"`,
-    { timeout: 300000, stdio: 'pipe', env: { ...process.env, PATH: '/usr/local/bin:/usr/bin:/bin:/root/.deno/bin' } }
-  )
-
-  if (!existsSync(outPath)) {
-    throw new Error('yt-dlp failed to download audio')
-  }
-  return outPath
-}
-
-function splitAudio(audioPath: string, ytVideoId: string): string[] {
-  const stat = statSync(audioPath)
-
-  // If file is small enough, no need to split
-  if (stat.size <= MAX_FILE_SIZE) {
-    return [audioPath]
-  }
-
-  // Split into chunks
-  const chunkDir = join(TMP_DIR, `${ytVideoId}-chunks`)
-  if (!existsSync(chunkDir)) mkdirSync(chunkDir, { recursive: true })
-
-  const chunkSeconds = CHUNK_MINUTES * 60
-  execSync(
-    `ffmpeg -i "${audioPath}" -f segment -segment_time ${chunkSeconds} ` +
-    `-ac 1 -ab 48k -y "${chunkDir}/chunk_%03d.mp3"`,
-    { timeout: 120000, stdio: 'pipe' }
-  )
-
-  const chunks = readdirSync(chunkDir)
-    .filter(f => f.endsWith('.mp3'))
-    .sort()
-    .map(f => join(chunkDir, f))
-
-  return chunks
-}
-
-async function transcribeChunk(
-  openai: OpenAI,
-  chunkPath: string,
-  offsetSeconds: number,
-): Promise<{ text: string; segments: { start: number; end: number; text: string }[] }> {
-  const response = await openai.audio.transcriptions.create({
-    file: createReadStream(chunkPath),
-    model: 'whisper-1',
-    response_format: 'verbose_json',
-    timestamp_granularities: ['segment'],
-    language: 'ru',
-  })
-
-  const segments = ((response as any).segments ?? []).map((seg: any) => ({
-    start: Math.round(seg.start + offsetSeconds),
-    end: Math.round(seg.end + offsetSeconds),
-    text: seg.text.trim(),
-  })).filter((s: any) => s.text.length > 0)
-
-  return { text: response.text, segments }
 }
 
 function formatTimestamp(seconds: number): string {
@@ -216,30 +196,32 @@ export async function POST(req: NextRequest) {
     await updateVideoStatus(videoId, 'transcribing')
     await logJob({ videoId, jobType: 'transcribe', status: 'running' })
 
-    ensureTmpDir()
+    await ensureTmpDir()
 
-    // Step 1: Download audio via yt-dlp
-    const audioPath = downloadAudio(ytVideoId)
+    // Step 1: Download audio via external API (bot server)
+    const audioPath = await downloadAudio(ytVideoId)
 
-    // Step 2: Split if needed (>24MB)
+    // Step 2: Split if needed (>24MB for Whisper limit)
     const chunks = splitAudio(audioPath, ytVideoId)
 
     // Step 3: Transcribe each chunk with Whisper
     const openai = getOpenAI()
     const allSegments: { start: number; end: number; text: string }[] = []
-    const allTexts: string[] = []
 
     for (let i = 0; i < chunks.length; i++) {
       const offsetSeconds = i * CHUNK_MINUTES * 60
-      const result = await transcribeChunk(openai, chunks[i], offsetSeconds)
-      allTexts.push(result.text)
-      allSegments.push(...result.segments)
+      const segments = await transcribeChunk(openai, chunks[i], offsetSeconds)
+      allSegments.push(...segments)
     }
 
-    // Step 4: Proofread with Claude (fix speech recognition errors, add punctuation)
+    if (allSegments.length === 0) {
+      throw new Error('Whisper returned empty transcript')
+    }
+
+    // Step 4: Proofread with Claude (fix errors, add punctuation)
     const proofread = await proofreadTranscript(allSegments, video.current_title)
 
-    // Step 5: Build formatted transcript with timestamps
+    // Step 5: Build formatted transcript
     const transcript = proofread
       .map(seg => `[${formatTimestamp(seg.start)}]\n${seg.text}`)
       .join('\n')
@@ -250,11 +232,7 @@ export async function POST(req: NextRequest) {
       text: seg.text,
     }))
 
-    if (transcript.length < 10) {
-      throw new Error('Transcript too short or empty')
-    }
-
-    // Step 5: Save to DB
+    // Step 6: Save to DB
     const { error: updateErr } = await supabaseAdmin
       .from('yt_videos')
       .update({
