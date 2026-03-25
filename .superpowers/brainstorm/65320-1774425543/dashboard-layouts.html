@@ -1,0 +1,243 @@
+<h2>Лейаут дашборда: какой подход ближе?</h2>
+<p class="subtitle">Все три варианта: сводка наверху, переключение платформ/каналов, AI-блок вспомогательно, клик ведёт на страницу канала</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="font-family: monospace; font-size: 11px; color: #888; line-height: 1.6;">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#6b9ff0; font-size:14px; font-weight:bold;">156K</div>
+            <div style="font-size:9px; color:#666;">ПОДПИСЧИКИ</div>
+          </div>
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#a67ff0; font-size:14px; font-weight:bold;">11.6M</div>
+            <div style="font-size:9px; color:#666;">ПРОСМОТРЫ</div>
+          </div>
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#4ade80; font-size:14px; font-weight:bold;">+2.3%</div>
+            <div style="font-size:9px; color:#666;">РОСТ</div>
+          </div>
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#fbbf24; font-size:14px; font-weight:bold;">12</div>
+            <div style="font-size:9px; color:#666;">КАНАЛОВ</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; margin-bottom:10px; font-size:9px;">
+          <span style="background:#6b9ff0; color:#000; padding:2px 8px; border-radius:10px;">Все</span>
+          <span style="background:#222; color:#888; padding:2px 8px; border-radius:10px;">YouTube</span>
+          <span style="background:#222; color:#888; padding:2px 8px; border-radius:10px;">Telegram</span>
+          <span style="background:#222; color:#888; padding:2px 8px; border-radius:10px;">Instagram</span>
+          <span style="background:#222; color:#888; padding:2px 8px; border-radius:10px;">...</span>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-bottom:10px;">
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px;">
+            <div style="font-size:9px; color:#f00;">&#9654;</div>
+            <div style="font-size:8px; color:#ccc;">Личная Философия</div>
+            <div style="font-size:10px; color:#6b9ff0;">66.1K</div>
+          </div>
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px;">
+            <div style="font-size:9px; color:#f00;">&#9654;</div>
+            <div style="font-size:8px; color:#ccc;">Долг и Деньги</div>
+            <div style="font-size:10px; color:#6b9ff0;">12.4K</div>
+          </div>
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px;">
+            <div style="font-size:9px; color:#0af;">&#9993;</div>
+            <div style="font-size:8px; color:#ccc;">Telegram</div>
+            <div style="font-size:10px; color:#6b9ff0;">8.2K</div>
+          </div>
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px;">
+            <div style="font-size:9px; color:#e1306c;">&#9632;</div>
+            <div style="font-size:8px; color:#ccc;">Instagram</div>
+            <div style="font-size:10px; color:#6b9ff0;">5.1K</div>
+          </div>
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px;">
+            <div style="font-size:9px; color:#fff;">&#9733;</div>
+            <div style="font-size:8px; color:#ccc;">TikTok</div>
+            <div style="font-size:10px; color:#6b9ff0;">3.8K</div>
+          </div>
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px;">
+            <div style="font-size:9px; color:#0af;">&#9993;</div>
+            <div style="font-size:8px; color:#ccc;">Email</div>
+            <div style="font-size:10px; color:#6b9ff0;">5.0K</div>
+          </div>
+        </div>
+        <div style="background:#1a1a2e; border-radius:6px; padding:6px 8px; font-size:8px; color:#888;">
+          &#9889; AI: 3 идеи &bull; 2 упоминания &bull; 1 задача
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Карточная сетка</h3>
+      <p>Метрики-карточки наверху, фильтр-табы по платформам, каналы как сетка карточек. AI-панель -- компактная полоса внизу. Чистый и масштабируемый.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="font-family: monospace; font-size: 11px; color: #888; line-height: 1.6;">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#6b9ff0; font-size:14px; font-weight:bold;">156K</div>
+            <div style="font-size:9px; color:#666;">ПОДПИСЧИКИ</div>
+          </div>
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#a67ff0; font-size:14px; font-weight:bold;">11.6M</div>
+            <div style="font-size:9px; color:#666;">ПРОСМОТРЫ</div>
+          </div>
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#4ade80; font-size:14px; font-weight:bold;">+2.3%</div>
+            <div style="font-size:9px; color:#666;">РОСТ / МЕС</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <div style="width:55%;">
+            <div style="display:flex; gap:4px; margin-bottom:8px; font-size:9px;">
+              <span style="background:#6b9ff0; color:#000; padding:2px 8px; border-radius:10px;">Все</span>
+              <span style="background:#222; color:#888; padding:2px 8px; border-radius:10px;">YouTube</span>
+              <span style="background:#222; color:#888; padding:2px 8px; border-radius:10px;">TG</span>
+              <span style="background:#222; color:#888; padding:2px 8px; border-radius:10px;">IG</span>
+            </div>
+            <div style="background:#1a1a2e; border-radius:6px; padding:6px 8px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="font-size:9px; color:#ccc;">&#9654; Личная Философия</span>
+              <span style="font-size:9px; color:#6b9ff0;">66.1K</span>
+            </div>
+            <div style="background:#1a1a2e; border-radius:6px; padding:6px 8px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="font-size:9px; color:#ccc;">&#9654; Долг и Деньги</span>
+              <span style="font-size:9px; color:#6b9ff0;">12.4K</span>
+            </div>
+            <div style="background:#1a1a2e; border-radius:6px; padding:6px 8px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="font-size:9px; color:#ccc;">&#9654; Жизнь как иск.</span>
+              <span style="font-size:9px; color:#6b9ff0;">2.1K</span>
+            </div>
+            <div style="background:#1a1a2e; border-radius:6px; padding:6px 8px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="font-size:9px; color:#ccc;">&#9993; Telegram</span>
+              <span style="font-size:9px; color:#6b9ff0;">8.2K</span>
+            </div>
+            <div style="background:#1a1a2e; border-radius:6px; padding:6px 8px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="font-size:9px; color:#ccc;">&#9632; Instagram</span>
+              <span style="font-size:9px; color:#6b9ff0;">5.1K</span>
+            </div>
+          </div>
+          <div style="width:45%;">
+            <div style="background:#1a1a2e; border-radius:6px; padding:8px; margin-bottom:6px;">
+              <div style="font-size:8px; color:#fbbf24; margin-bottom:4px;">&#9889; AI ИНСАЙТЫ</div>
+              <div style="font-size:8px; color:#aaa; margin-bottom:3px;">&#8226; Оптим. время публикации</div>
+              <div style="font-size:8px; color:#aaa; margin-bottom:3px;">&#8226; Тренд: тема X растёт</div>
+              <div style="font-size:8px; color:#aaa;">&#8226; 2 новых упоминания</div>
+            </div>
+            <div style="background:#1a1a2e; border-radius:6px; padding:8px;">
+              <div style="font-size:8px; color:#a67ff0; margin-bottom:4px;">ПОСЛЕДНИЕ</div>
+              <div style="font-size:8px; color:#aaa; margin-bottom:3px;">&#8226; Видео опубл. 2ч назад</div>
+              <div style="font-size:8px; color:#aaa;">&#8226; Рассылка отправл. вчера</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Список + сайдбар</h3>
+      <p>Метрики наверху, каналы списком слева с фильтрами, AI-панель и активность справа. Компактнее, больше информации на экране.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="font-family: monospace; font-size: 11px; color: #888; line-height: 1.6;">
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#6b9ff0; font-size:14px; font-weight:bold;">156K</div>
+            <div style="font-size:9px; color:#666;">ПОДПИСЧИКИ</div>
+            <div style="background:#222; border-radius:4px; height:4px; margin-top:6px;"><div style="background:#6b9ff0; border-radius:4px; height:4px; width:70%;"></div></div>
+          </div>
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#a67ff0; font-size:14px; font-weight:bold;">11.6M</div>
+            <div style="font-size:9px; color:#666;">ПРОСМОТРЫ</div>
+            <div style="background:#222; border-radius:4px; height:4px; margin-top:6px;"><div style="background:#a67ff0; border-radius:4px; height:4px; width:85%;"></div></div>
+          </div>
+          <div style="flex:1; background:#1a1a2e; border-radius:8px; padding:10px; text-align:center;">
+            <div style="color:#4ade80; font-size:14px; font-weight:bold;">+2.3%</div>
+            <div style="font-size:9px; color:#666;">РОСТ</div>
+            <div style="background:#222; border-radius:4px; height:4px; margin-top:6px;"><div style="background:#4ade80; border-radius:4px; height:4px; width:55%;"></div></div>
+          </div>
+        </div>
+        <div style="background:#1a1a2e; border-radius:8px; padding:10px; margin-bottom:10px;">
+          <div style="font-size:9px; color:#666; margin-bottom:6px;">ПЛАТФОРМЫ</div>
+          <div style="display:flex; gap:6px;">
+            <div style="flex:1; text-align:center;">
+              <div style="font-size:14px;">&#9654;</div>
+              <div style="font-size:8px; color:#ccc;">YouTube</div>
+              <div style="font-size:10px; color:#6b9ff0; font-weight:bold;">80.6K</div>
+              <div style="font-size:8px; color:#4ade80;">+1.8%</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-size:14px;">&#9993;</div>
+              <div style="font-size:8px; color:#ccc;">Telegram</div>
+              <div style="font-size:10px; color:#6b9ff0; font-weight:bold;">8.2K</div>
+              <div style="font-size:8px; color:#4ade80;">+3.1%</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-size:14px;">&#9632;</div>
+              <div style="font-size:8px; color:#ccc;">Instagram</div>
+              <div style="font-size:10px; color:#6b9ff0; font-weight:bold;">5.1K</div>
+              <div style="font-size:8px; color:#4ade80;">+0.9%</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-size:14px;">&#9733;</div>
+              <div style="font-size:8px; color:#ccc;">TikTok</div>
+              <div style="font-size:10px; color:#6b9ff0; font-weight:bold;">3.8K</div>
+              <div style="font-size:8px; color:#4ade80;">+5.2%</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-size:14px;">&#9993;</div>
+              <div style="font-size:8px; color:#ccc;">Email</div>
+              <div style="font-size:10px; color:#6b9ff0; font-weight:bold;">5.0K</div>
+              <div style="font-size:8px; color:#888;">--</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <div style="flex:2; background:#1a1a2e; border-radius:6px; padding:6px 8px;">
+            <div style="font-size:8px; color:#666; margin-bottom:4px;">ТОП КАНАЛЫ ПО РОСТУ</div>
+            <div style="font-size:8px; color:#ccc;">1. TikTok +5.2% &bull; 2. TG +3.1% &bull; 3. YT +1.8%</div>
+          </div>
+          <div style="flex:1; background:#1a1a2e; border-radius:6px; padding:6px 8px;">
+            <div style="font-size:8px; color:#fbbf24;">&#9889; 3 идеи</div>
+            <div style="font-size:8px; color:#888;">2 упоминания</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Платформы-первый</h3>
+      <p>Метрики с прогресс-барами, затем платформы как горизонтальная панель с метриками и ростом по каждой. Каналы -- вторичный уровень при клике на платформу. AI минимально внизу.</p>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top: 20px; padding: 16px; background: rgba(107,159,240,0.08); border-radius: 8px; border: 1px solid rgba(107,159,240,0.2);">
+  <h3 style="margin-top:0; color: #6b9ff0;">Моя рекомендация: A (Карточная сетка)</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Почему A</h4>
+      <ul>
+        <li>Масштабируется -- легко добавлять каналы</li>
+        <li>Каждый канал визуально самостоятелен</li>
+        <li>Соответствует текущему дизайну проекта</li>
+        <li>Простая навигация: фильтр &rarr; карточка &rarr; страница канала</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>Когда B или C лучше</h4>
+      <ul>
+        <li>B -- если важна плотность информации</li>
+        <li>C -- если приоритет на сравнении платформ между собой</li>
+      </ul>
+    </div>
+  </div>
+</div>

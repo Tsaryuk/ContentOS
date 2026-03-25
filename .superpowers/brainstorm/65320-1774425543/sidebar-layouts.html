@@ -1,0 +1,189 @@
+<h2>Боковое меню: какой формат?</h2>
+<p class="subtitle">Меню будет на всех страницах, включая /youtube</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="font-family: monospace; font-size: 11px; color: #888; line-height: 1.6; display:flex; gap:8px;">
+        <!-- Sidebar collapsed -->
+        <div style="width:48px; background:#0e0e10; border-right:1px solid rgba(255,255,255,0.06); border-radius:8px 0 0 8px; padding:10px 0; display:flex; flex-direction:column; align-items:center; gap:16px;">
+          <div style="width:28px; height:28px; background:#6b9ff0; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#000; font-weight:bold;">C</div>
+          <div style="width:1px; height:1px; background:rgba(255,255,255,0.06); width:24px; height:1px;"></div>
+          <div style="font-size:14px; opacity:0.4;" title="Dashboard">&#9632;</div>
+          <div style="font-size:14px; opacity:1; color:#6b9ff0;" title="YouTube">&#9654;</div>
+          <div style="font-size:14px; opacity:0.4;" title="Telegram">&#9993;</div>
+          <div style="font-size:14px; opacity:0.4;" title="Instagram">&#10064;</div>
+          <div style="font-size:14px; opacity:0.4;" title="Analytics">&#9776;</div>
+          <div style="flex:1;"></div>
+          <div style="font-size:14px; opacity:0.4;" title="Settings">&#9881;</div>
+          <div style="font-size:10px; opacity:0.3;">&#9664;&#9654;</div>
+        </div>
+        <!-- Main content -->
+        <div style="flex:1;">
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px; margin-bottom:6px; text-align:center;">
+            <div style="font-size:9px; color:#666;">Контент-область</div>
+            <div style="font-size:12px; color:#ccc; margin-top:4px;">Дашборд / YouTube / ...</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px;">
+            <div style="background:#1a1a2e; border-radius:4px; padding:12px; text-align:center;">
+              <div style="font-size:8px; color:#666;">карточка</div>
+            </div>
+            <div style="background:#1a1a2e; border-radius:4px; padding:12px; text-align:center;">
+              <div style="font-size:8px; color:#666;">карточка</div>
+            </div>
+            <div style="background:#1a1a2e; border-radius:4px; padding:12px; text-align:center;">
+              <div style="font-size:8px; color:#666;">карточка</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Иконки (свёрнутое)</h3>
+      <p>Узкая полоса ~48px с иконками. Hover показывает tooltip с названием. Можно раскрыть по кнопке. Максимум места под контент.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="font-family: monospace; font-size: 11px; color: #888; line-height: 1.6; display:flex; gap:0;">
+        <!-- Sidebar expanded -->
+        <div style="width:180px; background:#0e0e10; border-right:1px solid rgba(255,255,255,0.06); border-radius:8px 0 0 8px; padding:12px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:14px;">
+            <div style="width:24px; height:24px; background:#6b9ff0; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#000; font-weight:bold;">C</div>
+            <div style="font-size:10px; color:#ccc; font-weight:600;">ContentOS</div>
+          </div>
+          <div style="font-size:8px; color:#444; text-transform:uppercase; margin-bottom:6px; letter-spacing:1px;">Основное</div>
+          <div style="background:rgba(107,159,240,0.1); border-radius:5px; padding:5px 8px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px;">&#9632;</span>
+            <span style="font-size:9px; color:#6b9ff0;">Дашборд</span>
+          </div>
+          <div style="padding:5px 8px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; opacity:0.4;">&#9776;</span>
+            <span style="font-size:9px; color:#888;">Аналитика</span>
+          </div>
+          <div style="font-size:8px; color:#444; text-transform:uppercase; margin-bottom:6px; margin-top:10px; letter-spacing:1px;">Каналы</div>
+          <div style="padding:5px 8px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; color:#f00;">&#9654;</span>
+            <span style="font-size:9px; color:#888;">YouTube</span>
+            <span style="font-size:8px; color:#444; margin-left:auto;">3</span>
+          </div>
+          <div style="padding:5px 8px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; color:#0af;">&#9993;</span>
+            <span style="font-size:9px; color:#888;">Telegram</span>
+          </div>
+          <div style="padding:5px 8px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; color:#e1306c;">&#10064;</span>
+            <span style="font-size:9px; color:#888;">Instagram</span>
+          </div>
+          <div style="padding:5px 8px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px;">&#9733;</span>
+            <span style="font-size:9px; color:#888;">TikTok</span>
+          </div>
+          <div style="padding:5px 8px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; color:#888;">@</span>
+            <span style="font-size:9px; color:#888;">Email</span>
+          </div>
+          <div style="font-size:8px; color:#444; text-transform:uppercase; margin-bottom:6px; margin-top:10px; letter-spacing:1px;">AI</div>
+          <div style="padding:5px 8px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; color:#fbbf24;">&#9889;</span>
+            <span style="font-size:9px; color:#888;">Инсайты</span>
+            <span style="font-size:7px; background:#6b9ff0; color:#000; padding:1px 4px; border-radius:8px; margin-left:auto;">3</span>
+          </div>
+          <div style="flex:1;"></div>
+          <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:8px; margin-top:12px;">
+            <div style="padding:5px 8px; display:flex; align-items:center; gap:6px;">
+              <span style="font-size:11px; opacity:0.4;">&#9881;</span>
+              <span style="font-size:9px; color:#888;">Настройки</span>
+            </div>
+          </div>
+        </div>
+        <!-- Main content -->
+        <div style="flex:1; padding:8px;">
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px; margin-bottom:6px; text-align:center;">
+            <div style="font-size:9px; color:#666;">Контент-область</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+            <div style="background:#1a1a2e; border-radius:4px; padding:12px; text-align:center;">
+              <div style="font-size:8px; color:#666;">карточка</div>
+            </div>
+            <div style="background:#1a1a2e; border-radius:4px; padding:12px; text-align:center;">
+              <div style="font-size:8px; color:#666;">карточка</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Полное меню (раскрытое)</h3>
+      <p>~200px, логотип + группы секций (Основное / Каналы / AI) + лейблы. Каунтеры на каналах. Всегда видно где ты. Забирает место у контента.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="font-family: monospace; font-size: 11px; color: #888; line-height: 1.6; display:flex; gap:0;">
+        <!-- Sidebar collapsed by default -->
+        <div style="width:48px; background:#0e0e10; border-right:1px solid rgba(255,255,255,0.06); border-radius:8px 0 0 8px; padding:10px 0; display:flex; flex-direction:column; align-items:center; gap:12px; position:relative;">
+          <div style="width:28px; height:28px; background:#6b9ff0; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#000; font-weight:bold;">C</div>
+          <div style="width:24px; height:1px; background:rgba(255,255,255,0.06);"></div>
+          <div style="font-size:14px; color:#6b9ff0;">&#9632;</div>
+          <div style="font-size:14px; opacity:0.4;">&#9654;</div>
+          <div style="font-size:14px; opacity:0.4;">&#9993;</div>
+          <div style="font-size:14px; opacity:0.4;">&#10064;</div>
+          <div style="font-size:14px; opacity:0.4;">&#9733;</div>
+          <div style="flex:1;"></div>
+          <div style="font-size:14px; opacity:0.4;">&#9881;</div>
+        </div>
+        <!-- Hover overlay preview -->
+        <div style="width:150px; background:#161618; border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; margin-left:-4px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index:1;">
+          <div style="font-size:8px; color:#444; text-transform:uppercase; margin-bottom:6px; letter-spacing:1px;">Каналы</div>
+          <div style="padding:4px 6px; margin-bottom:2px; display:flex; align-items:center; gap:5px; background:rgba(107,159,240,0.08); border-radius:4px;">
+            <span style="font-size:10px; color:#f00;">&#9654;</span>
+            <span style="font-size:8px; color:#ccc;">Личная Философия</span>
+          </div>
+          <div style="padding:4px 6px; margin-bottom:2px; display:flex; align-items:center; gap:5px;">
+            <span style="font-size:10px; color:#f00;">&#9654;</span>
+            <span style="font-size:8px; color:#888;">Долг и Деньги</span>
+          </div>
+          <div style="padding:4px 6px; margin-bottom:2px; display:flex; align-items:center; gap:5px;">
+            <span style="font-size:10px; color:#f00;">&#9654;</span>
+            <span style="font-size:8px; color:#888;">Жизнь как иск.</span>
+          </div>
+          <div style="font-size:7px; color:#555; margin-top:4px; text-align:center;">hover раскрывает подменю</div>
+        </div>
+        <!-- Main content -->
+        <div style="flex:1; padding:8px;">
+          <div style="background:#1a1a2e; border-radius:6px; padding:8px; margin-bottom:6px; text-align:center;">
+            <div style="font-size:9px; color:#666;">Макс. место под контент</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px;">
+            <div style="background:#1a1a2e; border-radius:4px; padding:12px; text-align:center;">
+              <div style="font-size:8px; color:#666;">карточка</div>
+            </div>
+            <div style="background:#1a1a2e; border-radius:4px; padding:12px; text-align:center;">
+              <div style="font-size:8px; color:#666;">карточка</div>
+            </div>
+            <div style="background:#1a1a2e; border-radius:4px; padding:12px; text-align:center;">
+              <div style="font-size:8px; color:#666;">карточка</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Гибрид (свёрнуто + hover)</h3>
+      <p>По умолчанию иконки ~48px. Hover на иконке платформы раскрывает flyout с каналами этой платформы. Компромисс: компактно + доступ к деталям.</p>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top: 20px; padding: 16px; background: rgba(107,159,240,0.08); border-radius: 8px; border: 1px solid rgba(107,159,240,0.2);">
+  <h3 style="margin-top:0; color: #6b9ff0;">Рекомендация: B (Полное меню)</h3>
+  <p style="color: #aaa; font-size: 13px;">У тебя 10+ каналов на 5+ платформах -- это не помещается в иконки без путаницы. Полное меню с группировкой по секциям сразу показывает всю структуру. 200px -- небольшая цена за удобство навигации при таком количестве каналов.</p>
+</div>

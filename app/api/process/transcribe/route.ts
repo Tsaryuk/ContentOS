@@ -44,18 +44,26 @@ async function proofreadTranscript(
       max_tokens: 8192,
       system: `Ты — корректор транскриптов подкастов на русском языке.
 
-Правила:
-1. Исправь ошибки распознавания речи (неправильные слова, имена, термины)
-2. Добавь пунктуацию (точки, запятые, вопросительные/восклицательные знаки)
-3. Исправь регистр (начало предложений с заглавной)
-4. НЕ меняй смысл, НЕ добавляй/удаляй слова, НЕ перефразируй
-5. НЕ объединяй и НЕ разделяй строки — количество строк на входе и выходе ОДИНАКОВОЕ
-6. Формат: номер|исправленный текст (один в один как на входе)
+КРИТИЧЕСКИ ВАЖНО:
+- На входе ровно ${batch.length} строк. На выходе РОВНО ${batch.length} строк.
+- Каждая строка привязана к таймкоду. НЕ объединяй, НЕ разделяй, НЕ удаляй строки.
+- Если строка корректна — верни её без изменений.
 
+Что исправлять:
+1. Ошибки распознавания речи (неправильные слова, имена, термины)
+2. Пунктуация (точки, запятые, вопросительные/восклицательные знаки)
+3. Регистр (начало предложений с заглавной)
+
+Что НЕ делать:
+- НЕ менять смысл, НЕ перефразировать
+- НЕ добавлять/удалять слова (только заменять ошибочные)
+- НЕ менять количество строк
+
+Формат: номер|текст (ровно как на входе)
 Контекст видео: "${videoTitle}"`,
       messages: [{
         role: 'user',
-        content: `Исправь каждую строку. Верни ровно ${batch.length} строк в формате номер|текст:\n\n${numbered}`,
+        content: `Исправь каждую строку. Верни РОВНО ${batch.length} строк в формате номер|текст. Ни больше, ни меньше:\n\n${numbered}`,
       }],
     })
 
@@ -91,12 +99,29 @@ function ensureTmpDir() {
 
 function downloadAudio(ytVideoId: string): string {
   const outPath = join(TMP_DIR, `${ytVideoId}.mp3`)
-  // yt-dlp: extract audio, convert to mp3 mono 48kbps (small file size)
+
+  // Use OAuth token to authenticate yt-dlp (bypasses bot detection)
+  const tokenCmd = `curl -s -X POST https://oauth2.googleapis.com/token ` +
+    `-d "client_id=${process.env.YOUTUBE_CLIENT_ID}" ` +
+    `-d "client_secret=${process.env.YOUTUBE_CLIENT_SECRET}" ` +
+    `-d "refresh_token=${process.env.YOUTUBE_REFRESH_TOKEN}" ` +
+    `-d "grant_type=refresh_token"`
+
+  const tokenResult = execSync(tokenCmd, { timeout: 10000 }).toString()
+  const token = JSON.parse(tokenResult).access_token
+
+  if (!token) throw new Error('Failed to get YouTube OAuth token for yt-dlp')
+
+  // Write OAuth token header for yt-dlp
+  const headerArgs = `--add-header "Authorization: Bearer ${token}"`
+
   execSync(
     `yt-dlp -x --audio-format mp3 --postprocessor-args "ffmpeg:-ac 1 -ab 48k" ` +
+    `${headerArgs} --no-check-certificates ` +
     `-o "${outPath}" "https://www.youtube.com/watch?v=${ytVideoId}"`,
-    { timeout: 180000, stdio: 'pipe' }
+    { timeout: 300000, stdio: 'pipe', env: { ...process.env, PATH: '/usr/local/bin:/usr/bin:/bin:/root/.deno/bin' } }
   )
+
   if (!existsSync(outPath)) {
     throw new Error('yt-dlp failed to download audio')
   }
