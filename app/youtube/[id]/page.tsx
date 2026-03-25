@@ -85,22 +85,53 @@ export default function VideoDetailPage() {
   const runProcess = async (endpoint: string, label: string) => {
     setProcessing(label)
     try {
-      const res = await fetch(`/api/process/${endpoint}`, {
+      // Fire request — don't wait for completion
+      fetch(`/api/process/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoId }),
-      })
-      const data = await res.json()
-      if (!data.success) {
-        alert(`Ошибка: ${data.error}`)
-      }
+      }).catch(() => {})
+
+      // Poll for status changes
+      const startStatus = video?.status
+      let attempts = 0
+      const maxAttempts = 120 // 10 minutes max
+      const poll = setInterval(async () => {
+        attempts++
+        await loadVideo()
+        // Check if status changed from the initial processing state
+        const current = document.querySelector('[data-video-status]')?.getAttribute('data-video-status')
+        if (attempts >= maxAttempts) {
+          clearInterval(poll)
+          setProcessing(null)
+        }
+      }, 5000)
+
+      // Also watch for status changes via state
+      const checkDone = setInterval(() => {
+        if (!processing) {
+          clearInterval(checkDone)
+          clearInterval(poll)
+        }
+      }, 1000)
+
+      // Wait a moment then start checking
+      await new Promise(r => setTimeout(r, 3000))
       await loadVideo()
     } catch (err: any) {
       alert(`Ошибка: ${err.message}`)
-    } finally {
       setProcessing(null)
     }
   }
+
+  // Auto-clear processing state when video status changes
+  useEffect(() => {
+    if (!processing || !video) return
+    const isStillProcessing = ['transcribing', 'generating', 'thumbnail', 'publishing'].includes(video.status)
+    if (!isStillProcessing) {
+      setProcessing(null)
+    }
+  }, [video?.status, processing])
 
   const toggleApproval = async () => {
     if (!video || !SUPABASE_URL || !SUPABASE_KEY) return

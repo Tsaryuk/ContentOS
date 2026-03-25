@@ -172,30 +172,9 @@ async function cleanup(ytVideoId: string) {
   try { if (existsSync(chunkDir)) await rm(chunkDir, { recursive: true }) } catch {}
 }
 
-export async function POST(req: NextRequest) {
-  let videoId: string | null = null
-  let ytVideoId: string | null = null
-
+// Background processing function — runs after response is sent
+async function processTranscription(videoId: string, ytVideoId: string, videoTitle: string) {
   try {
-    const body = await req.json()
-    videoId = body.videoId
-    if (!videoId) {
-      return NextResponse.json({ error: 'videoId required' }, { status: 400 })
-    }
-
-    const { video } = await getVideoWithChannel(videoId)
-    ytVideoId = video.yt_video_id
-
-    if (video.status !== 'pending' && video.status !== 'error') {
-      return NextResponse.json(
-        { error: `Cannot transcribe video with status "${video.status}"` },
-        { status: 400 }
-      )
-    }
-
-    await updateVideoStatus(videoId, 'transcribing')
-    await logJob({ videoId, jobType: 'transcribe', status: 'running' })
-
     await ensureTmpDir()
 
     // Step 1: Download audio via external API (bot server)
@@ -219,7 +198,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 4: Proofread with Claude (fix errors, add punctuation)
-    const proofread = await proofreadTranscript(allSegments, video.current_title)
+    const proofread = await proofreadTranscript(allSegments, videoTitle)
 
     // Step 5: Build formatted transcript
     const transcript = proofread
@@ -251,21 +230,46 @@ export async function POST(req: NextRequest) {
       audio_chunks: chunks.length,
     }})
 
-    return NextResponse.json({
-      success: true,
-      transcript_length: transcript.length,
-      chunks_count: transcriptChunks.length,
-      audio_chunks: chunks.length,
-    })
+    console.log(`[transcribe] Done: ${ytVideoId}, ${transcriptChunks.length} segments`)
+
+  } catch (err: any) {
+    console.error('[transcribe] Background error:', err)
+    await updateVideoStatus(videoId, 'error', err.message).catch(() => {})
+    await logJob({ videoId, jobType: 'transcribe', status: 'failed', error: err.message }).catch(() => {})
+  } finally {
+    await cleanup(ytVideoId)
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const videoId = body.videoId
+    if (!videoId) {
+      return NextResponse.json({ error: 'videoId required' }, { status: 400 })
+    }
+
+    const { video } = await getVideoWithChannel(videoId)
+
+    if (video.status !== 'pending' && video.status !== 'error') {
+      return NextResponse.json(
+        { error: `Cannot transcribe video with status "${video.status}"` },
+        { status: 400 }
+      )
+    }
+
+    // Set status immediately
+    await updateVideoStatus(videoId, 'transcribing')
+    await logJob({ videoId, jobType: 'transcribe', status: 'running' })
+
+    // Start background processing (don't await)
+    processTranscription(videoId, video.yt_video_id, video.current_title)
+
+    // Return immediately
+    return NextResponse.json({ success: true, status: 'started' })
 
   } catch (err: any) {
     console.error('[transcribe]', err)
-    if (videoId) {
-      await updateVideoStatus(videoId, 'error', err.message).catch(() => {})
-      await logJob({ videoId, jobType: 'transcribe', status: 'failed', error: err.message }).catch(() => {})
-    }
     return NextResponse.json({ error: err.message }, { status: 500 })
-  } finally {
-    if (ytVideoId) await cleanup(ytVideoId)
   }
 }
