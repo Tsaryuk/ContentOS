@@ -402,34 +402,35 @@ async function handlePublish(videoId: string) {
 // --- Produce (Master Producer Agent) ---
 
 import { buildProducerSystemPrompt, buildProducerUserPrompt } from './lib/process/prompts'
+import { generateThumbnail, pickColor } from './lib/process/thumbnail-generator'
 
-async function generateThumbnails(videoId: string, spec: any): Promise<string[]> {
+async function generateThumbnails(
+  videoId: string,
+  spec: any,
+  video: any,
+): Promise<string[]> {
   const urls: string[] = []
+  const textVariants = spec.text_overlay_variants ?? ['']
+  const guestName = video.producer_output?.guest_info?.name ?? spec.guest_name ?? ''
+  const duration = video.duration_seconds
+    ? `${Math.floor(video.duration_seconds / 3600)}:${String(Math.floor((video.duration_seconds % 3600) / 60)).padStart(2, '0')}:${String(video.duration_seconds % 60).padStart(2, '0')}`
+    : ''
 
-  for (let i = 0; i < Math.min(spec.text_overlay_variants?.length ?? 1, 3); i++) {
+  for (let i = 0; i < Math.min(textVariants.length, 3); i++) {
     try {
-      const prompt = spec.prompt + `. Variant ${i + 1}. Clean background suitable for text overlay.`
-
-      const res = await fetch('https://external.api.recraft.ai/v1/images/generations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RECRAFT_API_KEY}` },
-        body: JSON.stringify({ prompt, style: 'realistic_image', size: '1365x1024', n: 1 }),
+      const thumbnailBuf = await generateThumbnail({
+        title: textVariants[i] || video.current_title,
+        guestName,
+        duration,
+        bgColor: pickColor(i),
+        guestPhotoUrl: video.current_thumbnail, // use YouTube thumbnail as guest photo
+        accentColor: i === 0 ? '#FFD700' : i === 1 ? '#00BFFF' : '#FF6B6B',
       })
 
-      if (!res.ok) {
-        console.error(`[produce] Thumbnail ${i} failed: ${res.status}`)
-        continue
-      }
-
-      const data = await res.json()
-      const imageUrl = data.data?.[0]?.url
-      if (!imageUrl) continue
-
-      const imgRes = await fetch(imageUrl)
-      const imgBuf = Buffer.from(await imgRes.arrayBuffer())
-
-      const fileName = `${videoId}_${i}.png`
-      await supabase.storage.from('thumbnails').upload(fileName, imgBuf, { contentType: 'image/png', upsert: true })
+      const fileName = `${videoId}_${i}.jpg`
+      await supabase.storage.from('thumbnails').upload(fileName, thumbnailBuf, {
+        contentType: 'image/jpeg', upsert: true,
+      })
       const { data: pub } = supabase.storage.from('thumbnails').getPublicUrl(fileName)
       urls.push(pub.publicUrl)
 
@@ -493,30 +494,20 @@ async function handleProduce(videoId: string) {
 
     console.log(`[produce] Got ${output.title_variants.length} titles, ${output.clip_suggestions?.length ?? 0} clips, ${output.short_suggestions?.length ?? 0} shorts`)
 
-    // Step 3: Generate thumbnails
+    // Step 3: Generate thumbnails (template-based: bg color + guest photo + text)
     console.log('[produce] Generating thumbnails...')
+    const videoWithPO = { ...video, producer_output: output }
     const thumbnailUrls = output.thumbnail_spec
-      ? await generateThumbnails(videoId, output.thumbnail_spec)
+      ? await generateThumbnails(videoId, output.thumbnail_spec, videoWithPO)
       : []
 
     output.thumbnail_urls = thumbnailUrls
 
-    // Step 4: Save producer output
-    const recommended = output.title_variants.find((t: any) => t.is_recommended) ?? output.title_variants[0]
-
+    // Step 4: Save producer output (DO NOT overwrite generated_title until user approves)
     await supabase.from('yt_videos').update({
       producer_output: output,
       selected_variants: { title_index: null, thumbnail_text_index: null, clips_selected: [], shorts_selected: [] },
-      // Legacy fields (first/recommended variant)
-      generated_title: recommended.text,
-      generated_description: output.description,
-      generated_tags: output.tags,
-      generated_timecodes: output.timecodes,
-      generated_clips: output.clip_suggestions?.map((c: any) => ({
-        start: c.start, end: c.end, title: c.title_variants?.[0]?.text ?? '', type: c.type,
-      })),
       ai_score: output.ai_score,
-      thumbnail_url: thumbnailUrls[0] ?? null,
       updated_at: new Date().toISOString(),
     }).eq('id', videoId)
 
@@ -542,7 +533,8 @@ async function handleProduce(videoId: string) {
       score: output.ai_score,
     })
 
-    console.log(`[produce] OK: ${recommended.text} (score: ${output.ai_score})`)
+    const bestTitle = output.title_variants?.find((t: any) => t.is_recommended)?.text ?? output.title_variants?.[0]?.text ?? 'untitled'
+    console.log(`[produce] OK: ${bestTitle} (score: ${output.ai_score})`)
 
   } catch (err: any) {
     console.error(`[produce] FAIL:`, err.message)
