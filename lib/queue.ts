@@ -1,0 +1,28 @@
+import { Queue } from 'bullmq'
+import IORedis from 'ioredis'
+
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'
+
+let connection: IORedis | null = null
+
+export function getRedisConnection(): IORedis {
+  if (!connection) {
+    connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null })
+  }
+  return connection
+}
+
+let queue: Queue | null = null
+
+export function getQueue(): Queue {
+  if (!queue) {
+    queue = new Queue('contentos', { connection: getRedisConnection() })
+  }
+  return queue
+}
+
+export type JobName = 'transcribe' | 'generate' | 'thumbnail' | 'publish'
+
+export interface JobPayload {
+  videoId: string
+}
