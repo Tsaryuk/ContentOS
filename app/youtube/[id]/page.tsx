@@ -181,11 +181,15 @@ export default function VideoDetailPage() {
         {/* Status */}
         <div className="mb-6 p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
           <StatusStepper status={video.status} />
-          {video.error_message && <p className="text-xs text-red-400 mt-2 px-2">{video.error_message}</p>}
+          {video.error_message && !video.error_message.startsWith('progress:') && (
+            <p className="text-xs text-red-400 mt-2 px-2">{video.error_message}</p>
+          )}
           {isProcessing && (
             <div className="flex items-center gap-2 mt-2 px-2 text-xs text-purple-400">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              {processing || 'Обработка...'}
+              {video.error_message?.startsWith('progress:')
+                ? video.error_message.replace('progress:', '')
+                : processing || 'Обработка...'}
             </div>
           )}
         </div>

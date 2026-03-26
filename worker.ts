@@ -39,6 +39,14 @@ async function updateStatus(videoId: string, status: string, errorMessage?: stri
   await supabase.from('yt_videos').update(update).eq('id', videoId)
 }
 
+async function updateProgress(videoId: string, message: string) {
+  await supabase.from('yt_videos').update({
+    error_message: `progress:${message}`,
+    updated_at: new Date().toISOString(),
+  }).eq('id', videoId)
+  console.log(`[progress] ${message}`)
+}
+
 async function logJob(videoId: string, jobType: string, status: string, result?: any, error?: string) {
   const row: Record<string, unknown> = { video_id: videoId, job_type: jobType, status }
   if (result) row.result = result
@@ -176,15 +184,18 @@ async function handleTranscribe(videoId: string) {
 
   try {
     await ensureTmpDir()
+    await updateProgress(videoId, 'Скачивание аудио...')
     const audioPath = await downloadAudio(video.yt_video_id)
     const chunks = splitAudio(audioPath, video.yt_video_id)
 
     const allSegs: { start: number; end: number; text: string }[] = []
     for (let i = 0; i < chunks.length; i++) {
+      await updateProgress(videoId, `Расшифровка${chunks.length > 1 ? ` (${i + 1} из ${chunks.length})` : ''}...`)
       allSegs.push(...await transcribeChunk(chunks[i], i * CHUNK_MINUTES * 60))
     }
     if (allSegs.length === 0) throw new Error('Whisper returned empty transcript')
 
+    await updateProgress(videoId, 'Проверка и исправление транскрипта...')
     const corrected = await proofread(allSegs, video.current_title)
     const transcript = corrected.map(s => `[${fmtTime(s.start)}]\n${s.text}`).join('\n')
     const transcriptChunks = corrected.map(s => ({ start: s.start, end: s.end, text: s.text }))
@@ -452,6 +463,7 @@ async function handleProduce(videoId: string) {
   try {
     // Step 1: Transcribe if needed
     if (!video.transcript) {
+      await updateProgress(videoId, 'Транскрипт не найден, запускаем расшифровку...')
       console.log('[produce] No transcript, transcribing first...')
       await handleTranscribe(videoId)
       // Re-fetch video after transcription
@@ -461,6 +473,7 @@ async function handleProduce(videoId: string) {
     }
 
     // Step 2: Claude Producer Agent
+    await updateProgress(videoId, 'AI анализ контента и генерация метаданных...')
     console.log('[produce] Calling Claude Producer Agent...')
     const durationMin = Math.round(video.duration_seconds / 60)
 
