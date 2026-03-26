@@ -9,179 +9,194 @@ function getSupabase() {
   )
 }
 
-function initFal() {
-  fal.config({ credentials: process.env.FAL_KEY ?? '' })
-}
+export const maxDuration = 180
 
-export const maxDuration = 120
-
-// 4 models to generate in parallel
-const MODELS = [
-  { id: 'fal-ai/flux/dev/image-to-image', name: 'Flux' },
-  { id: 'fal-ai/flux-pro/v1.1', name: 'Flux Pro' },
-  { id: 'fal-ai/recraft-v3', name: 'Recraft v3' },
-  { id: 'fal-ai/ideogram/v2/turbo', name: 'Ideogram' },
+// 4 models: each handles photos + text differently
+const MODELS: {
+  id: string
+  name: string
+  build: (p: GenParams) => Record<string, unknown>
+}[] = [
+  {
+    id: 'fal-ai/nano-banana-2',
+    name: 'Nano Banana 2',
+    build: (p) => ({
+      prompt: p.fullPrompt,
+      image_size: { width: 1280, height: 720 },
+      num_images: 1,
+    }),
+  },
+  {
+    id: 'fal-ai/image-editing/youtube-thumbnails',
+    name: 'YT Thumbnails',
+    build: (p) => ({
+      image_url: p.photoUrl ?? p.refUrl ?? 'https://fal.media/files/koala/QUihQrMqowYu30UFC_Atk.png',
+      prompt: p.text,
+      guidance_scale: 4.0,
+      num_inference_steps: 35,
+      lora_scale: 0.6,
+    }),
+  },
+  {
+    id: 'fal-ai/flux-pro/v1.1',
+    name: 'Flux 2 Pro',
+    build: (p) => ({
+      prompt: p.fullPrompt,
+      image_size: { width: 1360, height: 768 },
+      num_images: 1,
+    }),
+  },
+  {
+    id: 'fal-ai/ideogram/v2/turbo',
+    name: 'Ideogram',
+    build: (p) => ({
+      prompt: p.fullPrompt,
+      image_size: { width: 1280, height: 720 },
+      num_images: 1,
+    }),
+  },
 ]
+
+interface GenParams {
+  text: string
+  fullPrompt: string
+  photoUrl?: string
+  refUrl?: string
+}
 
 function buildPrompt(params: {
   text: string
-  guestInfo?: string
   photoCount: number
   refinement?: string
-  channelStyle?: string
+  guestInfo?: string
 }): string {
-  const { text, guestInfo, photoCount, refinement, channelStyle } = params
+  const { text, photoCount, refinement, guestInfo } = params
 
   const layout = photoCount === 1
-    ? 'One person prominently on the right side of the frame, looking at camera with expressive emotional face. Genuine reaction, engaged expression.'
+    ? 'One person on the right side, expressive emotional face, looking at camera.'
     : photoCount === 2
-    ? 'Two people: guest on the left, host on the right. Both with expressive emotional faces — surprised, thoughtful, or passionate. Real emotions, not posed.'
+    ? 'Two people: left and right. Expressive emotional faces, real emotions.'
     : photoCount >= 3
-    ? 'Three people arranged across the frame, all with expressive emotional faces. Dynamic expressions that draw attention.'
-    : 'Dark atmospheric background.'
+    ? 'Three people across the frame, emotional expressive faces.'
+    : ''
 
-  const style = channelStyle || [
-    'Dark green-black gradient background.',
-    'Cinematic moody lighting with subtle green accent.',
-    'Professional YouTube podcast thumbnail style.',
-    'High contrast, editorial photography feel.',
-    'Faces must show real emotions: surprise, curiosity, passion, concern. Emotions boost CTR.',
-  ].join(' ')
-
-  const parts = [
-    `YouTube podcast thumbnail, 1280x720, 16:9 aspect ratio.`,
-    style,
+  return [
+    `YouTube podcast thumbnail, 1280x720.`,
+    `Dark green-black gradient background, cinematic moody lighting.`,
     layout,
-    `Bold large Russian text overlaid: "${text}"`,
-    `One word in the text is highlighted in bright green (#4CAF50), rest is white.`,
-    guestInfo ? `Guest: ${guestInfo}. Show name and title at the bottom.` : '',
-    `Duration badge "1:22:11" style in bottom-right corner.`,
-    `Clean professional composition, no clutter.`,
-    refinement ? `IMPORTANT modification: ${refinement}` : '',
-  ]
-
-  return parts.filter(Boolean).join(' ')
+    `Large bold Russian Cyrillic text: "${text}".`,
+    `One key word highlighted in bright green (#4CAF50), rest white.`,
+    `Professional podcast thumbnail style, high contrast.`,
+    guestInfo ? `Guest: ${guestInfo}, name shown at bottom.` : '',
+    `Emotional faces that boost CTR. Clean composition.`,
+    refinement ? `MODIFICATION: ${refinement}` : '',
+  ].filter(Boolean).join(' ')
 }
 
-async function generateWithModel(
-  modelId: string,
-  prompt: string,
-  imageUrl?: string,
+async function runModel(
+  model: typeof MODELS[0],
+  params: GenParams,
 ): Promise<string | null> {
   try {
-    const input: Record<string, unknown> = {
-      prompt,
-      num_images: 1,
-      image_size: { width: 1360, height: 768 },
-    }
+    const input = model.build(params)
+    console.log(`[thumb] ${model.name}: starting...`)
 
-    // image-to-image models need image_url
-    if (imageUrl && modelId.includes('image-to-image')) {
-      input.image_url = imageUrl
-      input.strength = 0.6
-    }
+    const result = await fal.subscribe(model.id, { input: input as any }) as any
 
-    // For text-to-image models, just prompt
-    if (modelId === 'fal-ai/recraft-v3') {
-      input.style = 'realistic_image'
-      input.image_size = { width: 1365, height: 1024 }
-    }
-
-    const result = await fal.subscribe(modelId, { input: input as any }) as any
-
-    // Different models return images in different structures
     const url =
       result?.data?.images?.[0]?.url ??
       result?.images?.[0]?.url ??
       result?.data?.output?.images?.[0]?.url ??
+      result?.data?.image?.url ??
       null
+
+    if (url) console.log(`[thumb] ${model.name}: OK`)
+    else console.log(`[thumb] ${model.name}: no image in response`)
 
     return url
   } catch (err: any) {
-    console.error(`[thumbnail] ${modelId} failed:`, err.message)
+    console.error(`[thumb] ${model.name} failed:`, err.message?.slice(0, 200))
     return null
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    initFal()
+    fal.config({ credentials: process.env.FAL_KEY ?? '' })
     const supabase = getSupabase()
     const body = await req.json()
-    const { videoId, photos, text, referenceUrl, refinement, guestInfo, channelStyle } = body
+    const { videoId, photos, text, referenceUrl, refinement, guestInfo } = body
 
     if (!videoId || !text) {
       return NextResponse.json({ error: 'videoId and text required' }, { status: 400 })
     }
 
-    const prompt = buildPrompt({
+    const fullPrompt = buildPrompt({
       text,
-      guestInfo,
       photoCount: photos?.length ?? 0,
       refinement,
-      channelStyle,
+      guestInfo,
     })
 
-    console.log(`[thumbnail] Generating for "${text}" with ${MODELS.length} models...`)
+    const params: GenParams = {
+      text,
+      fullPrompt,
+      photoUrl: photos?.[0],
+      refUrl: referenceUrl,
+    }
 
-    // Generate from all 4 models in parallel
-    const imageUrl = referenceUrl || photos?.[0] || undefined
-    const results = await Promise.allSettled(
-      MODELS.map(m => generateWithModel(m.id, prompt, imageUrl))
+    console.log(`[thumb] Generating "${text}" with ${MODELS.length} models...`)
+
+    // Run all 4 in parallel
+    const settled = await Promise.allSettled(
+      MODELS.map(m => runModel(m, params))
     )
 
     const urls: string[] = []
     const modelNames: string[] = []
 
-    for (let i = 0; i < results.length; i++) {
-      const r = results[i]
+    for (let i = 0; i < settled.length; i++) {
+      const r = settled[i]
       if (r.status !== 'fulfilled' || !r.value) continue
 
       try {
         const imgRes = await fetch(r.value)
         const imgBuf = Buffer.from(await imgRes.arrayBuffer())
-        const fileName = `${videoId}/gen_${MODELS[i].name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.jpg`
+        const slug = MODELS[i].name.toLowerCase().replace(/\s+/g, '_')
+        const fileName = `${videoId}/gen_${slug}_${Date.now()}.jpg`
 
         await supabase.storage.from('thumbnails').upload(fileName, imgBuf, {
-          contentType: 'image/jpeg',
-          upsert: true,
+          contentType: 'image/jpeg', upsert: true,
         })
-
         const { data } = supabase.storage.from('thumbnails').getPublicUrl(fileName)
         urls.push(data.publicUrl)
         modelNames.push(MODELS[i].name)
-        console.log(`[thumbnail] ${MODELS[i].name}: OK`)
       } catch (err: any) {
-        console.error(`[thumbnail] ${MODELS[i].name} upload failed:`, err.message)
+        console.error(`[thumb] ${MODELS[i].name} upload:`, err.message)
       }
     }
 
     // Save to DB
     if (urls.length > 0) {
       const { data: video } = await supabase.from('yt_videos')
-        .select('producer_output')
-        .eq('id', videoId)
-        .single()
+        .select('producer_output').eq('id', videoId).single()
 
       const po = video?.producer_output
         ? { ...video.producer_output, thumbnail_urls: urls }
         : { thumbnail_urls: urls }
 
       await supabase.from('yt_videos').update({
-        thumbnail_url: urls[0],
-        producer_output: po,
+        thumbnail_url: urls[0], producer_output: po,
         updated_at: new Date().toISOString(),
       }).eq('id', videoId)
     }
 
     return NextResponse.json({
-      success: true,
-      urls,
-      models: modelNames,
-      prompt: prompt.slice(0, 200) + '...',
+      success: true, urls, models: modelNames,
+      prompt: fullPrompt.slice(0, 200) + '...',
     })
   } catch (err: any) {
-    console.error('[thumbnail-gen]', err)
+    console.error('[thumb-gen]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
