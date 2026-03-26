@@ -33,11 +33,11 @@ function buildPrompt(params: {
   const { text, guestInfo, photoCount, refinement, channelStyle } = params
 
   const layout = photoCount === 1
-    ? 'One person prominently on the right side of the frame, looking at camera.'
+    ? 'One person prominently on the right side of the frame, looking at camera with expressive emotional face. Genuine reaction, engaged expression.'
     : photoCount === 2
-    ? 'Two people: guest on the left, host on the right. Both looking at camera.'
+    ? 'Two people: guest on the left, host on the right. Both with expressive emotional faces — surprised, thoughtful, or passionate. Real emotions, not posed.'
     : photoCount >= 3
-    ? 'Three people arranged across the frame, all looking at camera.'
+    ? 'Three people arranged across the frame, all with expressive emotional faces. Dynamic expressions that draw attention.'
     : 'Dark atmospheric background.'
 
   const style = channelStyle || [
@@ -45,6 +45,7 @@ function buildPrompt(params: {
     'Cinematic moody lighting with subtle green accent.',
     'Professional YouTube podcast thumbnail style.',
     'High contrast, editorial photography feel.',
+    'Faces must show real emotions: surprise, curiosity, passion, concern. Emotions boost CTR.',
   ].join(' ')
 
   const parts = [
