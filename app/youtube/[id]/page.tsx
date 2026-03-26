@@ -2,47 +2,24 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Play, Sparkles, Clock, Eye, ThumbsUp,
-  Check, X, Loader2, ExternalLink, Tag, FileText, Scissors
+  ArrowLeft, Clock, Eye, ThumbsUp, Sparkles, ExternalLink,
+  Loader2, FileText, Tag, Scissors, MessageSquare, Image,
+  User, Rocket, Check
 } from 'lucide-react'
 import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
+import { VariantSelector } from '@/components/youtube/VariantSelector'
+import { ThumbnailGallery } from '@/components/youtube/ThumbnailGallery'
+import { ClipList } from '@/components/youtube/ClipList'
+import { SocialPreview } from '@/components/youtube/SocialPreview'
+import { GuestInfo } from '@/components/youtube/GuestInfo'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
 
-interface VideoDetail {
-  id: string
-  yt_video_id: string
-  current_title: string
-  current_description: string
-  current_tags: string[] | null
-  current_thumbnail: string
-  duration_seconds: number
-  published_at: string
-  view_count: number
-  like_count: number
-  status: string
-  transcript: string | null
-  transcript_chunks: { start: number; end: number; text: string }[] | null
-  generated_title: string | null
-  generated_description: string | null
-  generated_tags: string[] | null
-  generated_timecodes: { time: string; label: string }[] | null
-  generated_clips: { start: number; end: number; title: string; type: string }[] | null
-  thumbnail_url: string | null
-  ai_score: number | null
-  is_approved: boolean
-  is_published_back: boolean
-  error_message: string | null
-}
-
 function formatDuration(s: number): string {
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   return `${m}:${String(sec).padStart(2, '0')}`
 }
@@ -58,7 +35,7 @@ export default function VideoDetailPage() {
   const router = useRouter()
   const videoId = params.id as string
 
-  const [video, setVideo] = useState<VideoDetail | null>(null)
+  const [video, setVideo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
 
@@ -66,15 +43,12 @@ export default function VideoDetailPage() {
     if (!SUPABASE_URL || !SUPABASE_KEY) return
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/yt_videos?id=eq.${videoId}&select=*`, {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
       })
       const data = await res.json()
       if (data?.[0]) setVideo(data[0])
     } catch (err) {
-      console.error('Failed to load video:', err)
+      console.error('Load failed:', err)
     } finally {
       setLoading(false)
     }
@@ -82,92 +56,96 @@ export default function VideoDetailPage() {
 
   useEffect(() => { loadVideo() }, [loadVideo])
 
-  const runProcess = async (endpoint: string, label: string) => {
-    setProcessing(label)
-    try {
-      // Fire request — don't wait for completion
-      fetch(`/api/process/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoId }),
-      }).catch(() => {})
+  // Poll while processing
+  useEffect(() => {
+    if (!video) return
+    const active = ['transcribing', 'producing', 'generating', 'thumbnail', 'publishing'].includes(video.status)
+    if (!active) { setProcessing(null); return }
+    const interval = setInterval(loadVideo, 5000)
+    return () => clearInterval(interval)
+  }, [video?.status, loadVideo])
 
-      // Poll for status changes
-      const startStatus = video?.status
-      let attempts = 0
-      const maxAttempts = 120 // 10 minutes max
-      const poll = setInterval(async () => {
-        attempts++
-        await loadVideo()
-        // Check if status changed from the initial processing state
-        const current = document.querySelector('[data-video-status]')?.getAttribute('data-video-status')
-        if (attempts >= maxAttempts) {
-          clearInterval(poll)
-          setProcessing(null)
-        }
-      }, 5000)
-
-      // Also watch for status changes via state
-      const checkDone = setInterval(() => {
-        if (!processing) {
-          clearInterval(checkDone)
-          clearInterval(poll)
-        }
-      }, 1000)
-
-      // Wait a moment then start checking
-      await new Promise(r => setTimeout(r, 3000))
-      await loadVideo()
-    } catch (err: any) {
-      alert(`Ошибка: ${err.message}`)
-      setProcessing(null)
-    }
+  const runProduce = async () => {
+    setProcessing('Подготовка выпуска')
+    fetch('/api/process/produce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoId }),
+    }).catch(() => {})
+    setTimeout(loadVideo, 3000)
   }
 
-  // Auto-clear processing state when video status changes
-  useEffect(() => {
-    if (!processing || !video) return
-    const isStillProcessing = ['transcribing', 'generating', 'thumbnail', 'publishing'].includes(video.status)
-    if (!isStillProcessing) {
-      setProcessing(null)
-    }
-  }, [video?.status, processing])
+  const runProcess = async (endpoint: string, label: string) => {
+    setProcessing(label)
+    fetch(`/api/process/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoId }),
+    }).catch(() => {})
+    setTimeout(loadVideo, 3000)
+  }
 
-  const toggleApproval = async () => {
-    if (!video || !SUPABASE_URL || !SUPABASE_KEY) return
-    const newVal = !video.is_approved
+  const patchVideo = async (data: Record<string, any>) => {
     await fetch(`${SUPABASE_URL}/rest/v1/yt_videos?id=eq.${videoId}`, {
       method: 'PATCH',
       headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
+        apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json', Prefer: 'return=minimal',
       },
-      body: JSON.stringify({ is_approved: newVal }),
+      body: JSON.stringify(data),
     })
     await loadVideo()
   }
 
+  const selectTitle = async (index: number) => {
+    const sv = { ...(video.selected_variants ?? {}), title_index: index }
+    const title = video.producer_output?.title_variants?.[index]?.text
+    await patchVideo({
+      selected_variants: sv,
+      ...(title ? { generated_title: title } : {}),
+    })
+  }
+
+  const selectThumbnail = async (index: number) => {
+    const sv = { ...(video.selected_variants ?? {}), thumbnail_text_index: index }
+    const url = video.producer_output?.thumbnail_urls?.[index]
+    await patchVideo({
+      selected_variants: sv,
+      ...(url ? { thumbnail_url: url } : {}),
+    })
+  }
+
+  const toggleClip = (index: number) => {
+    const sv = { ...(video.selected_variants ?? {}) }
+    const clips = [...(sv.clips_selected ?? [])]
+    const idx = clips.indexOf(index)
+    if (idx >= 0) clips.splice(idx, 1)
+    else clips.push(index)
+    sv.clips_selected = clips
+    patchVideo({ selected_variants: sv })
+  }
+
+  const toggleShort = (index: number) => {
+    const sv = { ...(video.selected_variants ?? {}) }
+    const shorts = [...(sv.shorts_selected ?? [])]
+    const idx = shorts.indexOf(index)
+    if (idx >= 0) shorts.splice(idx, 1)
+    else shorts.push(index)
+    sv.shorts_selected = shorts
+    patchVideo({ selected_variants: sv })
+  }
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#09090b] text-white flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-white/40" />
-      </div>
-    )
+    return <div className="min-h-screen bg-[#09090b] text-white flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-white/40" /></div>
   }
-
   if (!video) {
-    return (
-      <div className="min-h-screen bg-[#09090b] text-white flex items-center justify-center">
-        <div className="text-white/40">Видео не найдено</div>
-      </div>
-    )
+    return <div className="min-h-screen bg-[#09090b] text-white flex items-center justify-center"><div className="text-white/40">Видео не найдено</div></div>
   }
 
-  const canTranscribe = video.status === 'pending' || video.status === 'error'
-  const canGenerate = (video.status === 'generating' || video.status === 'error') && !!video.transcript
-  const canThumbnail = (video.status === 'thumbnail' || video.status === 'error') && !!video.generated_title
+  const po = video.producer_output
+  const sv = video.selected_variants ?? {}
+  const isProcessing = ['transcribing', 'producing', 'generating', 'thumbnail', 'publishing'].includes(video.status)
+  const canProduce = video.status === 'pending' || video.status === 'error' || video.status === 'review'
   const canPublish = video.status === 'review' && video.is_approved
 
   return (
@@ -176,216 +154,233 @@ export default function VideoDetailPage() {
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => router.push('/youtube')}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-          >
+          <button onClick={() => router.push('/youtube')} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-medium truncate">{video.current_title}</h1>
+            <h1 className="text-lg font-medium truncate">{video.generated_title || video.current_title}</h1>
             <div className="flex items-center gap-4 mt-1 text-xs text-white/40">
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(video.duration_seconds)}</span>
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatCount(video.view_count)}</span>
               <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" />{formatCount(video.like_count)}</span>
-              {video.ai_score !== null && (
+              {video.ai_score != null && (
                 <span className="flex items-center gap-1 text-purple-400"><Sparkles className="w-3 h-3" />{video.ai_score}</span>
               )}
             </div>
           </div>
-          <a
-            href={`https://youtube.com/watch?v=${video.yt_video_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-          >
+          <a href={`https://youtube.com/watch?v=${video.yt_video_id}`} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
             <ExternalLink className="w-4 h-4" />
           </a>
         </div>
 
-        {/* Status Stepper */}
+        {/* Status */}
         <div className="mb-6 p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
           <StatusStepper status={video.status} />
-          {video.error_message && (
-            <p className="text-xs text-red-400 mt-2 px-2">{video.error_message}</p>
+          {video.error_message && <p className="text-xs text-red-400 mt-2 px-2">{video.error_message}</p>}
+          {isProcessing && (
+            <div className="flex items-center gap-2 mt-2 px-2 text-xs text-purple-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {processing || 'Обработка...'}
+            </div>
           )}
         </div>
 
+        {/* Main action button */}
+        {!po && (
+          <div className="mb-6">
+            <button
+              onClick={runProduce}
+              disabled={!canProduce || isProcessing}
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-medium text-sm hover:from-purple-500 hover:to-purple-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+              Подготовить выпуск
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Left Column: Video + Transcript */}
+          {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
-            {/* YouTube Embed */}
+
+            {/* Video embed */}
             <div className="aspect-video rounded-xl overflow-hidden bg-black">
-              <iframe
-                src={`https://www.youtube.com/embed/${video.yt_video_id}`}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              <iframe src={`https://www.youtube.com/embed/${video.yt_video_id}`} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
             </div>
+
+            {/* Producer Output Sections */}
+            {po && (
+              <>
+                {/* Guest Info */}
+                <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                  <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><User className="w-4 h-4" /> Гость</h3>
+                  <GuestInfo guest={po.guest_info} onUpdate={(g) => patchVideo({ producer_output: { ...po, guest_info: g } })} />
+                </div>
+
+                {/* Titles */}
+                <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                  <h3 className="text-sm font-medium text-white/60 mb-3">Заголовок</h3>
+                  <VariantSelector
+                    variants={po.title_variants}
+                    selectedIndex={sv.title_index}
+                    onSelect={selectTitle}
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                  <h3 className="text-sm font-medium text-white/60 mb-3">Описание</h3>
+                  <div className="text-xs text-white/70 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
+                    {po.description}
+                  </div>
+                </div>
+
+                {/* Tags */}
+                {po.tags?.length > 0 && (
+                  <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                    <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {po.tags.map((tag: string, i: number) => (
+                        <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-xs text-white/50">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timecodes */}
+                {po.timecodes?.length > 0 && (
+                  <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                    <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
+                    <div className="space-y-1">
+                      {po.timecodes.map((tc: any, i: number) => (
+                        <div key={i} className="flex gap-3 text-xs">
+                          <span className="text-purple-400 font-mono w-14 shrink-0">{tc.time}</span>
+                          <span className="text-white/60">{tc.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Clips & Shorts */}
+                <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                  <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Scissors className="w-4 h-4" /> Контент для нарезки</h3>
+                  <ClipList
+                    clips={po.clip_suggestions ?? []}
+                    shorts={po.short_suggestions ?? []}
+                    selectedClips={sv.clips_selected ?? []}
+                    selectedShorts={sv.shorts_selected ?? []}
+                    onToggleClip={toggleClip}
+                    onToggleShort={toggleShort}
+                  />
+                </div>
+
+                {/* Social Previews */}
+                {po.social_drafts?.length > 0 && (
+                  <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                    <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Анонсы</h3>
+                    <SocialPreview drafts={po.social_drafts} />
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Transcript */}
             <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-              <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2">
-                <FileText className="w-4 h-4" /> Транскрипт
-              </h3>
-              <TranscriptViewer
-                videoTitle={video.current_title}
-                chunks={video.transcript_chunks}
-                transcript={video.transcript}
-              />
+              <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><FileText className="w-4 h-4" /> Транскрипт</h3>
+              <TranscriptViewer videoTitle={video.current_title} chunks={video.transcript_chunks} transcript={video.transcript} />
             </div>
           </div>
 
-          {/* Right Column: AI Results + Actions */}
+          {/* Right Column */}
           <div className="space-y-4">
 
-            {/* Action Buttons */}
-            <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06] space-y-2">
+            {/* Actions */}
+            <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06] space-y-2 sticky top-6">
               <h3 className="text-sm font-medium text-white/60 mb-3">Действия</h3>
 
-              <button
-                onClick={() => runProcess('transcribe', 'Транскрипция')}
-                disabled={!canTranscribe || !!processing}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
-              >
-                {processing === 'Транскрипция' ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
-                Транскрибировать
-              </button>
+              {po ? (
+                <>
+                  <button
+                    onClick={runProduce}
+                    disabled={isProcessing}
+                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-30"
+                  >
+                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
+                    Перегенерировать
+                  </button>
 
-              <button
-                onClick={() => runProcess('generate', 'AI генерация')}
-                disabled={!canGenerate || !!processing}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-purple-500/10 text-purple-400 hover:bg-purple-500/20"
-              >
-                {processing === 'AI генерация' ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
-                Сгенерировать
-              </button>
+                  <div className="border-t border-white/[0.06] pt-2 mt-2">
+                    <button
+                      onClick={() => patchVideo({ is_approved: !video.is_approved })}
+                      disabled={video.status !== 'review' || isProcessing}
+                      className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 ${
+                        video.is_approved ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      {video.is_approved ? <><Check className="w-4 h-4 inline mr-2" />Одобрено</> : 'Одобрить'}
+                    </button>
 
-              <button
-                onClick={() => runProcess('thumbnail', 'Обложка')}
-                disabled={!canThumbnail || !!processing}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-              >
-                {processing === 'Обложка' ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
-                Обложка
-              </button>
-
-              <div className="border-t border-white/[0.06] pt-2 mt-2">
-                <button
-                  onClick={toggleApproval}
-                  disabled={video.status !== 'review' || !!processing}
-                  className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                    video.is_approved
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'bg-white/5 text-white/60 hover:bg-white/10'
-                  }`}
-                >
-                  {video.is_approved ? <><Check className="w-4 h-4 inline mr-2" />Одобрено</> : 'Одобрить'}
-                </button>
-
-                <button
-                  onClick={() => runProcess('publish', 'Публикация')}
-                  disabled={!canPublish || !!processing}
-                  className="w-full mt-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                >
-                  {processing === 'Публикация' ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
-                  Опубликовать на YouTube
-                </button>
-              </div>
+                    <button
+                      onClick={() => runProcess('publish', 'Публикация')}
+                      disabled={!canPublish || isProcessing}
+                      className="w-full mt-2 py-2.5 px-4 rounded-lg text-sm font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-30"
+                    >
+                      Опубликовать на YouTube
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => runProcess('transcribe', 'Транскрипция')} disabled={!(video.status === 'pending' || video.status === 'error') || isProcessing}
+                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors disabled:opacity-30">
+                    Транскрибировать
+                  </button>
+                  <button onClick={() => runProcess('generate', 'AI генерация')} disabled={!((video.status === 'generating' || video.status === 'error') && video.transcript) || isProcessing}
+                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-30">
+                    Сгенерировать
+                  </button>
+                </>
+              )}
             </div>
 
-            {/* Generated Title */}
-            {video.generated_title && (
+            {/* Thumbnails */}
+            {po?.thumbnail_urls?.length > 0 && (
               <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-2">AI Заголовок</h3>
-                <p className="text-sm text-white/90">{video.generated_title}</p>
+                <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Обложки</h3>
+                <ThumbnailGallery
+                  thumbnailUrls={po.thumbnail_urls}
+                  textOverlays={po.thumbnail_spec?.text_overlay_variants}
+                  currentThumbnail={video.current_thumbnail}
+                  selectedIndex={sv.thumbnail_text_index}
+                  onSelect={selectThumbnail}
+                />
               </div>
             )}
 
-            {/* Generated Description */}
-            {video.generated_description && (
+            {/* AI Score */}
+            {po?.ai_score != null && (
               <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-2">AI Описание</h3>
-                <p className="text-xs text-white/70 whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">
-                  {video.generated_description}
-                </p>
-              </div>
-            )}
-
-            {/* Tags */}
-            {video.generated_tags && video.generated_tags.length > 0 && (
-              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-2 flex items-center gap-2">
-                  <Tag className="w-3.5 h-3.5" /> Теги
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {video.generated_tags.map((tag, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-xs text-white/50">{tag}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Timecodes */}
-            {video.generated_timecodes && video.generated_timecodes.length > 0 && (
-              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-2 flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5" /> Тайм-коды
-                </h3>
-                <div className="space-y-1">
-                  {video.generated_timecodes.map((tc, i) => (
-                    <div key={i} className="flex gap-3 text-xs">
-                      <span className="text-purple-400 font-mono w-10 shrink-0">{tc.time}</span>
-                      <span className="text-white/60">{tc.label}</span>
+                <h3 className="text-sm font-medium text-white/60 mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Score</h3>
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl font-bold text-purple-400">{po.ai_score}</div>
+                  <div className="flex-1">
+                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full" style={{ width: `${po.ai_score}%` }} />
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Clips */}
-            {video.generated_clips && video.generated_clips.length > 0 && (
-              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-2 flex items-center gap-2">
-                  <Scissors className="w-3.5 h-3.5" /> Клипы
-                </h3>
-                <div className="space-y-2">
-                  {video.generated_clips.map((clip, i) => (
-                    <div key={i} className="flex items-center gap-3 py-1">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                        clip.type === 'short' ? 'bg-pink-500/20 text-pink-400' : 'bg-blue-500/20 text-blue-400'
-                      }`}>{clip.type}</span>
-                      <span className="text-xs text-white/60 flex-1">{clip.title}</span>
-                      <span className="text-[10px] text-white/30 font-mono">
-                        {formatDuration(clip.start)}-{formatDuration(clip.end)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Thumbnail Comparison */}
-            {(video.thumbnail_url || video.current_thumbnail) && (
-              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-2">Обложка</h3>
-                <div className="space-y-2">
-                  {video.thumbnail_url && (
-                    <div>
-                      <span className="text-[10px] text-purple-400 mb-1 block">AI</span>
-                      <img src={video.thumbnail_url} alt="AI thumbnail" className="w-full rounded-lg" />
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-[10px] text-white/30 mb-1 block">YouTube</span>
-                    <img src={video.current_thumbnail} alt="Current thumbnail" className="w-full rounded-lg" />
                   </div>
                 </div>
               </div>
             )}
 
+            {/* Summary */}
+            {po?.content_summary && (
+              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                <h3 className="text-sm font-medium text-white/60 mb-2">Резюме</h3>
+                <p className="text-xs text-white/50 leading-relaxed">{po.content_summary}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
