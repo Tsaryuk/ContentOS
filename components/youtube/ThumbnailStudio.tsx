@@ -28,6 +28,7 @@ export function ThumbnailStudio({
   const [generating, setGenerating] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [generatedUrls, setGeneratedUrls] = useState<string[]>(initialUrls ?? [])
+  const [modelNames, setModelNames] = useState<string[]>([])
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -115,6 +116,7 @@ export function ThumbnailStudio({
       if (data.error) throw new Error(data.error)
       if (data.urls?.length) {
         setGeneratedUrls(data.urls)
+        setModelNames(data.models ?? [])
         setRefinement('')
       } else {
         setError('Не удалось сгенерировать обложки')
@@ -257,7 +259,7 @@ export function ThumbnailStudio({
       {generatedUrls.length > 0 && (
         <div>
           <label className="text-sm text-white/50 mb-2 block">Результаты ({generatedUrls.length})</label>
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {generatedUrls.map((url, i) => (
               <button
                 key={i}
@@ -267,6 +269,11 @@ export function ThumbnailStudio({
                 }`}
               >
                 <img src={url} alt={`Variant ${i + 1}`} className="w-full aspect-video object-cover" />
+                {modelNames[i] && (
+                  <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 rounded text-[10px] text-white/70">
+                    {modelNames[i]}
+                  </div>
+                )}
                 {selectedUrl === url && (
                   <div className="absolute top-2 right-2 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
                     <span className="text-white text-xs font-bold">✓</span>
