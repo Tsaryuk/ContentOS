@@ -1,25 +1,31 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
     './lib/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
       colors: {
-        bg: '#0e0e0f',
-        surface: '#161618',
-        border: 'rgba(255,255,255,0.07)',
-        muted: '#7a7875',
-        dim: '#4a4845',
-        cream: '#f0ede8',
+        bg: 'var(--bg)',
+        surface: 'var(--bg-surface)',
+        'bg-sidebar': 'var(--bg-sidebar)',
+        border: 'var(--border)',
+        cream: 'var(--text-primary)',
+        muted: 'var(--text-secondary)',
+        dim: 'var(--text-tertiary)',
+        accent: 'var(--accent)',
+        purple: 'var(--purple)',
+        green: 'var(--green)',
+        warn: 'var(--warn)',
         gold: '#c4a96a',
-        accent: '#6b9ff0',
-        purple: '#a67ff0',
-        green: '#4caf82',
-        warn: '#f0b84a',
         danger: '#e05a5a',
+      },
+      boxShadow: {
+        'surface': 'var(--shadow)',
       },
     },
   },

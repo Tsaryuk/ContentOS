@@ -13,6 +13,13 @@ interface Props {
 
 const hiddenInput: React.CSSProperties = { position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }
 
+function apiUrl(path: string): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${path}`
+  }
+  return path
+}
+
 export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, generatedUrls: initialUrls, onSelect }: Props) {
   const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([])
   const [reference, setReference] = useState<{ file: File; preview: string } | null>(null)
@@ -67,7 +74,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
         const fd = new FormData()
         fd.set('videoId', videoId)
         allFiles.forEach((f, i) => fd.set(`file${i}`, f))
-        const upRes = await fetch('/api/thumbnail/upload', { method: 'POST', body: fd })
+        const upRes = await fetch(apiUrl('/api/thumbnail/upload'), { method: 'POST', body: fd })
         const upData = await upRes.json()
         if (upData.urls) {
           if (reference) {
@@ -79,7 +86,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
         }
       }
 
-      const res = await fetch('/api/thumbnail/generate', {
+      const res = await fetch(apiUrl('/api/thumbnail/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -97,7 +104,8 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
         setError('AI не вернул результатов')
       }
     } catch (err: any) {
-      setError(err.message)
+      console.error('[ThumbnailStudio]', err)
+      setError(`${err.name}: ${err.message}`)
     } finally {
       setGenerating(false)
     }
