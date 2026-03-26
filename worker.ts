@@ -399,6 +399,158 @@ async function handlePublish(videoId: string) {
   }
 }
 
+// --- Produce (Master Producer Agent) ---
+
+import { buildProducerSystemPrompt, buildProducerUserPrompt } from './lib/process/prompts'
+
+async function generateThumbnails(videoId: string, spec: any): Promise<string[]> {
+  const urls: string[] = []
+
+  for (let i = 0; i < Math.min(spec.text_overlay_variants?.length ?? 1, 3); i++) {
+    try {
+      const prompt = spec.prompt + `. Variant ${i + 1}. Clean background suitable for text overlay.`
+
+      const res = await fetch('https://external.api.recraft.ai/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RECRAFT_API_KEY}` },
+        body: JSON.stringify({ prompt, style: 'realistic_image', size: '1365x1024', n: 1 }),
+      })
+
+      if (!res.ok) {
+        console.error(`[produce] Thumbnail ${i} failed: ${res.status}`)
+        continue
+      }
+
+      const data = await res.json()
+      const imageUrl = data.data?.[0]?.url
+      if (!imageUrl) continue
+
+      const imgRes = await fetch(imageUrl)
+      const imgBuf = Buffer.from(await imgRes.arrayBuffer())
+
+      const fileName = `${videoId}_${i}.png`
+      await supabase.storage.from('thumbnails').upload(fileName, imgBuf, { contentType: 'image/png', upsert: true })
+      const { data: pub } = supabase.storage.from('thumbnails').getPublicUrl(fileName)
+      urls.push(pub.publicUrl)
+
+      console.log(`[produce] Thumbnail ${i}: ${pub.publicUrl}`)
+    } catch (err: any) {
+      console.error(`[produce] Thumbnail ${i} error:`, err.message)
+    }
+  }
+
+  return urls
+}
+
+async function handleProduce(videoId: string) {
+  const video = await getVideo(videoId)
+  const channel = await getChannel(video.channel_id)
+  const rules = channel.rules
+
+  await updateStatus(videoId, 'producing')
+  await logJob(videoId, 'produce', 'running')
+
+  try {
+    // Step 1: Transcribe if needed
+    if (!video.transcript) {
+      console.log('[produce] No transcript, transcribing first...')
+      await handleTranscribe(videoId)
+      // Re-fetch video after transcription
+      const updated = await getVideo(videoId)
+      if (!updated.transcript) throw new Error('Transcription failed')
+      Object.assign(video, updated)
+    }
+
+    // Step 2: Claude Producer Agent
+    console.log('[produce] Calling Claude Producer Agent...')
+    const durationMin = Math.round(video.duration_seconds / 60)
+
+    const msg = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8192,
+      system: buildProducerSystemPrompt(rules, durationMin),
+      messages: [{
+        role: 'user',
+        content: buildProducerUserPrompt({
+          currentTitle: video.current_title,
+          currentDescription: video.current_description,
+          transcript: video.transcript!,
+          durationSeconds: video.duration_seconds,
+        }),
+      }],
+    })
+
+    const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('')
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error('No JSON in producer response')
+
+    const output = JSON.parse(jsonMatch[0])
+
+    // Validate required fields
+    if (!output.title_variants?.length || !output.description) {
+      throw new Error('Missing required fields in producer output')
+    }
+
+    console.log(`[produce] Got ${output.title_variants.length} titles, ${output.clip_suggestions?.length ?? 0} clips, ${output.short_suggestions?.length ?? 0} shorts`)
+
+    // Step 3: Generate thumbnails
+    console.log('[produce] Generating thumbnails...')
+    const thumbnailUrls = output.thumbnail_spec
+      ? await generateThumbnails(videoId, output.thumbnail_spec)
+      : []
+
+    output.thumbnail_urls = thumbnailUrls
+
+    // Step 4: Save producer output
+    const recommended = output.title_variants.find((t: any) => t.is_recommended) ?? output.title_variants[0]
+
+    await supabase.from('yt_videos').update({
+      producer_output: output,
+      selected_variants: { title_index: null, thumbnail_text_index: null, clips_selected: [], shorts_selected: [] },
+      // Legacy fields (first/recommended variant)
+      generated_title: recommended.text,
+      generated_description: output.description,
+      generated_tags: output.tags,
+      generated_timecodes: output.timecodes,
+      generated_clips: output.clip_suggestions?.map((c: any) => ({
+        start: c.start, end: c.end, title: c.title_variants?.[0]?.text ?? '', type: c.type,
+      })),
+      ai_score: output.ai_score,
+      thumbnail_url: thumbnailUrls[0] ?? null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', videoId)
+
+    // Step 5: Save social drafts
+    if (output.social_drafts?.length) {
+      for (const draft of output.social_drafts) {
+        await supabase.from('yt_social_drafts').upsert({
+          video_id: videoId,
+          platform: draft.platform,
+          content: draft.content,
+          status: 'draft',
+        }, { onConflict: 'video_id,platform' }).select()
+        // If upsert fails due to no unique constraint, just insert
+      }
+    }
+
+    await updateStatus(videoId, 'review')
+    await logJob(videoId, 'produce', 'done', {
+      titles: output.title_variants.length,
+      clips: output.clip_suggestions?.length ?? 0,
+      shorts: output.short_suggestions?.length ?? 0,
+      thumbnails: thumbnailUrls.length,
+      score: output.ai_score,
+    })
+
+    console.log(`[produce] OK: ${recommended.text} (score: ${output.ai_score})`)
+
+  } catch (err: any) {
+    console.error(`[produce] FAIL:`, err.message)
+    await updateStatus(videoId, 'error', err.message)
+    await logJob(videoId, 'produce', 'failed', undefined, err.message)
+  }
+}
+
 // --- Worker ---
 
 const handlers: Record<string, (videoId: string) => Promise<void>> = {
@@ -406,6 +558,7 @@ const handlers: Record<string, (videoId: string) => Promise<void>> = {
   generate: handleGenerate,
   thumbnail: handleThumbnail,
   publish: handlePublish,
+  produce: handleProduce,
 }
 
 const worker = new Worker(
