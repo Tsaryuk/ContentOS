@@ -11,6 +11,7 @@ import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
 import { VariantSelector } from '@/components/youtube/VariantSelector'
 import { ThumbnailGallery } from '@/components/youtube/ThumbnailGallery'
+import { ThumbnailStudio } from '@/components/youtube/ThumbnailStudio'
 import { ClipList } from '@/components/youtube/ClipList'
 import { SocialPreview } from '@/components/youtube/SocialPreview'
 import { GuestInfo } from '@/components/youtube/GuestInfo'
@@ -106,13 +107,17 @@ export default function VideoDetailPage() {
     })
   }
 
-  const selectThumbnail = async (index: number) => {
+  const selectThumbnailByIndex = async (index: number) => {
     const sv = { ...(video.selected_variants ?? {}), thumbnail_text_index: index }
     const url = video.producer_output?.thumbnail_urls?.[index]
     await patchVideo({
       selected_variants: sv,
       ...(url ? { thumbnail_url: url } : {}),
     })
+  }
+
+  const selectThumbnailByUrl = async (url: string) => {
+    await patchVideo({ thumbnail_url: url })
   }
 
   const toggleClip = (index: number) => {
@@ -158,7 +163,7 @@ export default function VideoDetailPage() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-medium truncate">{video.generated_title || video.current_title}</h1>
+            <h1 className="text-lg font-medium truncate">{video.current_title}</h1>
             <div className="flex items-center gap-4 mt-1 text-xs text-white/40">
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(video.duration_seconds)}</span>
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatCount(video.view_count)}</span>
@@ -345,16 +350,28 @@ export default function VideoDetailPage() {
               )}
             </div>
 
-            {/* Thumbnails */}
-            {po?.thumbnail_urls?.length > 0 && (
+            {/* Thumbnail Studio */}
+            {po && (
+              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+                <ThumbnailStudio
+                  videoId={video.id}
+                  textVariants={po.thumbnail_spec?.text_overlay_variants ?? []}
+                  currentThumbnail={video.current_thumbnail}
+                  generatedUrls={po.thumbnail_urls}
+                  onSelect={selectThumbnailByUrl}
+                />
+              </div>
+            )}
+
+            {/* Thumbnails (legacy gallery) */}
+            {!po && video.thumbnail_url && (
               <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
                 <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Обложки</h3>
                 <ThumbnailGallery
-                  thumbnailUrls={po.thumbnail_urls}
-                  textOverlays={po.thumbnail_spec?.text_overlay_variants}
+                  thumbnailUrls={[video.thumbnail_url]}
                   currentThumbnail={video.current_thumbnail}
-                  selectedIndex={sv.thumbnail_text_index}
-                  onSelect={selectThumbnail}
+                  selectedIndex={0}
+                  onSelect={selectThumbnailByIndex}
                 />
               </div>
             )}

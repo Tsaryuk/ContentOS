@@ -494,16 +494,10 @@ async function handleProduce(videoId: string) {
 
     console.log(`[produce] Got ${output.title_variants.length} titles, ${output.clip_suggestions?.length ?? 0} clips, ${output.short_suggestions?.length ?? 0} shorts`)
 
-    // Step 3: Generate thumbnails (template-based: bg color + guest photo + text)
-    console.log('[produce] Generating thumbnails...')
-    const videoWithPO = { ...video, producer_output: output }
-    const thumbnailUrls = output.thumbnail_spec
-      ? await generateThumbnails(videoId, output.thumbnail_spec, videoWithPO)
-      : []
+    // Thumbnails: NOT auto-generated. User creates via Thumbnail Studio (fal.ai)
+    // Producer only saves thumbnail_spec (prompt + text variants)
 
-    output.thumbnail_urls = thumbnailUrls
-
-    // Step 4: Save producer output (DO NOT overwrite generated_title until user approves)
+    // Step 3: Save producer output (DO NOT overwrite generated_title until user approves)
     await supabase.from('yt_videos').update({
       producer_output: output,
       selected_variants: { title_index: null, thumbnail_text_index: null, clips_selected: [], shorts_selected: [] },
@@ -529,7 +523,7 @@ async function handleProduce(videoId: string) {
       titles: output.title_variants.length,
       clips: output.clip_suggestions?.length ?? 0,
       shorts: output.short_suggestions?.length ?? 0,
-      thumbnails: thumbnailUrls.length,
+      thumbnails: 0,
       score: output.ai_score,
     })
 

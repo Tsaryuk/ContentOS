@@ -12,6 +12,7 @@
     "@21st-sdk/agent": "^0.0.14",
     "@anthropic-ai/sdk": "^0.80.0",
     "@distube/ytdl-core": "^4.16.12",
+    "@fal-ai/client": "^1.9.5",
     "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.100.0",
     "bullmq": "^5.71.1",
