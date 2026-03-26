@@ -555,8 +555,10 @@ const worker = new Worker(
   },
   {
     connection: redis,
-    concurrency: 2,
-    limiter: { max: 2, duration: 1000 },
+    concurrency: 1,
+    lockDuration: 600000,       // 10 min lock (long transcriptions)
+    lockRenewTime: 30000,       // renew every 30s
+    limiter: { max: 1, duration: 1000 },
   },
 )
 
