@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'YOUTUBE_CLIENT_ID not set' }, { status: 500 })
   }
 
-  const origin = req.nextUrl.origin
+  const origin = process.env.APP_URL ?? req.nextUrl.origin
   const redirectUri = `${origin}/api/youtube/oauth/callback`
 
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')

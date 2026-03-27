@@ -5,15 +5,16 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
   const error = req.nextUrl.searchParams.get('error')
 
+  const origin = process.env.APP_URL ?? req.nextUrl.origin
+
   if (error) {
-    return NextResponse.redirect(`${req.nextUrl.origin}/settings?oauth_error=${error}`)
+    return NextResponse.redirect(`${origin}/settings?oauth_error=${error}`)
   }
 
   if (!code) {
-    return NextResponse.redirect(`${req.nextUrl.origin}/settings?oauth_error=no_code`)
+    return NextResponse.redirect(`${origin}/settings?oauth_error=no_code`)
   }
 
-  const origin = req.nextUrl.origin
   const redirectUri = `${origin}/api/youtube/oauth/callback`
 
   // Exchange code for tokens
