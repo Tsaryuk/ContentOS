@@ -74,9 +74,13 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+interface YtChannel { id: string; title: string; yt_channel_id: string; thumbnail_url: string | null }
+
 export default function YouTubePage() {
   const supabaseRef = useRef<SupabaseClient | null>(null)
   const [configured, setConfigured] = useState(false)
+  const [ytChannels, setYtChannels] = useState<YtChannel[]>([])
+  const [activeChannelDbId, setActiveChannelDbId] = useState<string | null>(null)
   const [activeYtChannelId, setActiveYtChannelId] = useState<string | null>(null)
   const [allVideos, setAllVideos] = useState<VideoItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -86,36 +90,49 @@ export default function YouTubePage() {
   useEffect(() => {
     supabaseRef.current = getSupabase()
     if (supabaseRef.current) setConfigured(true)
-    // Load active channel from session
-    fetch('/api/auth/session').then(r => r.json()).then(s => {
-      setActiveYtChannelId(s.activeChannelId ?? null)
+    // Load channels for current project
+    fetch('/api/projects').then(r => r.json()).then(async ({ channels }) => {
+      const ytChs: YtChannel[] = (channels ?? []).filter((c: any) => c.yt_channel_id)
+      setYtChannels(ytChs)
+      // Pick active from session, fallback to first
+      const session = await fetch('/api/auth/session').then(r => r.json())
+      const active = ytChs.find(c => c.yt_channel_id === session.activeChannelId) ?? ytChs[0] ?? null
+      if (active) {
+        setActiveChannelDbId(active.id)
+        setActiveYtChannelId(active.yt_channel_id)
+      }
     })
   }, [])
 
-  useEffect(() => { if (configured) loadVideos() }, [configured, activeYtChannelId])
+  useEffect(() => { if (configured && activeChannelDbId) loadVideos() }, [configured, activeChannelDbId])
+
+  function selectChannel(ch: YtChannel) {
+    setActiveChannelDbId(ch.id)
+    setActiveYtChannelId(ch.yt_channel_id)
+    setActiveTab('podcasts')
+    // Persist to session
+    fetch('/api/auth/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelId: ch.yt_channel_id }),
+    })
+  }
 
   async function loadVideos() {
     const sb = supabaseRef.current
-    if (!sb) return
+    if (!sb || !activeChannelDbId) return
     setLoading(true)
-    let query = sb.from('yt_videos').select('*').order('published_at', { ascending: false })
-    // Filter by active channel if set
-    if (activeYtChannelId) {
-      // Get channel DB id first
-      const { data: ch } = await sb
-        .from('yt_channels')
-        .select('id')
-        .eq('yt_channel_id', activeYtChannelId)
-        .single()
-      if (ch) query = query.eq('channel_id', ch.id)
-    }
-    const { data } = await query
+    const { data } = await sb
+      .from('yt_videos')
+      .select('*')
+      .eq('channel_id', activeChannelDbId)
+      .order('published_at', { ascending: false })
     setAllVideos(data || [])
     setLoading(false)
   }
 
   async function handleSync() {
-    if (!activeYtChannelId) { alert('Выберите канал для синхронизации'); return }
+    if (!activeYtChannelId) { alert('Выберите канал'); return }
     setSyncing(true)
     try {
       const res = await fetch('/api/youtube/sync', {
@@ -171,32 +188,43 @@ export default function YouTubePage() {
           <span>{stats.total} видео</span>
           <span className="text-dim">|</span>
           <span className="text-green">{stats.done} готово</span>
-          {stats.pending > 0 && (
-            <>
-              <span className="text-dim">|</span>
-              <span className="text-warn">{stats.pending} ожидает</span>
-            </>
-          )}
-          {stats.errors > 0 && (
-            <>
-              <span className="text-dim">|</span>
-              <span className="text-red-500">{stats.errors} ошибок</span>
-            </>
-          )}
+          {stats.pending > 0 && <><span className="text-dim">|</span><span className="text-warn">{stats.pending} ожидает</span></>}
+          {stats.errors > 0 && <><span className="text-dim">|</span><span className="text-red-500">{stats.errors} ошибок</span></>}
         </div>
         <button
           onClick={handleSync}
           disabled={syncing}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium transition-all ${
-            syncing
-              ? 'bg-surface text-muted cursor-not-allowed'
-              : 'bg-accent text-white cursor-pointer hover:opacity-90'
+            syncing ? 'bg-surface text-muted cursor-not-allowed' : 'bg-accent text-white cursor-pointer hover:opacity-90'
           }`}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Синхронизация...' : 'Синхронизировать'}
         </button>
       </div>
+
+      {/* Channel selector */}
+      {ytChannels.length > 1 && (
+        <div className="border-b border-border px-6 flex gap-1 overflow-x-auto">
+          {ytChannels.map(ch => (
+            <button
+              key={ch.id}
+              onClick={() => selectChannel(ch)}
+              className={`flex items-center gap-2 px-4 py-3 text-xs font-medium whitespace-nowrap border-b-2 transition-colors ${
+                ch.id === activeChannelDbId
+                  ? 'border-accent text-cream'
+                  : 'border-transparent text-muted hover:text-cream'
+              }`}
+            >
+              {ch.thumbnail_url
+                ? <img src={ch.thumbnail_url} className="w-5 h-5 rounded-full" alt="" />
+                : <div className="w-5 h-5 rounded-full bg-red-500/20" />
+              }
+              {ch.title}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-6 py-6">
 
