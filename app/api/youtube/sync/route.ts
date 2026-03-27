@@ -33,23 +33,32 @@ export async function POST(req: NextRequest) {
     let skipped = 0
     let errors = 0
 
+    // Detect whether privacy_status column exists (first video as probe)
+    let hasPrivacyStatus = true
+    if (ytVideos.length > 0) {
+      const probe = await supabaseAdmin.from('yt_videos').select('privacy_status').limit(1)
+      if (probe.error?.message?.includes('privacy_status')) hasPrivacyStatus = false
+    }
+
     for (const v of ytVideos) {
+      const row: Record<string, unknown> = {
+        channel_id:          channel.id,
+        yt_video_id:         v.id,
+        current_title:       v.title,
+        current_description: v.description,
+        current_tags:        v.tags,
+        current_thumbnail:   v.thumbnail,
+        duration_seconds:    v.duration_seconds,
+        published_at:        v.published_at,
+        view_count:          v.view_count,
+        like_count:          v.like_count,
+        // status трогаем только если видео новое
+      }
+      if (hasPrivacyStatus) row.privacy_status = v.privacy_status
+
       const { error } = await supabaseAdmin
         .from('yt_videos')
-        .upsert({
-          channel_id:          channel.id,
-          yt_video_id:         v.id,
-          current_title:       v.title,
-          current_description: v.description,
-          current_tags:        v.tags,
-          current_thumbnail:   v.thumbnail,
-          duration_seconds:    v.duration_seconds,
-          published_at:        v.published_at,
-          view_count:          v.view_count,
-          like_count:          v.like_count,
-          privacy_status:      v.privacy_status,
-          // status трогаем только если видео новое
-        }, {
+        .upsert(row, {
           onConflict: 'yt_video_id',
           ignoreDuplicates: false,
         })
