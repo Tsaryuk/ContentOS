@@ -16,7 +16,7 @@ export function SidebarFlyout({ platform, channels }: Props) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -4 }}
       transition={{ duration: 0.15 }}
-      className="absolute left-[52px] top-0 z-50 w-48 border border-border rounded-lg py-2 bg-[#161618] dark:bg-[#161618] bg-white"
+      className="absolute left-[52px] top-0 z-50 w-48 border border-border rounded-lg py-2 bg-white dark:bg-[#161618]"
       style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
     >
       <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-dim">

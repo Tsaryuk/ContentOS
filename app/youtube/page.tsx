@@ -48,6 +48,7 @@ function classifyVideo(v: VideoItem): ContentType {
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   pending:      { label: 'Ожидает',      color: 'text-white/40', dot: 'bg-white/40' },
   transcribing: { label: 'Транскрипция', color: 'text-blue-400', dot: 'bg-blue-400' },
+  producing:    { label: 'AI продюсер',  color: 'text-purple-400', dot: 'bg-purple-400' },
   generating:   { label: 'AI',           color: 'text-purple-400', dot: 'bg-purple-400' },
   thumbnail:    { label: 'Обложка',      color: 'text-amber-400', dot: 'bg-amber-400' },
   review:       { label: 'Проверка',     color: 'text-amber-400', dot: 'bg-amber-400' },

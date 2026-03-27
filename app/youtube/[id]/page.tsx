@@ -41,7 +41,7 @@ export default function VideoDetailPage() {
   const [processing, setProcessing] = useState<string | null>(null)
 
   const loadVideo = useCallback(async () => {
-    if (!SUPABASE_URL || !SUPABASE_KEY) return
+    if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/yt_videos?id=eq.${videoId}&select=*`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
@@ -362,6 +362,8 @@ export default function VideoDetailPage() {
                   textVariants={po.thumbnail_spec?.text_overlay_variants ?? []}
                   currentThumbnail={video.current_thumbnail}
                   generatedUrls={po.thumbnail_urls}
+                  savedPhotos={po.saved_photos}
+                  savedReference={po.saved_reference}
                   onSelect={selectThumbnailByUrl}
                 />
               </div>

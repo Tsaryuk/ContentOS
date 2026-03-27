@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getQueue } from '@/lib/queue'
-import { getVideoWithChannel } from '@/lib/process/helpers'
+import { updateVideoStatus, getVideoWithChannel } from '@/lib/process/helpers'
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Cannot publish: status "${video.status}"` }, { status: 400 })
     }
 
+    await updateVideoStatus(videoId, 'publishing')
     await getQueue().add('publish', { videoId })
 
     return NextResponse.json({ success: true, status: 'queued' })

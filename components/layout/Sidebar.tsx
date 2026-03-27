@@ -111,12 +111,15 @@ export function Sidebar() {
 
       <ThemeToggle />
 
-      <button
-        className="w-9 h-9 rounded-lg flex items-center justify-center text-dim hover:text-muted transition-colors"
+      <Link
+        href="/settings"
+        className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+          pathname === '/settings' ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'
+        }`}
         title="Настройки"
       >
         <Settings className="w-4 h-4" />
-      </button>
+      </Link>
     </aside>
   )
 }

@@ -58,16 +58,19 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
   }
 
   const removePhoto = (i: number) => {
-    setPhotos(prev => { URL.revokeObjectURL(prev[i].preview); return prev.filter((_, idx) => idx !== i) })
+    setPhotos(prev => {
+      if (prev[i].file) URL.revokeObjectURL(prev[i].preview)
+      return prev.filter((_, idx) => idx !== i)
+    })
   }
 
   const setRef = (f: File) => {
-    if (reference) URL.revokeObjectURL(reference.preview)
+    if (reference?.file) URL.revokeObjectURL(reference.preview)
     setReference({ file: f, preview: URL.createObjectURL(f) })
   }
 
   const removeRef = () => {
-    if (reference) URL.revokeObjectURL(reference.preview)
+    if (reference?.file) URL.revokeObjectURL(reference.preview)
     setReference(null)
   }
 
