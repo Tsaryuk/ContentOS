@@ -1,382 +1,417 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Save, Loader2, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
+import {
+  Save, Loader2, Plus, X, ChevronDown, ChevronUp,
+  Play, FolderOpen, User, Check, LogOut
+} from 'lucide-react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
 
-interface ChannelRules {
-  title_format: string
-  description_template: string
-  required_links: string[]
-  hashtags_fixed: string[]
-  thumbnail_style_id: string
-  shorts_count: number
-  clip_max_minutes: number
-  brand_voice?: string
-  social_templates?: {
-    telegram?: string
-    youtube_community?: string
-    instagram_stories?: string
-  }
-}
-
+interface Project { id: string; name: string; color: string; slug: string }
 interface Channel {
-  id: string
-  title: string
-  handle: string
-  yt_channel_id: string
-  rules: ChannelRules
+  id: string; title: string; handle: string | null
+  thumbnail_url: string | null; project_id: string | null
+  yt_channel_id: string; google_account_id: string | null
+  rules?: ChannelRules
+}
+interface GoogleAccount { id: string; email: string; name: string; picture: string | null }
+interface ChannelRules {
+  title_format: string; description_template: string
+  required_links: string[]; hashtags_fixed: string[]
+  shorts_count: number; clip_max_minutes: number
+  brand_voice?: string
+  social_templates?: { telegram?: string; youtube_community?: string; instagram_stories?: string }
 }
 
-function OAuthStatus() {
+const DEFAULT_RULES: ChannelRules = {
+  title_format: '', description_template: '',
+  required_links: [], hashtags_fixed: [],
+  shorts_count: 3, clip_max_minutes: 10,
+}
+
+function OAuthBanner() {
   const params = useSearchParams()
   const ok = params.get('oauth_ok')
-  const channel = params.get('channel')
-  const channelId = params.get('channel_id')
+  const email = params.get('email')
+  const channels = params.get('channels')
   const err = params.get('oauth_error')
-
   if (!ok && !err) return null
-
   return (
-    <div className={`mb-4 px-4 py-3 rounded-lg border text-sm ${
+    <div className={`mb-6 px-4 py-3 rounded-xl border text-sm flex items-center gap-2 ${
       ok ? 'bg-green/10 border-green/20 text-green' : 'bg-red-500/10 border-red-500/20 text-red-400'
     }`}>
+      {ok ? <Check className="w-4 h-4 shrink-0" /> : <X className="w-4 h-4 shrink-0" />}
       {ok
-        ? `YouTube подключён: ${channel}${channelId ? ` (${channelId})` : ''}`
-        : `Ошибка OAuth: ${err}`}
+        ? `Google-аккаунт ${email} подключён. Найдено каналов: ${channels}.`
+        : `Ошибка: ${err}`}
     </div>
   )
 }
 
 export default function SettingsPage() {
+  const [projects, setProjects] = useState<Project[]>([])
   const [channels, setChannels] = useState<Channel[]>([])
+  const [accounts, setAccounts] = useState<GoogleAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [activeSection, setActiveSection] = useState<'accounts' | 'projects' | 'channels'>('accounts')
+
+  // Project form
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectColor, setNewProjectColor] = useState('#a67ff0')
+  const [creatingProject, setCreatingProject] = useState(false)
+
+  // Channel rules
+  const [expandedChannel, setExpandedChannel] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Record<string, ChannelRules>>({})
+  const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
-    fetch(`${SUPABASE_URL}/rest/v1/yt_channels?select=*`, {
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const [projRes, accRes] = await Promise.all([
+        fetch('/api/projects'),
+        SUPABASE_URL ? fetch(`${SUPABASE_URL}/rest/v1/google_accounts?select=*`, {
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        }) : Promise.resolve(null),
+      ])
+      const { projects: p, channels: c } = await projRes.json()
+      setProjects(p ?? [])
+      setChannels(c ?? [])
+      const initial: Record<string, ChannelRules> = {}
+      for (const ch of (c ?? [])) initial[ch.id] = { ...DEFAULT_RULES, ...(ch.rules ?? {}) }
+      setDrafts(initial)
+
+      if (accRes) {
+        const accData = await accRes.json()
+        if (Array.isArray(accData)) setAccounts(accData)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function createProject() {
+    if (!newProjectName.trim()) return
+    setCreatingProject(true)
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newProjectName.trim(), color: newProjectColor }),
     })
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setChannels(data)
-          const initial: Record<string, ChannelRules> = {}
-          for (const ch of data) initial[ch.id] = { ...ch.rules }
-          setDrafts(initial)
-          if (data.length > 0) setExpanded(data[0].id)
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    if (res.ok) {
+      setNewProjectName('')
+      await loadData()
+    }
+    setCreatingProject(false)
+  }
+
+  async function assignToProject(channelId: string, projectId: string | null) {
+    await fetch('/api/projects/assign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelId, projectId }),
+    })
+    setChannels(prev => prev.map(c => c.id === channelId ? { ...c, project_id: projectId } : c))
+  }
 
   function updateDraft(channelId: string, patch: Partial<ChannelRules>) {
     setDrafts(prev => ({ ...prev, [channelId]: { ...prev[channelId], ...patch } }))
   }
 
-  function updateLink(channelId: string, index: number, value: string) {
-    const links = [...(drafts[channelId]?.required_links ?? [])]
-    links[index] = value
-    updateDraft(channelId, { required_links: links })
-  }
-
-  function addLink(channelId: string) {
-    const links = [...(drafts[channelId]?.required_links ?? []), '']
-    updateDraft(channelId, { required_links: links })
-  }
-
-  function removeLink(channelId: string, index: number) {
-    const links = (drafts[channelId]?.required_links ?? []).filter((_, i) => i !== index)
-    updateDraft(channelId, { required_links: links })
-  }
-
-  function updateHashtag(channelId: string, index: number, value: string) {
-    const tags = [...(drafts[channelId]?.hashtags_fixed ?? [])]
-    tags[index] = value
-    updateDraft(channelId, { hashtags_fixed: tags })
-  }
-
-  function addHashtag(channelId: string) {
-    const tags = [...(drafts[channelId]?.hashtags_fixed ?? []), '']
-    updateDraft(channelId, { hashtags_fixed: tags })
-  }
-
-  function removeHashtag(channelId: string, index: number) {
-    const tags = (drafts[channelId]?.hashtags_fixed ?? []).filter((_, i) => i !== index)
-    updateDraft(channelId, { hashtags_fixed: tags })
-  }
-
-  async function save(channelId: string) {
+  async function saveRules(channelId: string) {
     setSaving(channelId)
     try {
-      const rules = drafts[channelId]
       const res = await fetch(`${SUPABASE_URL}/rest/v1/yt_channels?id=eq.${channelId}`, {
         method: 'PATCH',
         headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json',
-          Prefer: 'return=minimal',
+          apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json', Prefer: 'return=minimal',
         },
-        body: JSON.stringify({ rules }),
+        body: JSON.stringify({ rules: drafts[channelId] }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setSaved(channelId)
       setTimeout(() => setSaved(null), 2000)
-    } catch (err) {
-      console.error('Save failed:', err)
-    } finally {
-      setSaving(null)
-    }
+    } finally { setSaving(null) }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <Loader2 className="w-5 h-5 animate-spin text-white/30" />
-      </div>
-    )
-  }
+  const SECTIONS = [
+    { id: 'accounts' as const, label: 'Google аккаунты', icon: <User className="w-4 h-4" /> },
+    { id: 'projects' as const, label: 'Проекты', icon: <FolderOpen className="w-4 h-4" /> },
+    { id: 'channels' as const, label: 'Каналы', icon: <Play className="w-4 h-4" /> },
+  ]
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-32">
+      <Loader2 className="w-5 h-5 animate-spin text-muted" />
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans">
-      <div className="border-b border-white/[0.06] px-6 py-4 flex items-center justify-between">
+    <div className="text-cream font-sans">
+      {/* Header */}
+      <div className="border-b border-border px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-white/40">ContentOS</span>
-          <span className="text-white/20">/</span>
-          <span className="font-medium">Настройки каналов</span>
+          <span className="text-muted">ContentOS</span>
+          <span className="text-dim">/</span>
+          <span className="font-medium">Настройки</span>
         </div>
         <a
-          href="/api/youtube/oauth/start"
+          href="/api/auth/start"
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition-colors"
         >
-          <span className="font-bold">YT</span>
-          Подключить YouTube аккаунт
+          <Play className="w-3.5 h-3.5" />
+          Подключить Google аккаунт
         </a>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-3">
-        <Suspense fallback={null}>
-          <OAuthStatus />
-        </Suspense>
-        {channels.length === 0 && (
-          <div className="py-20 text-center text-white/30 text-sm">
-            Каналы не найдены. Синхронизируйте сначала на странице YouTube.
+      <div className="max-w-3xl mx-auto px-6 py-6">
+        <Suspense fallback={null}><OAuthBanner /></Suspense>
+
+        {/* Section tabs */}
+        <div className="flex gap-1 mb-6 bg-surface rounded-lg p-1 border border-border w-fit">
+          {SECTIONS.map(s => (
+            <button
+              key={s.id}
+              onClick={() => setActiveSection(s.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeSection === s.id ? 'bg-bg text-cream border border-border shadow-surface' : 'text-muted hover:text-cream'
+              }`}
+            >
+              {s.icon}{s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── ACCOUNTS ── */}
+        {activeSection === 'accounts' && (
+          <div className="space-y-3">
+            {accounts.length === 0 ? (
+              <div className="py-16 text-center text-muted text-sm">
+                <User className="w-8 h-8 text-dim mx-auto mb-3" />
+                <p>Нет подключённых Google-аккаунтов.</p>
+                <p className="text-xs text-dim mt-1">Нажмите «Подключить Google аккаунт» вверху.</p>
+              </div>
+            ) : (
+              accounts.map(acc => (
+                <div key={acc.id} className="flex items-center gap-4 bg-surface border border-border rounded-xl px-5 py-4">
+                  {acc.picture
+                    ? <img src={acc.picture} className="w-10 h-10 rounded-full" alt="" />
+                    : <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">{acc.name?.[0]}</div>
+                  }
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">{acc.name}</div>
+                    <div className="text-xs text-muted">{acc.email}</div>
+                    <div className="text-xs text-dim mt-0.5">
+                      {channels.filter(c => c.google_account_id === acc.id).length} каналов
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green" />
+                    <span className="text-xs text-green">Подключён</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
 
-        {channels.map(ch => {
-          const draft = drafts[ch.id] ?? ch.rules
-          const isExpanded = expanded === ch.id
-          const isSaving = saving === ch.id
-          const isSaved = saved === ch.id
+        {/* ── PROJECTS ── */}
+        {activeSection === 'projects' && (
+          <div className="space-y-4">
+            {/* Create project */}
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="text-xs text-muted font-medium mb-3 uppercase tracking-wider">Новый проект</div>
+              <div className="flex gap-2">
+                <input
+                  value={newProjectColor}
+                  onChange={e => setNewProjectColor(e.target.value)}
+                  type="color"
+                  className="w-10 h-10 rounded-lg border border-border cursor-pointer bg-transparent"
+                />
+                <input
+                  value={newProjectName}
+                  onChange={e => setNewProjectName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && createProject()}
+                  placeholder="Название проекта..."
+                  className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/50"
+                />
+                <button
+                  onClick={createProject}
+                  disabled={creatingProject || !newProjectName.trim()}
+                  className="px-4 py-2 rounded-lg bg-accent hover:opacity-90 disabled:opacity-30 text-white text-sm font-medium flex items-center gap-1.5"
+                >
+                  {creatingProject ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  Создать
+                </button>
+              </div>
+            </div>
 
-          return (
-            <div key={ch.id} className="bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden">
-              {/* Header */}
-              <button
-                onClick={() => setExpanded(isExpanded ? null : ch.id)}
-                className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-red-500/20 flex items-center justify-center">
-                    <span className="text-red-400 text-xs font-bold">YT</span>
+            {/* Project list */}
+            {projects.map(proj => {
+              const projChannels = channels.filter(c => c.project_id === proj.id)
+              return (
+                <div key={proj.id} className="bg-surface border border-border rounded-xl overflow-hidden">
+                  <div className="px-5 py-3 flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: proj.color }} />
+                    <span className="text-sm font-medium">{proj.name}</span>
+                    <span className="text-xs text-dim ml-auto">{projChannels.length} кан.</span>
                   </div>
-                  <div className="text-left">
-                    <div className="text-sm font-medium">{ch.title}</div>
-                    <div className="text-xs text-white/40">{ch.handle}</div>
-                  </div>
+                  {projChannels.length > 0 && (
+                    <div className="border-t border-border px-5 py-2 space-y-1.5">
+                      {projChannels.map(ch => (
+                        <div key={ch.id} className="flex items-center gap-2 py-1">
+                          {ch.thumbnail_url
+                            ? <img src={ch.thumbnail_url} className="w-6 h-6 rounded-full" alt="" />
+                            : <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center text-[9px] text-red-400 font-bold">YT</div>
+                          }
+                          <span className="text-xs text-cream">{ch.title}</span>
+                          <span className="text-[10px] text-dim">{ch.handle}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {isExpanded ? <ChevronUp className="w-4 h-4 text-white/40" /> : <ChevronDown className="w-4 h-4 text-white/40" />}
-              </button>
+              )
+            })}
+          </div>
+        )}
 
-              {isExpanded && (
-                <div className="px-5 pb-5 space-y-5 border-t border-white/[0.06]">
+        {/* ── CHANNELS ── */}
+        {activeSection === 'channels' && (
+          <div className="space-y-3">
+            {channels.length === 0 && (
+              <div className="py-16 text-center text-muted text-sm">
+                Нет каналов. Подключите Google-аккаунт и нажмите «Синхронизировать» на странице YouTube.
+              </div>
+            )}
+            {channels.map(ch => {
+              const draft = drafts[ch.id] ?? DEFAULT_RULES
+              const isExpanded = expandedChannel === ch.id
 
-                  {/* Title Format */}
-                  <div className="pt-4 space-y-1.5">
-                    <label className="text-xs font-medium text-white/50 uppercase tracking-wider">Формат заголовка</label>
-                    <textarea
-                      value={draft.title_format ?? ''}
-                      onChange={e => updateDraft(ch.id, { title_format: e.target.value })}
-                      rows={2}
-                      placeholder="Пример: {guest}: {topic}"
-                      className="w-full px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/15 resize-none"
-                    />
-                  </div>
-
-                  {/* Description Template */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-white/50 uppercase tracking-wider">Шаблон описания</label>
-                    <textarea
-                      value={draft.description_template ?? ''}
-                      onChange={e => updateDraft(ch.id, { description_template: e.target.value })}
-                      rows={5}
-                      placeholder="Шаблон описания с плейсхолдерами: {summary}, {guest_name}, {guest_links}, {host_links}, {sponsor_links}"
-                      className="w-full px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/15 resize-none font-mono text-xs leading-relaxed"
-                    />
-                    <p className="text-[11px] text-white/30">Плейсхолдеры: {'{summary}'}, {'{guest_name}'}, {'{guest_links}'}, {'{host_links}'}, {'{sponsor_links}'}, {'{timecodes}'}</p>
-                  </div>
-
-                  {/* Required Links */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-white/50 uppercase tracking-wider">Обязательные ссылки</label>
-                    <p className="text-[11px] text-white/30">Ссылки на хоста, ключевой ресурс, соцсети — добавляются в конец каждого описания</p>
-                    <div className="space-y-2">
-                      {(draft.required_links ?? []).map((link, i) => (
-                        <div key={i} className="flex gap-2">
-                          <input
-                            value={link}
-                            onChange={e => updateLink(ch.id, i, e.target.value)}
-                            placeholder="https://... или текст ссылки"
-                            className="flex-1 px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/15"
-                          />
-                          <button
-                            onClick={() => removeLink(ch.id, i)}
-                            className="p-2 text-white/20 hover:text-red-400 transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => addLink(ch.id)}
-                        className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/60 transition-colors"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Добавить ссылку
-                      </button>
+              return (
+                <div key={ch.id} className="bg-surface border border-border rounded-xl overflow-hidden">
+                  {/* Channel header */}
+                  <div className="px-5 py-3 flex items-center gap-3">
+                    {ch.thumbnail_url
+                      ? <img src={ch.thumbnail_url} className="w-8 h-8 rounded-full" alt="" />
+                      : <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-xs text-red-400 font-bold">YT</div>
+                    }
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{ch.title}</div>
+                      <div className="text-xs text-dim">{ch.handle}</div>
                     </div>
-                  </div>
 
-                  {/* Hashtags */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-white/50 uppercase tracking-wider">Фиксированные хештеги</label>
-                    <div className="flex flex-wrap gap-2">
-                      {(draft.hashtags_fixed ?? []).map((tag, i) => (
-                        <div key={i} className="flex items-center gap-1 bg-white/5 border border-white/[0.06] rounded-full px-2.5 py-1">
-                          <input
-                            value={tag}
-                            onChange={e => updateHashtag(ch.id, i, e.target.value)}
-                            className="bg-transparent text-xs text-white/70 focus:outline-none w-24"
-                          />
-                          <button onClick={() => removeHashtag(ch.id, i)} className="text-white/20 hover:text-white/50">
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => addHashtag(ch.id)}
-                        className="flex items-center gap-1 text-xs text-white/30 hover:text-white/50 border border-dashed border-white/10 rounded-full px-2.5 py-1 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" /> хештег
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Brand Voice */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-white/50 uppercase tracking-wider">Голос бренда</label>
-                    <textarea
-                      value={draft.brand_voice ?? ''}
-                      onChange={e => updateDraft(ch.id, { brand_voice: e.target.value })}
-                      rows={3}
-                      placeholder="Описание стиля и тона канала для AI-генерации..."
-                      className="w-full px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/15 resize-none"
-                    />
-                  </div>
-
-                  {/* Social Templates */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-white/50 uppercase tracking-wider">Шаблоны соцсетей</label>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-[11px] text-white/30 mb-1 block">Telegram</label>
-                        <textarea
-                          value={draft.social_templates?.telegram ?? ''}
-                          onChange={e => updateDraft(ch.id, { social_templates: { ...draft.social_templates, telegram: e.target.value } })}
-                          rows={2}
-                          placeholder="Формат поста в Telegram-канал"
-                          className="w-full px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-white/15 resize-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-white/30 mb-1 block">YouTube Community</label>
-                        <textarea
-                          value={draft.social_templates?.youtube_community ?? ''}
-                          onChange={e => updateDraft(ch.id, { social_templates: { ...draft.social_templates, youtube_community: e.target.value } })}
-                          rows={2}
-                          placeholder="Формат поста в Community Tab"
-                          className="w-full px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-white/15 resize-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-white/30 mb-1 block">Instagram Stories</label>
-                        <textarea
-                          value={draft.social_templates?.instagram_stories ?? ''}
-                          onChange={e => updateDraft(ch.id, { social_templates: { ...draft.social_templates, instagram_stories: e.target.value } })}
-                          rows={2}
-                          placeholder="Формат текста для Stories"
-                          className="w-full px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-white/15 resize-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Clip/Short Settings */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-white/50 uppercase tracking-wider">Кол-во Shorts</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={10}
-                        value={draft.shorts_count ?? 3}
-                        onChange={e => updateDraft(ch.id, { shorts_count: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-sm text-white focus:outline-none focus:border-white/15"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-white/50 uppercase tracking-wider">Макс. клип (мин)</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={60}
-                        value={draft.clip_max_minutes ?? 20}
-                        onChange={e => updateDraft(ch.id, { clip_max_minutes: parseInt(e.target.value) || 20 })}
-                        className="w-full px-3 py-2 bg-black/30 border border-white/[0.06] rounded-lg text-sm text-white focus:outline-none focus:border-white/15"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Save */}
-                  <div className="pt-2">
-                    <button
-                      onClick={() => save(ch.id)}
-                      disabled={isSaving}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isSaved
-                          ? 'bg-emerald-500/20 text-emerald-400'
-                          : 'bg-white text-black hover:bg-white/90 disabled:opacity-50'
-                      }`}
+                    {/* Project selector */}
+                    <select
+                      value={ch.project_id ?? ''}
+                      onChange={e => assignToProject(ch.id, e.target.value || null)}
+                      className="text-xs bg-bg border border-border rounded-lg px-2 py-1.5 text-cream focus:outline-none focus:border-accent/50 max-w-[140px]"
                     >
-                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      {isSaved ? 'Сохранено' : isSaving ? 'Сохранение...' : 'Сохранить'}
+                      <option value="">— без проекта —</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={() => setExpandedChannel(isExpanded ? null : ch.id)}
+                      className="text-dim hover:text-muted transition-colors ml-1"
+                    >
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
                   </div>
+
+                  {/* Channel rules */}
+                  {isExpanded && (
+                    <div className="border-t border-border px-5 pb-5 pt-4 space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Формат заголовка</label>
+                        <input
+                          value={draft.title_format ?? ''}
+                          onChange={e => updateDraft(ch.id, { title_format: e.target.value })}
+                          placeholder="например: {title} | Подкаст"
+                          className="w-full px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/40"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Шаблон описания</label>
+                        <textarea
+                          value={draft.description_template ?? ''}
+                          onChange={e => updateDraft(ch.id, { description_template: e.target.value })}
+                          rows={3}
+                          placeholder="Шаблон описания видео..."
+                          className="w-full px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/40 resize-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Постоянные ссылки</label>
+                        {(draft.required_links ?? []).map((link, i) => (
+                          <div key={i} className="flex gap-2">
+                            <input
+                              value={link}
+                              onChange={e => {
+                                const links = [...draft.required_links]
+                                links[i] = e.target.value
+                                updateDraft(ch.id, { required_links: links })
+                              }}
+                              placeholder="https://..."
+                              className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/40"
+                            />
+                            <button onClick={() => updateDraft(ch.id, { required_links: draft.required_links.filter((_, j) => j !== i) })}
+                              className="text-dim hover:text-red-400 transition-colors"><X className="w-4 h-4" /></button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => updateDraft(ch.id, { required_links: [...(draft.required_links ?? []), ''] })}
+                          className="flex items-center gap-1.5 text-xs text-dim hover:text-muted transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Добавить ссылку
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Shorts в день</label>
+                          <input type="number" min={0} max={10} value={draft.shorts_count ?? 3}
+                            onChange={e => updateDraft(ch.id, { shorts_count: parseInt(e.target.value) })}
+                            className="w-full px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream focus:outline-none focus:border-accent/40"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Макс. длина клипа (мин)</label>
+                          <input type="number" min={1} max={60} value={draft.clip_max_minutes ?? 10}
+                            onChange={e => updateDraft(ch.id, { clip_max_minutes: parseInt(e.target.value) })}
+                            className="w-full px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream focus:outline-none focus:border-accent/40"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => saveRules(ch.id)}
+                        disabled={!!saving}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          saved === ch.id ? 'bg-green/20 text-green' : 'bg-accent text-white hover:opacity-90 disabled:opacity-30'
+                        }`}
+                      >
+                        {saving === ch.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        {saved === ch.id ? 'Сохранено' : 'Сохранить'}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

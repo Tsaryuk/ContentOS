@@ -15,8 +15,6 @@ function getSupabase(): SupabaseClient | null {
   return createClient(url, key)
 }
 
-const CHANNEL_ID = 'UCSNzUPA6aagf1XD37oXQWsw'
-
 type VideoItem = {
   id: string
   yt_video_id: string
@@ -79,6 +77,7 @@ function fmtDate(d: string) {
 export default function YouTubePage() {
   const supabaseRef = useRef<SupabaseClient | null>(null)
   const [configured, setConfigured] = useState(false)
+  const [activeYtChannelId, setActiveYtChannelId] = useState<string | null>(null)
   const [allVideos, setAllVideos] = useState<VideoItem[]>([])
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -86,39 +85,47 @@ export default function YouTubePage() {
 
   useEffect(() => {
     supabaseRef.current = getSupabase()
-    if (supabaseRef.current) {
-      setConfigured(true)
-    }
+    if (supabaseRef.current) setConfigured(true)
+    // Load active channel from session
+    fetch('/api/auth/session').then(r => r.json()).then(s => {
+      setActiveYtChannelId(s.activeChannelId ?? null)
+    })
   }, [])
 
-  useEffect(() => { if (configured) loadVideos() }, [configured])
+  useEffect(() => { if (configured) loadVideos() }, [configured, activeYtChannelId])
 
   async function loadVideos() {
     const sb = supabaseRef.current
     if (!sb) return
     setLoading(true)
-    const { data } = await sb
-      .from('yt_videos')
-      .select('*')
-      .order('published_at', { ascending: false })
+    let query = sb.from('yt_videos').select('*').order('published_at', { ascending: false })
+    // Filter by active channel if set
+    if (activeYtChannelId) {
+      // Get channel DB id first
+      const { data: ch } = await sb
+        .from('yt_channels')
+        .select('id')
+        .eq('yt_channel_id', activeYtChannelId)
+        .single()
+      if (ch) query = query.eq('channel_id', ch.id)
+    }
+    const { data } = await query
     setAllVideos(data || [])
     setLoading(false)
   }
 
   async function handleSync() {
+    if (!activeYtChannelId) { alert('Выберите канал для синхронизации'); return }
     setSyncing(true)
     try {
       const res = await fetch('/api/youtube/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId: CHANNEL_ID }),
+        body: JSON.stringify({ channelId: activeYtChannelId }),
       })
       const data = await res.json()
-      if (data.success) {
-        loadVideos()
-      } else {
-        alert('Ошибка: ' + data.error)
-      }
+      if (data.success) loadVideos()
+      else alert('Ошибка: ' + data.error)
     } finally {
       setSyncing(false)
     }

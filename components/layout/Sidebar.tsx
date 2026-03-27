@@ -11,6 +11,7 @@ import {
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
 import { ThemeToggle } from './ThemeToggle'
+import { ProjectChannelSwitcher } from './ProjectChannelSwitcher'
 
 const TikTokIcon = () => (
   <svg width="18" height="18" viewBox="0 0 16 18" fill="currentColor">
@@ -67,37 +68,39 @@ export function Sidebar() {
   const isDashboard = pathname === '/'
 
   return (
-    <aside className="w-[52px] bg-bg-sidebar border-r border-border flex flex-col items-center py-3 gap-1.5 flex-shrink-0">
-      <Link href="/" className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple flex items-center justify-center text-white font-bold text-sm mb-2">
+    <aside className="w-[160px] bg-bg-sidebar border-r border-border flex flex-col items-center py-3 gap-1.5 flex-shrink-0">
+      <Link href="/" className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple flex items-center justify-center text-white font-bold text-sm mb-1">
         C
       </Link>
 
-      <div className="w-6 h-px bg-border mb-1" />
+      <ProjectChannelSwitcher />
+
+      <div className="w-full px-3"><div className="h-px bg-border" /></div>
 
       <Link
         href="/"
-        className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
           isDashboard ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
         }`}
-        title="Дашборд"
       >
-        <LayoutGrid className="w-[18px] h-[18px]" />
+        <LayoutGrid className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-medium">Дашборд</span>
       </Link>
 
       {NAV_PLATFORMS.map(({ platform, icon, channels }) => (
         <div
           key={platform}
-          className="relative"
+          className="relative w-full"
           onMouseEnter={() => setHoveredPlatform(platform)}
           onMouseLeave={() => setHoveredPlatform(null)}
         >
           <div
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
               hoveredPlatform === platform ? 'text-cream' : 'text-muted hover:text-cream'
             }`}
-            title={platform}
           >
-            {icon}
+            <span className="shrink-0">{icon}</span>
+            <span className="text-xs font-medium capitalize">{platform === 'youtube-shorts' ? 'Shorts' : platform.charAt(0).toUpperCase() + platform.slice(1)}</span>
           </div>
           <AnimatePresence>
             {hoveredPlatform === platform && channels.length > 0 && (
@@ -109,17 +112,18 @@ export function Sidebar() {
 
       <div className="flex-1" />
 
-      <ThemeToggle />
-
-      <Link
-        href="/settings"
-        className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-          pathname === '/settings' ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'
-        }`}
-        title="Настройки"
-      >
-        <Settings className="w-4 h-4" />
-      </Link>
+      <div className="w-full px-1.5 flex items-center justify-between">
+        <ThemeToggle />
+        <Link
+          href="/settings"
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+            pathname === '/settings' ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'
+          }`}
+          title="Настройки"
+        >
+          <Settings className="w-4 h-4" />
+        </Link>
+      </div>
     </aside>
   )
 }
