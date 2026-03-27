@@ -63,6 +63,10 @@ export default function SettingsPage() {
   const [newProjectColor, setNewProjectColor] = useState('#a67ff0')
   const [creatingProject, setCreatingProject] = useState(false)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
+  const [addChannelId, setAddChannelId] = useState('')
+  const [addChannelProject, setAddChannelProject] = useState('')
+  const [addingChannel, setAddingChannel] = useState(false)
+  const [addChannelError, setAddChannelError] = useState('')
 
   // Channel rules
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null)
@@ -118,6 +122,23 @@ export default function SettingsPage() {
     await fetch(`/api/accounts/${id}`, { method: 'DELETE' })
     setDisconnecting(null)
     await loadData()
+  }
+
+  async function addChannelById() {
+    const id = addChannelId.trim().replace(/.*channel\//,'').replace(/\/.*/,'')
+    if (!id) return
+    setAddingChannel(true)
+    setAddChannelError('')
+    const res = await fetch('/api/channels/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ytChannelId: id, projectId: addChannelProject || null }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setAddChannelError(data.error); setAddingChannel(false); return }
+    setAddChannelId('')
+    await loadData()
+    setAddingChannel(false)
   }
 
   async function assignToProject(channelId: string, projectId: string | null) {
@@ -304,9 +325,40 @@ export default function SettingsPage() {
         {/* ── CHANNELS ── */}
         {activeSection === 'channels' && (
           <div className="space-y-3">
+            {/* Add channel by ID */}
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="text-xs text-muted font-medium mb-3 uppercase tracking-wider">Добавить канал по ID</div>
+              <div className="flex gap-2 mb-2">
+                <input
+                  value={addChannelId}
+                  onChange={e => setAddChannelId(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addChannelById()}
+                  placeholder="UCaaZTPOISLwBKogX2iBmetQ или ссылка на канал"
+                  className="flex-1 px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/50"
+                />
+                <select
+                  value={addChannelProject}
+                  onChange={e => setAddChannelProject(e.target.value)}
+                  className="px-2 py-2 rounded-lg bg-bg border border-border text-xs text-cream focus:outline-none max-w-[130px]"
+                >
+                  <option value="">— проект —</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <button
+                  onClick={addChannelById}
+                  disabled={addingChannel || !addChannelId.trim()}
+                  className="px-4 py-2 rounded-lg bg-accent hover:opacity-90 disabled:opacity-30 text-white text-sm font-medium flex items-center gap-1.5"
+                >
+                  {addingChannel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  Добавить
+                </button>
+              </div>
+              {addChannelError && <div className="text-xs text-red-400">{addChannelError}</div>}
+            </div>
+
             {channels.length === 0 && (
-              <div className="py-16 text-center text-muted text-sm">
-                Нет каналов. Подключите Google-аккаунт и нажмите «Синхронизировать» на странице YouTube.
+              <div className="py-8 text-center text-muted text-sm">
+                Нет каналов. Подключите Google-аккаунт или добавьте канал по ID выше.
               </div>
             )}
             {channels.map(ch => {

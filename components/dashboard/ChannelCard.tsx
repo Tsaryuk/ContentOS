@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Channel } from '@/lib/channels'
-import { PLATFORM_ICONS } from '@/components/layout/Sidebar'
+import { PLATFORM_ICONS } from '@/lib/platform-icons'
 
 function fmtNumber(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
