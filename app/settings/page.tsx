@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { Save, Loader2, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -28,6 +30,26 @@ interface Channel {
   handle: string
   yt_channel_id: string
   rules: ChannelRules
+}
+
+function OAuthStatus() {
+  const params = useSearchParams()
+  const ok = params.get('oauth_ok')
+  const channel = params.get('channel')
+  const channelId = params.get('channel_id')
+  const err = params.get('oauth_error')
+
+  if (!ok && !err) return null
+
+  return (
+    <div className={`mb-4 px-4 py-3 rounded-lg border text-sm ${
+      ok ? 'bg-green/10 border-green/20 text-green' : 'bg-red-500/10 border-red-500/20 text-red-400'
+    }`}>
+      {ok
+        ? `YouTube подключён: ${channel}${channelId ? ` (${channelId})` : ''}`
+        : `Ошибка OAuth: ${err}`}
+    </div>
+  )
 }
 
 export default function SettingsPage() {
@@ -127,15 +149,25 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white font-sans">
-      <div className="border-b border-white/[0.06] px-6 py-4">
+      <div className="border-b border-white/[0.06] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-white/40">ContentOS</span>
           <span className="text-white/20">/</span>
           <span className="font-medium">Настройки каналов</span>
         </div>
+        <a
+          href="/api/youtube/oauth/start"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition-colors"
+        >
+          <span className="font-bold">YT</span>
+          Подключить YouTube аккаунт
+        </a>
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-6 space-y-3">
+        <Suspense fallback={null}>
+          <OAuthStatus />
+        </Suspense>
         {channels.length === 0 && (
           <div className="py-20 text-center text-white/30 text-sm">
             Каналы не найдены. Синхронизируйте сначала на странице YouTube.

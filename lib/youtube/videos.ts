@@ -25,33 +25,10 @@ function parseDuration(iso: string): number {
        +  parseInt(m[3] || '0')
 }
 
-export async function fetchChannelVideos(channelId: string): Promise<YTVideo[]> {
-  const token = await getYouTubeToken()
-
-  // uploads playlist = UC → UU
-  const uploadsId = 'UU' + channelId.slice(2)
-  const videoIds: string[] = []
-  let pageToken = ''
-
-  // Шаг 1: все videoId через playlistItems (дешевле по квоте)
-  do {
-    const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems')
-    url.searchParams.set('part',       'contentDetails')
-    url.searchParams.set('playlistId', uploadsId)
-    url.searchParams.set('maxResults', '50')
-    if (pageToken) url.searchParams.set('pageToken', pageToken)
-
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
-    if (data.error) throw new Error(`YouTube API: ${data.error.message}`)
-
-    videoIds.push(...(data.items || []).map((i: any) => i.contentDetails.videoId))
-    pageToken = data.nextPageToken || ''
-  } while (pageToken)
-
-  // Шаг 2: детали пачками по 50
+async function fetchVideoDetails(
+  videoIds: string[],
+  token: string,
+): Promise<YTVideo[]> {
   const videos: YTVideo[] = []
 
   for (let i = 0; i < videoIds.length; i += 50) {
@@ -86,4 +63,67 @@ export async function fetchChannelVideos(channelId: string): Promise<YTVideo[]> 
   }
 
   return videos
+}
+
+export async function fetchChannelVideos(channelId: string): Promise<YTVideo[]> {
+  const token = await getYouTubeToken(channelId)
+
+  // ─── Шаг 1: uploads playlist (все публичные + unlisted через плейлист) ───
+  const uploadsId = 'UU' + channelId.slice(2)
+  const playlistIds: string[] = []
+  let pageToken = ''
+
+  do {
+    const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems')
+    url.searchParams.set('part',       'contentDetails')
+    url.searchParams.set('playlistId', uploadsId)
+    url.searchParams.set('maxResults', '50')
+    if (pageToken) url.searchParams.set('pageToken', pageToken)
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const data = await res.json()
+    if (data.error) throw new Error(`YouTube API: ${data.error.message}`)
+
+    playlistIds.push(...(data.items || []).map((i: any) => i.contentDetails.videoId))
+    pageToken = data.nextPageToken || ''
+  } while (pageToken)
+
+  // ─── Шаг 2: search.list forMine=true — ловим unlisted, которых нет в плейлисте ───
+  const searchIds: string[] = []
+  let searchPageToken = ''
+
+  try {
+    do {
+      const url = new URL('https://www.googleapis.com/youtube/v3/search')
+      url.searchParams.set('part',       'id')
+      url.searchParams.set('forMine',    'true')
+      url.searchParams.set('type',       'video')
+      url.searchParams.set('maxResults', '50')
+      if (searchPageToken) url.searchParams.set('pageToken', searchPageToken)
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = await res.json()
+      // search.list might fail if wrong account — silently skip
+      if (data.error) break
+
+      searchIds.push(...(data.items || []).map((i: any) => i.id.videoId))
+      searchPageToken = data.nextPageToken || ''
+    } while (searchPageToken)
+  } catch {
+    // search.list is optional — continue without it
+  }
+
+  // Merge: union of both sources, dedup
+  const seen = new Set<string>()
+  const allIds: string[] = []
+  for (const id of [...playlistIds, ...searchIds]) {
+    if (!seen.has(id)) { seen.add(id); allIds.push(id) }
+  }
+
+  // ─── Шаг 3: детали пачками по 50 ───
+  return fetchVideoDetails(allIds, token)
 }
