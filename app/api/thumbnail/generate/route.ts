@@ -11,50 +11,101 @@ function getSupabase() {
 
 export const maxDuration = 180
 
-// Prompt variations for Nano Banana 2 Edit
-const NANO_VARIANTS = [
+// 4 emotion/composition variants for Nano Banana 2 Edit
+const VARIANTS = [
   {
-    name: 'Nano Banana A',
-    suffix: 'Close-up emotional face showing surprise or curiosity. Text positioned top-left, very large and bold. High contrast between text and background.',
+    name: 'Shock',
+    emotion: 'shocked, eyes wide open, mouth slightly open, genuine surprise',
+    composition: 'Face occupies 60% of frame, slightly off-center right. Text top-left.',
   },
   {
-    name: 'Nano Banana B',
-    suffix: 'Medium shot with dramatic side lighting. Text centered at bottom, clean and readable. Strong visual hierarchy.',
+    name: 'Intense',
+    emotion: 'intense focused stare, furrowed brows, determined expression',
+    composition: 'Face occupies 55% of frame, centered-right. Text bottom-left.',
   },
   {
-    name: 'Nano Banana C',
-    suffix: 'Cinematic wide composition, moody dark atmosphere. Text with drop shadow, bottom-left. Editorial photography feel.',
+    name: 'Confident',
+    emotion: 'confident slight smirk, one eyebrow raised, self-assured look',
+    composition: 'Face occupies 50% of frame, right side. Text left-center.',
+  },
+  {
+    name: 'Serious',
+    emotion: 'serious contemplative expression, piercing direct eye contact',
+    composition: 'Face occupies 65% of frame, close-up right. Text top-left overlapping slightly.',
   },
 ]
 
-function buildNanoPrompt(params: {
-  text: string
-  guestInfo?: string
+function buildMasterPrompt(params: {
+  textLine1: string       // white text (context/number)
+  textLine2: string       // green text (emotional word)
+  guestName?: string
+  emotion: string
+  composition: string
   photoCount: number
   refinement?: string
-  variantSuffix: string
 }): string {
-  const { text, guestInfo, photoCount, refinement, variantSuffix } = params
+  const { textLine1, textLine2, guestName, emotion, composition, photoCount, refinement } = params
 
-  const layout = photoCount === 1
-    ? 'One person from the reference photo, expressive emotional face.'
+  const peopleLayout = photoCount <= 1
+    ? `One person from the reference photo, looking directly at camera. ${emotion}.`
     : photoCount === 2
-    ? 'Two people from the reference photos. Expressive emotional faces.'
-    : photoCount >= 3
-    ? 'Three people from the reference photos, emotional expressive faces.'
-    : ''
+    ? `Two people from reference photos. Guest on left with ${emotion}. Host on right. Both looking at camera.`
+    : `Multiple people from reference photos. Main guest prominent with ${emotion}. All facing camera.`
 
   return [
-    'YouTube podcast thumbnail, 1280x720, 16:9.',
-    'Dark green-black gradient background.',
-    layout,
-    `Large bold Russian Cyrillic text: "${text}".`,
-    'One key word highlighted in bright green (#4CAF50), rest white.',
-    guestInfo ? `Guest: ${guestInfo}, name at bottom.` : '',
-    'Professional podcast thumbnail, high contrast.',
-    variantSuffix,
-    refinement ? `IMPORTANT: ${refinement}` : '',
+    // Core format
+    'YouTube podcast thumbnail. 1280x720, 16:9 aspect ratio.',
+
+    // Background & style — match reference
+    'Match the exact layout and color palette from the reference image.',
+    'Same composition style, same background treatment.',
+    'Only change the face and text content.',
+    'Dark moody background with subtle dark green tones.',
+    'Cinematic studio lighting, high contrast, editorial photography.',
+
+    // People
+    peopleLayout,
+    composition,
+    'Eyes looking directly at camera. Face must be photorealistic.',
+
+    // Text — Russian, 2 lines
+    `Large bold text, two lines:`,
+    `Line 1 (white color, bold): "${textLine1}"`,
+    `Line 2 (bright green #4CAF50, bold): "${textLine2}"`,
+    'Text must be clearly readable at 160x90px preview size.',
+    'Maximum 3 words total on the thumbnail.',
+    'Font style: bold sans-serif, slightly condensed.',
+
+    // Guest info
+    guestName ? `Small text at bottom: "${guestName}" in white, subtle.` : '',
+
+    // Constraints
+    'No logos, no watermarks, no extra UI elements.',
+    'No English text. All text must be in Russian Cyrillic.',
+    'Dark background ensures text contrast.',
+    'Professional YouTube podcast thumbnail quality.',
+
+    // Refinement
+    refinement ? `IMPORTANT MODIFICATION: ${refinement}` : '',
   ].filter(Boolean).join(' ')
+}
+
+function splitText(text: string): { line1: string; line2: string } {
+  // Try to split at — or -
+  const dashSplit = text.split(/\s*[—–-]\s*/)
+  if (dashSplit.length >= 2) {
+    return { line1: dashSplit[0].trim(), line2: dashSplit.slice(1).join(' ').trim() }
+  }
+  // Split at midpoint by words
+  const words = text.split(/\s+/)
+  if (words.length >= 3) {
+    const mid = Math.ceil(words.length / 2)
+    return { line1: words.slice(0, mid).join(' '), line2: words.slice(mid).join(' ') }
+  }
+  if (words.length === 2) {
+    return { line1: words[0], line2: words[1] }
+  }
+  return { line1: text, line2: '' }
 }
 
 async function runNanoBanana(
@@ -63,7 +114,7 @@ async function runNanoBanana(
   name: string,
 ): Promise<{ url: string | null; name: string }> {
   try {
-    console.log(`[thumb] ${name}: starting with ${imageUrls.length} images...`)
+    console.log(`[thumb] ${name}: starting with ${imageUrls.length} ref images...`)
 
     const input: Record<string, unknown> = {
       prompt,
@@ -87,39 +138,7 @@ async function runNanoBanana(
     console.log(`[thumb] ${name}: ${url ? 'OK' : 'no image'}`)
     return { url, name }
   } catch (err: any) {
-    console.error(`[thumb] ${name} failed:`, err.message?.slice(0, 200))
-    return { url: null, name }
-  }
-}
-
-async function runYTThumbnails(
-  text: string,
-  photoUrl: string | undefined,
-): Promise<{ url: string | null; name: string }> {
-  const name = 'YT Thumbnails'
-  try {
-    console.log(`[thumb] ${name}: starting...`)
-
-    const input: Record<string, unknown> = {
-      image_url: photoUrl ?? 'https://fal.media/files/koala/QUihQrMqowYu30UFC_Atk.png',
-      prompt: `${text}. Bold large Russian Cyrillic text overlay, green highlight on key word. Professional YouTube podcast thumbnail.`,
-      guidance_scale: 5.0,
-      num_inference_steps: 35,
-      lora_scale: 0.8,
-    }
-
-    const result = await fal.subscribe('fal-ai/image-editing/youtube-thumbnails', { input: input as any }) as any
-
-    const url =
-      result?.data?.images?.[0]?.url ??
-      result?.images?.[0]?.url ??
-      result?.data?.image?.url ??
-      null
-
-    console.log(`[thumb] ${name}: ${url ? 'OK' : 'no image'}`)
-    return { url, name }
-  } catch (err: any) {
-    console.error(`[thumb] ${name} failed:`, err.message?.slice(0, 200))
+    console.error(`[thumb] ${name} failed:`, err.message?.slice(0, 300))
     return { url: null, name }
   }
 }
@@ -135,31 +154,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'videoId and text required' }, { status: 400 })
     }
 
-    // Combine photos + reference into image_urls for Nano Banana
-    const allImages = [
+    // Split text into 2 lines: white + green
+    const { line1, line2 } = splitText(text)
+
+    // Reference images: photos first, then reference style image
+    // Reference is used ONLY for layout/style, NOT for content
+    const imageUrls = [
       ...(photos ?? []),
       ...(referenceUrl ? [referenceUrl] : []),
     ].filter(Boolean) as string[]
 
-    console.log(`[thumb] Generating "${text}" | ${allImages.length} images | ${NANO_VARIANTS.length + 1} models...`)
+    console.log(`[thumb] "${line1} / ${line2}" | ${imageUrls.length} images | 4 variants...`)
 
-    // Run all 4 in parallel: 3x Nano Banana + 1x YT Thumbnails
-    const settled = await Promise.allSettled([
-      ...NANO_VARIANTS.map(v =>
+    // Run 4 Nano Banana variants in parallel
+    const settled = await Promise.allSettled(
+      VARIANTS.map(v =>
         runNanoBanana(
-          buildNanoPrompt({
-            text,
-            guestInfo,
+          buildMasterPrompt({
+            textLine1: line1,
+            textLine2: line2,
+            guestName: guestInfo,
+            emotion: v.emotion,
+            composition: v.composition,
             photoCount: photos?.length ?? 0,
             refinement,
-            variantSuffix: v.suffix,
           }),
-          allImages,
+          imageUrls,
           v.name,
         )
-      ),
-      runYTThumbnails(text, photos?.[0] ?? referenceUrl),
-    ])
+      )
+    )
 
     const urls: string[] = []
     const modelNames: string[] = []
@@ -199,9 +223,7 @@ export async function POST(req: NextRequest) {
       }).eq('id', videoId)
     }
 
-    return NextResponse.json({
-      success: true, urls, models: modelNames,
-    })
+    return NextResponse.json({ success: true, urls, models: modelNames })
   } catch (err: any) {
     console.error('[thumb-gen]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
