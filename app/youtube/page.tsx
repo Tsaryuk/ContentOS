@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { motion } from 'framer-motion'
-import { Video, Film, Mic, RefreshCw, Eye, Clock, Sparkles, AlertCircle } from 'lucide-react'
+import { Video, Film, Mic, RefreshCw, Eye, Clock, Sparkles, AlertCircle, EyeOff } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import Link from 'next/link'
@@ -32,6 +32,7 @@ type VideoItem = {
   is_approved: boolean
   is_published_back: boolean
   generated_title: string | null
+  privacy_status: string | null
 }
 
 type ContentType = 'podcasts' | 'videos' | 'shorts' | 'queue'
@@ -276,9 +277,16 @@ function VideoGrid({ videos }: { videos: VideoItem[] }) {
               <div className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
                 {fmtDuration(v.duration_seconds)}
               </div>
-              <div className="absolute top-2 left-2 flex items-center gap-1">
-                <div className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                <span className={`text-[10px] ${st.color}`}>{st.label}</span>
+              <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                  <span className={`text-[10px] ${st.color}`}>{st.label}</span>
+                </div>
+                {v.privacy_status === 'unlisted' && (
+                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/70 text-amber-400 text-[9px] font-medium">
+                    <EyeOff className="w-2.5 h-2.5" />По ссылке
+                  </span>
+                )}
               </div>
             </div>
             <div className="p-3">
@@ -318,6 +326,13 @@ function ShortsGrid({ videos }: { videos: VideoItem[] }) {
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            {v.privacy_status === 'unlisted' && (
+              <div className="absolute top-1.5 left-1.5">
+                <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/70 text-amber-400 text-[9px] font-medium">
+                  <EyeOff className="w-2.5 h-2.5" />
+                </span>
+              </div>
+            )}
             <div className="absolute bottom-2 left-2 right-2">
               <div className="text-white text-[11px] font-medium line-clamp-2 leading-snug">
                 {v.current_title}

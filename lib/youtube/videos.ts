@@ -13,6 +13,7 @@ export interface YTVideo {
   published_at: string
   view_count: number
   like_count: number
+  privacy_status: string  // public | unlisted | private
 }
 
 // ISO 8601 → секунды (PT1H42M18S → 6138)
@@ -56,7 +57,7 @@ export async function fetchChannelVideos(channelId: string): Promise<YTVideo[]> 
   for (let i = 0; i < videoIds.length; i += 50) {
     const chunk = videoIds.slice(i, i + 50).join(',')
     const url = new URL('https://www.googleapis.com/youtube/v3/videos')
-    url.searchParams.set('part', 'snippet,contentDetails,statistics')
+    url.searchParams.set('part', 'snippet,contentDetails,statistics,status')
     url.searchParams.set('id',   chunk)
 
     const res = await fetch(url.toString(), {
@@ -79,6 +80,7 @@ export async function fetchChannelVideos(channelId: string): Promise<YTVideo[]> 
         published_at:     s.publishedAt,
         view_count:       parseInt(v.statistics?.viewCount || '0'),
         like_count:       parseInt(v.statistics?.likeCount || '0'),
+        privacy_status:   v.status?.privacyStatus || 'public',
       })
     }
   }

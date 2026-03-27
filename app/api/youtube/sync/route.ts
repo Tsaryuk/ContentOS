@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
           published_at:        v.published_at,
           view_count:          v.view_count,
           like_count:          v.like_count,
+          privacy_status:      v.privacy_status,
           // status трогаем только если видео новое
         }, {
           onConflict: 'yt_video_id',
