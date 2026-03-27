@@ -17,7 +17,7 @@ import { join } from 'path'
 // --- Config ---
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'
-const PROXY_URL = 'http://fpxbkrxg-1:lw68k05vkwvh@p.webshare.io:80'
+const PROXY_URL = process.env.YTDLP_PROXY ?? ''
 const CHUNK_MINUTES = 20
 const MAX_FILE_SIZE = 24 * 1024 * 1024
 const TMP_DIR = '/tmp/contentos-audio'
@@ -105,8 +105,9 @@ async function ensureTmpDir() {
 async function downloadAudio(ytVideoId: string): Promise<string> {
   const outPath = join(TMP_DIR, `${ytVideoId}.mp3`)
   const url = `https://www.youtube.com/watch?v=${ytVideoId}`
-  const cmd = `yt-dlp --proxy "${PROXY_URL}" -x --audio-format mp3 --postprocessor-args "ffmpeg:-ac 1 -ab 48k" -o "${outPath}" "${url}"`
-  console.log(`[download] yt-dlp via residential proxy for ${ytVideoId}`)
+  const proxyArg = PROXY_URL ? `--proxy "${PROXY_URL}"` : ''
+  const cmd = `yt-dlp ${proxyArg} -x --audio-format mp3 --postprocessor-args "ffmpeg:-ac 1 -ab 48k" -o "${outPath}" "${url}"`
+  console.log(`[download] yt-dlp ${PROXY_URL ? 'via proxy' : 'direct'} for ${ytVideoId}`)
   execSync(cmd, { timeout: 600000, stdio: 'pipe' })
   if (!existsSync(outPath)) throw new Error(`Audio file not created: ${outPath}`)
   console.log(`[download] OK: ${(statSync(outPath).size / 1024 / 1024).toFixed(1)}MB`)
@@ -490,7 +491,7 @@ async function handleProduce(videoId: string) {
       await handleTranscribe(videoId)
       // Re-fetch video after transcription
       const updated = await getVideo(videoId)
-      if (!updated.transcript) throw new Error('Transcription failed')
+      if (!updated.transcript) throw new Error(updated.error_message || 'Transcription failed')
       Object.assign(video, updated)
     }
 
