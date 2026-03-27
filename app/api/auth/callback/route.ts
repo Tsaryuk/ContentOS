@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 
 export async function GET(req: NextRequest) {
-  const origin = req.nextUrl.origin
+  const origin = process.env.APP_URL ?? req.nextUrl.origin
   const code  = req.nextUrl.searchParams.get('code')
   const error = req.nextUrl.searchParams.get('error')
 
