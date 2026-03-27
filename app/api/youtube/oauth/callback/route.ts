@@ -5,7 +5,9 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
   const error = req.nextUrl.searchParams.get('error')
 
-  const origin = process.env.APP_URL ?? req.nextUrl.origin
+  const proto = req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(':', '')
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? req.nextUrl.host
+  const origin = `${proto}://${host}`
 
   if (error) {
     return NextResponse.redirect(`${origin}/settings?oauth_error=${error}`)

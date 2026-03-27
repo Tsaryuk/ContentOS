@@ -6,7 +6,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'YOUTUBE_CLIENT_ID not set' }, { status: 500 })
   }
 
-  const origin = process.env.APP_URL ?? req.nextUrl.origin
+  const proto = req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(':', '')
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? req.nextUrl.host
+  const origin = `${proto}://${host}`
   const redirectUri = `${origin}/api/youtube/oauth/callback`
 
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
