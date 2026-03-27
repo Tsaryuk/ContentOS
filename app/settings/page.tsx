@@ -222,41 +222,60 @@ export default function SettingsPage() {
         {/* ── ACCOUNTS ── */}
         {activeSection === 'accounts' && (
           <div className="space-y-3">
+            {/* Explanation */}
+            <div className="bg-accent/5 border border-accent/20 rounded-xl px-4 py-3 text-xs text-muted leading-relaxed">
+              Каждый YouTube-канал (бренд аккаунт) подключается отдельно. Нажмите «Подключить» вверху → выберите нужный аккаунт из списка Google (Денис Царюк, Долг и Деньги, Офлайн Клуб и т.д.) → он появится здесь как отдельная строка.
+            </div>
+
             {accounts.length === 0 ? (
-              <div className="py-16 text-center text-muted text-sm">
+              <div className="py-12 text-center text-muted text-sm">
                 <User className="w-8 h-8 text-dim mx-auto mb-3" />
-                <p>Нет подключённых Google-аккаунтов.</p>
-                <p className="text-xs text-dim mt-1">Нажмите «Подключить Google аккаунт» вверху.</p>
+                <p>Нет подключённых аккаунтов.</p>
               </div>
             ) : (
-              accounts.map(acc => (
-                <div key={acc.id} className="flex items-center gap-4 bg-surface border border-border rounded-xl px-5 py-4">
-                  {acc.picture
-                    ? <img src={acc.picture} className="w-10 h-10 rounded-full" alt="" />
-                    : <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">{acc.name?.[0]}</div>
-                  }
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{acc.name}</div>
-                    <div className="text-xs text-muted">{acc.email}</div>
-                    <div className="text-xs text-dim mt-0.5">
-                      {channels.filter(c => c.google_account_id === acc.id).length} каналов
+              accounts.map(acc => {
+                const accChannels = channels.filter(c => c.google_account_id === acc.id)
+                const ch = accChannels[0]
+                const isBrand = acc.email?.includes('pages.plusgoogle.com')
+                return (
+                  <div key={acc.id} className="flex items-center gap-4 bg-surface border border-border rounded-xl px-5 py-4">
+                    {/* Show channel thumbnail if available, else Google avatar */}
+                    {ch?.thumbnail_url
+                      ? <img src={ch.thumbnail_url} className="w-10 h-10 rounded-full" alt="" />
+                      : acc.picture
+                        ? <img src={acc.picture} className="w-10 h-10 rounded-full" alt="" />
+                        : <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold text-sm">{acc.name?.[0]}</div>
+                    }
+                    <div className="flex-1 min-w-0">
+                      {/* Show channel name as primary if available */}
+                      <div className="text-sm font-medium truncate">
+                        {ch?.title ?? acc.name}
+                      </div>
+                      {/* Show handle if available */}
+                      {ch?.handle && (
+                        <div className="text-xs text-muted">{ch.handle}</div>
+                      )}
+                      {/* Show email only if it's not a confusing brand account email */}
+                      {!isBrand && (
+                        <div className="text-xs text-dim">{acc.email}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green" />
+                        <span className="text-xs text-green">Подключён</span>
+                      </div>
+                      <button
+                        onClick={() => disconnectAccount(acc.id)}
+                        disabled={disconnecting === acc.id}
+                        className="text-xs text-dim hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10"
+                      >
+                        {disconnecting === acc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Отключить'}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green" />
-                      <span className="text-xs text-green">Подключён</span>
-                    </div>
-                    <button
-                      onClick={() => disconnectAccount(acc.id)}
-                      disabled={disconnecting === acc.id}
-                      className="text-xs text-dim hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10"
-                    >
-                      {disconnecting === acc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Отключить'}
-                    </button>
-                  </div>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         )}
