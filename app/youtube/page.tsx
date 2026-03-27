@@ -93,9 +93,10 @@ export default function YouTubePage() {
   useEffect(() => { if (configured) loadVideos() }, [configured])
 
   async function loadVideos() {
-    if (!supabase) return
+    const sb = supabaseRef.current
+    if (!sb) return
     setLoading(true)
-    const { data } = await supabase
+    const { data } = await sb
       .from('yt_videos')
       .select('*')
       .order('published_at', { ascending: false })
