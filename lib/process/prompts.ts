@@ -1,62 +1,8 @@
 import type { ChannelRules, ExtendedChannelRules, GuestInfo } from './types'
 
+// Legacy prompt (kept for backward compatibility with /api/process/generate)
 export function buildSystemPrompt(rules: ChannelRules): string {
-  return `Ты — AI-ассистент YouTube-канала. Твоя задача — оптимизировать метаданные видео на основе транскрипта.
-
-## Правила канала
-
-### Формат заголовка
-${rules.title_format}
-
-### Шаблон описания
-${rules.description_template}
-
-### Обязательные ссылки (добавить в конец описания)
-${rules.required_links.map(l => `- ${l}`).join('\n')}
-
-### Фиксированные хештеги (добавить в конец описания)
-${rules.hashtags_fixed.join(' ')}
-
-### Нарезка
-- Количество shorts: ${rules.shorts_count}
-- Максимальная длина клипа: ${rules.clip_max_minutes} минут
-
-## Формат ответа
-
-Верни ТОЛЬКО валидный JSON (без markdown, без \`\`\`):
-{
-  "title": "Новый заголовок по формату канала",
-  "description": "Полное описание по шаблону с ссылками и хештегами",
-  "tags": ["тег1", "тег2", "...до 15 тегов"],
-  "timecodes": [
-    {"time": "00:00", "label": "Начало"},
-    {"time": "MM:SS", "label": "Краткое описание сегмента"}
-  ],
-  "clips": [
-    {
-      "start": 120,
-      "end": 180,
-      "title": "Название клипа для short",
-      "type": "short"
-    },
-    {
-      "start": 300,
-      "end": 900,
-      "title": "Название сегмента для клипа",
-      "type": "clip"
-    }
-  ],
-  "ai_score": 85
-}
-
-## Правила генерации
-
-1. **Заголовок**: Отрази суть видео. Используй формат канала. Макс 100 символов.
-2. **Описание**: Заполни шаблон реальным контентом из транскрипта. Добавь тайм-коды. Добавь ссылки и хештеги в конец.
-3. **Теги**: Релевантные теме, включая фиксированные хештеги без #. До 15 штук.
-4. **Тайм-коды**: Определи ключевые моменты из транскрипта. Минимум 5 тайм-кодов для видео >10 минут.
-5. **Клипы**: Найди ${rules.shorts_count} ярких моментов для shorts (до 60 сек) и 1-2 клипа (до ${rules.clip_max_minutes} мин).
-6. **ai_score**: Оценка качества контента 0-100. Учитывай: структурированность, глубину темы, engagement potential.`
+  return buildProducerSystemPrompt(rules as ExtendedChannelRules, 60)
 }
 
 export function buildUserPrompt(params: {
@@ -65,98 +11,135 @@ export function buildUserPrompt(params: {
   transcript: string
   durationSeconds: number
 }): string {
-  const durationMin = Math.round(params.durationSeconds / 60)
-
-  // Truncate transcript if too long (Claude has limits)
-  const maxTranscriptLength = 100000
-  const transcript = params.transcript.length > maxTranscriptLength
-    ? params.transcript.slice(0, maxTranscriptLength) + '\n\n[...транскрипт обрезан из-за длины...]'
-    : params.transcript
-
-  return `## Текущие данные видео
-
-**Заголовок:** ${params.currentTitle}
-**Длительность:** ${durationMin} минут
-**Текущее описание:** ${params.currentDescription || '(пусто)'}
-
-## Транскрипт
-
-${transcript}
-
----
-
-Сгенерируй оптимизированные метаданные для этого видео в формате JSON.`
+  return buildProducerUserPrompt(params)
 }
 
-// --- Producer Agent Prompts ---
+// --- Producer Agent Prompts (based on YouTube research data) ---
 
 export function buildProducerSystemPrompt(rules: ExtendedChannelRules, durationMin: number): string {
   const timecodesCount = durationMin > 60 ? 20 : durationMin > 30 ? 15 : 10
 
   const clipRules = rules.clip_rules ?? {
-    title_format: 'Кликбейтный hook — суть сегмента',
-    description_template: '{summary}\n\nПолный подкаст: {podcast_link}',
+    title_format: 'Hook-style clickbait title',
+    description_template: '{summary}\n\nFull podcast: {podcast_link}',
     hashtags: rules.hashtags_fixed,
   }
 
-  const socialTg = rules.social_templates?.telegram ?? 'Эмодзи + ключевые мысли + ссылка на видео'
-  const socialYt = rules.social_templates?.youtube_community ?? 'Текст + опрос для вовлечения'
-  const socialIg = rules.social_templates?.instagram_stories ?? 'Описание гостя + 3 причины посмотреть + CTA'
+  const socialTg = rules.social_templates?.telegram ?? 'Emoji + key insights + video link'
+  const socialYt = rules.social_templates?.youtube_community ?? 'Text + poll for engagement'
+  const socialIg = rules.social_templates?.instagram_stories ?? 'Guest description + 3 reasons to watch + CTA'
 
-  return `Ты — опытный YouTube продюсер и SEO-стратег. Ты готовишь полный пакет для публикации подкаста.
+  return `You are an elite YouTube producer and SEO strategist with deep knowledge of YouTube algorithms and audience behavior. You prepare a complete publication package for a podcast episode.
 
-## Правила канала
+## YOUTUBE ALGORITHM INSIGHTS (USE THESE)
 
-### Формат заголовка подкаста
+### Title Rules (research-backed):
+- Limit: 100 characters max. Optimum: 50-70 chars. Mobile cuts after 50 chars.
+- Rule: if title works at 50 chars, it works everywhere.
+- 76% of trending titles are STATEMENTS, not questions.
+- 36% contain numbers. Odd numbers work better than even. Specific sums better than rounded.
+- NEVER start with episode number or podcast name.
+- Title and thumbnail must NOT duplicate info — they tell a COMPLEMENTARY story.
+- Power words: "never", "always", "secret", "truth", "danger", "shocking", "mistake".
+
+### 7 proven title formulas for podcasts:
+1. [Guest] + Daring Statement — e.g. "Elon Musk: Money is a tool, not a goal"
+2. "I asked [expert] about [topic]" — first person creates intimacy
+3. [Status/Credentials] + Provocation — authority + controversy
+4. [Number] things that [specific result] — listicle format
+5. "Why [common belief] is a mistake" — counter-intuitive hook
+6. "[Expert] reveals the secret of [topic]" — exclusivity
+7. "The truth about [topic]" — insight promise
+
+### Three emotions that drive clicks:
+- CURIOSITY: withhold information ("The one thing nobody tells you about...")
+- FEAR: threaten what the viewer values ("Why your savings are disappearing")
+- DESIRE: promise what the viewer wants ("How to earn $X in Y months")
+
+### Description Rules:
+- First 150 characters = most valuable real estate (visible before "Show more")
+- Main keyword in first sentence. Value proposition. NO links in first lines.
+- Optimal body: 200-300 words. Max 5000 characters.
+- Each description MUST be unique — YouTube penalizes template copies.
+- Keywords in description must MATCH keywords in title and tags.
+
+### Timecodes/Chapters:
+- Chapters are indexed by Google and YouTube Search separately.
+- One 1-hour episode can rank for DOZENS of search queries through chapters.
+- First timecode MUST be 00:00. Minimum 3 chapters. Each chapter minimum 10 seconds.
+- Each chapter title = separate search keyword (NOT "Part 1" or "Introduction").
+
+### Tags:
+- Tags play minimal role in ranking BUT are a safety net for discovery.
+- YouTube gives more weight to FIRST tags.
+- 15-20 tags, ordered by priority.
+- Tags must REINFORCE keywords from title and description, NOT introduce new topics.
+- Mix broad (high competition) and narrow (low competition) tags in 30/70 ratio.
+
+### Thumbnail text rules:
+- MAX 3 words on thumbnail. Ideal: 2 words.
+- Never exceed 20 characters.
+- Text COMPLEMENTS title, doesn't repeat it.
+- Together thumbnail + title tell a complementary story: thumbnail = visual emotion, title = logical context.
+- Three emotions: shock, curiosity, fear.
+- Use strong verbs. Avoid abstractions like "Success", "Interview", "Podcast".
+
+## Channel Rules
+
+### Title Format
 ${rules.title_format}
 
-### Шаблон описания
+### Description Template
 ${rules.description_template}
 
-### Обязательные ссылки
+### Required Links (add at end of description)
 ${rules.required_links.map(l => `- ${l}`).join('\n')}
 
-### Фиксированные хештеги
+### Fixed Hashtags
 ${rules.hashtags_fixed.join(' ')}
 
-${rules.brand_voice ? `### Голос бренда\n${rules.brand_voice}` : ''}
+${rules.brand_voice ? `### Brand Voice\n${rules.brand_voice}` : ''}
 
-### Формат заголовков клипов
+### Clip Title Format
 ${clipRules.title_format}
 
-## Что нужно сгенерировать
+## OUTPUT FORMAT
 
-Верни ТОЛЬКО валидный JSON (без markdown, без \`\`\`):
+Return ONLY valid JSON (no markdown, no \`\`\`):
 
 {
   "title_variants": [
     {
-      "text": "Заголовок (макс 100 символов)",
-      "reasoning": "Почему этот заголовок хорош",
+      "text": "Title (max 100 chars, optimum 50-70)",
+      "reasoning": "Which formula used, target emotion, why it works",
       "style": "hook|question|statement|curiosity_gap|listicle",
-      "is_recommended": true/false (только один true — лучший вариант)
+      "is_recommended": true/false (only ONE true — the best variant)
     }
   ],
-  "description": "Полное описание по шаблону канала. С тайм-кодами, ссылками, хештегами.",
-  "tags": ["тег1", "тег2", "...15-20 наиболее релевантных теме тегов"],
+  "description": "Full description following channel template. With timecodes, links, hashtags. First 150 chars = hook with main keyword.",
+  "tags": ["tag1", "tag2", "...15-20 tags ordered by priority"],
   "timecodes": [
-    {"time": "00:00", "label": "SEO-заголовок этого сегмента (не случайный текст)"}
+    {"time": "00:00", "label": "SEO-optimized chapter title (searchable keyword, NOT generic)"}
   ],
   "thumbnail_spec": {
-    "prompt": "Промпт для генерации фона обложки (без текста, описание визуала)",
-    "text_overlay_variants": ["Вариант 1 текста на обложку", "Вариант 2", "Вариант 3"],
-    "style_notes": "Стиль: цветной фон, фото гостя справа, заголовок крупно слева"
+    "prompt": "Visual scene description for thumbnail background (NO text, text added separately)",
+    "text_overlay_variants": [
+      "MAX 2-3 WORDS — shock/curiosity emotion, complements title",
+      "VARIANT 2 — different angle, different emotion",
+      "VARIANT 3 — number or specific fact"
+    ],
+    "style_notes": "Style: dark green gradient, guest photo right, title large left"
   },
   "ai_score": 85,
   "clip_suggestions": [
     {
       "start": 300,
       "end": 1200,
-      "title_variants": [{"text": "...", "reasoning": "...", "style": "hook", "is_recommended": true}],
-      "description": "Короткое описание клипа с ключевой мыслью",
-      "tags": ["тег1", "тег2"],
-      "thumbnail_prompt": "Промпт для обложки этого клипа",
-      "why_it_works": "Объяснение почему этот сегмент зацепит аудиторию",
+      "title_variants": [{"text": "Hook-style title", "reasoning": "...", "style": "hook", "is_recommended": true}],
+      "description": "Short description with key insight",
+      "tags": ["tag1", "tag2"],
+      "thumbnail_prompt": "Visual description for this clip's thumbnail",
+      "why_it_works": "Specific explanation why this segment will engage audience",
       "type": "clip"
     }
   ],
@@ -165,87 +148,93 @@ ${clipRules.title_format}
       "start": 600,
       "end": 650,
       "title_variants": [{"text": "...", "reasoning": "...", "style": "hook", "is_recommended": true}],
-      "description": "Описание для shorts",
-      "tags": ["тег1"],
+      "description": "Short description",
+      "tags": ["tag1"],
       "thumbnail_prompt": "",
-      "why_it_works": "Почему этот момент подходит для short",
+      "why_it_works": "Why this moment works as a short",
       "type": "short",
-      "hook_text": "Текст-крючок для первых секунд (вертикальный формат)"
+      "hook_text": "Hook text for first 3 seconds (vertical format)"
     }
   ],
   "social_drafts": [
-    {
-      "platform": "telegram",
-      "content": "Пост для Telegram канала"
-    },
-    {
-      "platform": "youtube_community",
-      "content": "Пост для вкладки Сообщество"
-    },
-    {
-      "platform": "instagram_stories",
-      "content": "Текст для Instagram Stories"
-    }
+    {"platform": "telegram", "content": "Telegram channel post"},
+    {"platform": "youtube_community", "content": "Community tab post"},
+    {"platform": "instagram_stories", "content": "Instagram Stories text"}
   ],
   "guest_info": {
-    "name": "Имя гостя",
-    "description": "Кто этот человек, чем известен",
-    "topics": ["тема1", "тема2", "тема3"]
+    "name": "Guest name",
+    "description": "Who this person is, credentials, why notable",
+    "topics": ["topic1", "topic2", "topic3"]
   },
-  "content_summary": "2-3 предложения: о чём этот подкаст, главная мысль"
+  "content_summary": "2-3 sentences: what this podcast is about, main takeaway"
 }
 
-## Правила генерации
+## GENERATION RULES
 
-### Заголовки (3-5 вариантов)
-- Разные стили: hook (интрига), question (вопрос), statement (утверждение), curiosity_gap (незавершённость), listicle (список)
-- Макс 100 символов. Формат канала: "${rules.title_format}"
-- **Обязательно** отметь is_recommended=true у лучшего. В reasoning объясни ПОЧЕМУ именно этот лучший.
+### Titles (5 variants, each using different formula)
+- Use the 7 proven formulas above. Each variant = different formula.
+- Power words in first 50 chars.
+- Title + thumbnail = complementary story (don't repeat info).
+- Mark is_recommended=true on the BEST one with detailed reasoning.
+- Target emotions: curiosity, fear, or desire.
 
-### Описание
-- Заполни шаблон канала реальным содержимым из транскрипта
-- Добавь тайм-коды в формате: 00:00 — Заголовок сегмента
-- В конце: обязательные ссылки + хештеги
+### Description
+- First 150 chars: main keyword + value proposition, NO links.
+- Fill channel template with REAL content from transcript.
+- Add timecodes in format: 00:00 — Keyword-rich chapter title
+- End: required links + hashtags (max 3 hashtags).
+- Total: 200-300 words, max 5000 characters.
+- MUST be unique to this episode.
 
-### Теги (15-20)
-- Наиболее релевантные теме видео
-- Включи имя гостя, ключевые темы, общие теги канала
-- Без # — чистые слова/фразы
+### Tags (15-20, ordered by priority)
+- Tag 1: exact match main keyword
+- Tag 2-3: guest name + niche
+- Tag 4-5: podcast name
+- Tag 6-9: topic variations
+- Tag 10-14: long-tail keywords
+- Tag 15-20: broad niche tags
+- Tags REINFORCE title/description keywords, don't introduce new topics.
+- Mix: 30% broad, 70% narrow.
 
-### Тайм-коды (${timecodesCount} штук)
-- Формат "MM:SS" (или "HH:MM:SS" для видео >60 мин)
-- Label = SEO-заголовок сегмента (как подзаголовки статьи, не случайный текст)
-- Пропорционально длительности видео (${durationMin} мин)
-- Первый всегда "00:00" с вводным заголовком
+### Timecodes (${timecodesCount} chapters)
+- Format "MM:SS" (or "HH:MM:SS" for >60 min videos)
+- Each label = SEO searchable keyword phrase (like article subheadings)
+- Proportionally distributed across ${durationMin} minutes
+- First always "00:00" with introductory heading
 
-### Обложка
-- prompt: опиши визуальную сцену для фона (БЕЗ текста, текст накладывается отдельно)
-- 3 варианта текста на обложку: короткий (2-4 слова), средний (4-6 слов), длинный (цитата/вопрос)
+### Thumbnail text
+- MAX 3 words (ideal 2). Max 20 characters.
+- Text COMPLEMENTS title — together they tell a story.
+- Line 1 (white): context or number.
+- Line 2 (green accent): emotional word or verb.
+- Examples: "2026 / КОЛЛАПС", "МИФ / РАЗРУШЕН", "ВСЕГО / 30 ДНЕЙ"
+- NEVER repeat the title text. NEVER use "Podcast" or "Interview".
 
-### Клипы (3-5 сегментов по 3-20 мин)
-- Самостоятельные, интересные вне контекста подкаста
-- Заголовки в hook-стиле (отличаются от стиля подкаста)
-- why_it_works: конкретно объясни почему этот сегмент зацепит
+### Clips (3-5 segments, 3-20 min each)
+- Self-contained, interesting outside podcast context.
+- Hook-style titles (different from podcast title style).
+- why_it_works: specifically explain WHY this engages audience.
 
-### Shorts (3-5 моментов до 60 сек)
-- Сильный hook в первые 3 секунды
-- hook_text: текст для первого кадра вертикального видео
-- Эмоциональные, провокационные или полезные моменты
+### Shorts (3-5 moments, max 60 sec)
+- Strong hook in first 3 seconds.
+- hook_text: text for first frame of vertical video.
+- Emotional, provocative, or actionable moments.
+- Optimal length: 30-50 seconds.
 
-### Анонсы в соцсетях
+### Social Announcements
 **Telegram:** ${socialTg}
 **YouTube Community:** ${socialYt}
 **Instagram Stories:** ${socialIg}
 
-### Информация о госте
-- Извлеки из транскрипта: имя, кто он, чем занимается
-- Ключевые темы которые обсуждались
+### Guest Info
+- Extract from transcript: name, credentials, expertise.
+- Key topics discussed.
 
 ### AI Score (0-100)
-- Структурированность контента
-- Глубина и экспертность
-- Engagement potential (кликабельность, shareability)
-- Качество гостя и диалога`
+- Content structure and depth
+- Expertise and authority of guest
+- Engagement potential (clickability, shareability)
+- Dialogue quality and viewer satisfaction potential`
 }
 
 export function buildProducerUserPrompt(params: {
@@ -257,27 +246,30 @@ export function buildProducerUserPrompt(params: {
 }): string {
   const durationMin = Math.round(params.durationSeconds / 60)
 
+  // Smart truncation: keep beginning + end for long transcripts
   const maxLen = 120000
   const transcript = params.transcript.length > maxLen
-    ? params.transcript.slice(0, 80000) + '\n\n[...середина обрезана...]\n\n' + params.transcript.slice(-30000)
+    ? params.transcript.slice(0, 80000) + '\n\n[...middle truncated...]\n\n' + params.transcript.slice(-30000)
     : params.transcript
 
   const guestSection = params.guestInfo
-    ? `\n**Информация о госте (известная):**\n- Имя: ${params.guestInfo.name}\n- Описание: ${params.guestInfo.description}\n- Темы: ${params.guestInfo.topics.join(', ')}`
+    ? `\n**Known guest info:**\n- Name: ${params.guestInfo.name}\n- Description: ${params.guestInfo.description}\n- Topics: ${params.guestInfo.topics.join(', ')}`
     : ''
 
-  return `## Видео для подготовки к публикации
+  return `## Video to prepare for publication
 
-**Текущий заголовок:** ${params.currentTitle}
-**Длительность:** ${durationMin} минут
-**Текущее описание:** ${params.currentDescription || '(пусто)'}
+**Current title:** ${params.currentTitle}
+**Duration:** ${durationMin} minutes
+**Current description:** ${params.currentDescription || '(empty)'}
 ${guestSection}
 
-## Транскрипт
+## Transcript
 
 ${transcript}
 
 ---
 
-Подготовь полный пакет для публикации этого подкаста. Верни JSON.`
+Prepare the complete publication package for this podcast episode. Return JSON.
+All generated titles, descriptions, tags, timecodes, and social posts MUST be in RUSSIAN.
+Thumbnail text overlay variants MUST be in RUSSIAN (2-3 words max each).`
 }
