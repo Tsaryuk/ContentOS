@@ -62,6 +62,7 @@ export default function SettingsPage() {
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectColor, setNewProjectColor] = useState('#a67ff0')
   const [creatingProject, setCreatingProject] = useState(false)
+  const [disconnecting, setDisconnecting] = useState<string | null>(null)
 
   // Channel rules
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null)
@@ -109,6 +110,14 @@ export default function SettingsPage() {
       await loadData()
     }
     setCreatingProject(false)
+  }
+
+  async function disconnectAccount(id: string) {
+    if (!confirm('Отключить этот Google-аккаунт?')) return
+    setDisconnecting(id)
+    await fetch(`/api/accounts/${id}`, { method: 'DELETE' })
+    setDisconnecting(null)
+    await loadData()
   }
 
   async function assignToProject(channelId: string, projectId: string | null) {
@@ -212,9 +221,18 @@ export default function SettingsPage() {
                       {channels.filter(c => c.google_account_id === acc.id).length} каналов
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green" />
-                    <span className="text-xs text-green">Подключён</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green" />
+                      <span className="text-xs text-green">Подключён</span>
+                    </div>
+                    <button
+                      onClick={() => disconnectAccount(acc.id)}
+                      disabled={disconnecting === acc.id}
+                      className="text-xs text-dim hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10"
+                    >
+                      {disconnecting === acc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Отключить'}
+                    </button>
                   </div>
                 </div>
               ))
