@@ -77,16 +77,18 @@ function fmtDate(d: string) {
 
 export default function YouTubePage() {
   const supabaseRef = useRef<SupabaseClient | null>(null)
-  if (!supabaseRef.current && typeof window !== 'undefined') {
-    supabaseRef.current = getSupabase()
-  }
-  const supabase = supabaseRef.current
-  const configured = !!supabase
-
+  const [configured, setConfigured] = useState(false)
   const [allVideos, setAllVideos] = useState<VideoItem[]>([])
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [activeTab, setActiveTab] = useState<ContentType>('podcasts')
+
+  useEffect(() => {
+    supabaseRef.current = getSupabase()
+    if (supabaseRef.current) {
+      setConfigured(true)
+    }
+  }, [])
 
   useEffect(() => { if (configured) loadVideos() }, [configured])
 

@@ -22,6 +22,23 @@ function apiUrl(path: string): string {
   return path
 }
 
+async function downloadImage(url: string, filename: string) {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(objectUrl)
+  } catch {
+    window.open(url, '_blank')
+  }
+}
+
 export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, generatedUrls: initialUrls, savedPhotos, savedReference, onSelect }: Props) {
   const [photos, setPhotos] = useState<{ file?: File; preview: string }[]>([])
   const [reference, setReference] = useState<{ file?: File; preview: string } | null>(null)
@@ -167,15 +184,13 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
                   <Check className="w-3 h-3 text-white" />
                 </div>
               )}
-              <a
-                href={r.url}
-                download={`thumbnail_${i + 1}.jpg`}
-                onClick={e => e.stopPropagation()}
+              <button
+                onClick={e => { e.stopPropagation(); downloadImage(r.url, `thumbnail_${i + 1}.jpg`) }}
                 className="absolute top-1.5 left-1.5 w-6 h-6 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
                 title="Скачать"
               >
                 <Download className="w-3 h-3 text-white" />
-              </a>
+              </button>
             </button>
           ))}
         </div>
