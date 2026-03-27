@@ -11,112 +11,116 @@ function getSupabase() {
 
 export const maxDuration = 180
 
-// 4 models: each handles photos + text differently
-const MODELS: {
-  id: string
-  name: string
-  build: (p: GenParams) => Record<string, unknown>
-}[] = [
+// Prompt variations for Nano Banana 2 Edit
+const NANO_VARIANTS = [
   {
-    id: 'fal-ai/nano-banana-2',
-    name: 'Nano Banana 2',
-    build: (p) => ({
-      prompt: p.fullPrompt,
-      image_size: { width: 1280, height: 720 },
-      num_images: 1,
-    }),
+    name: 'Nano Banana A',
+    suffix: 'Close-up emotional face showing surprise or curiosity. Text positioned top-left, very large and bold. High contrast between text and background.',
   },
   {
-    id: 'fal-ai/image-editing/youtube-thumbnails',
-    name: 'YT Thumbnails',
-    build: (p) => ({
-      image_url: p.photoUrl ?? p.refUrl ?? 'https://fal.media/files/koala/QUihQrMqowYu30UFC_Atk.png',
-      prompt: p.text,
-      guidance_scale: 4.0,
-      num_inference_steps: 35,
-      lora_scale: 0.6,
-    }),
+    name: 'Nano Banana B',
+    suffix: 'Medium shot with dramatic side lighting. Text centered at bottom, clean and readable. Strong visual hierarchy.',
   },
   {
-    id: 'fal-ai/flux-pro/v1.1',
-    name: 'Flux 2 Pro',
-    build: (p) => ({
-      prompt: p.fullPrompt,
-      image_size: { width: 1360, height: 768 },
-      num_images: 1,
-    }),
-  },
-  {
-    id: 'fal-ai/ideogram/v2/turbo',
-    name: 'Ideogram',
-    build: (p) => ({
-      prompt: p.fullPrompt,
-      image_size: { width: 1280, height: 720 },
-      num_images: 1,
-    }),
+    name: 'Nano Banana C',
+    suffix: 'Cinematic wide composition, moody dark atmosphere. Text with drop shadow, bottom-left. Editorial photography feel.',
   },
 ]
 
-interface GenParams {
+function buildNanoPrompt(params: {
   text: string
-  fullPrompt: string
-  photoUrl?: string
-  refUrl?: string
-}
-
-function buildPrompt(params: {
-  text: string
+  guestInfo?: string
   photoCount: number
   refinement?: string
-  guestInfo?: string
+  variantSuffix: string
 }): string {
-  const { text, photoCount, refinement, guestInfo } = params
+  const { text, guestInfo, photoCount, refinement, variantSuffix } = params
 
   const layout = photoCount === 1
-    ? 'One person on the right side, expressive emotional face, looking at camera.'
+    ? 'One person from the reference photo, expressive emotional face.'
     : photoCount === 2
-    ? 'Two people: left and right. Expressive emotional faces, real emotions.'
+    ? 'Two people from the reference photos. Expressive emotional faces.'
     : photoCount >= 3
-    ? 'Three people across the frame, emotional expressive faces.'
+    ? 'Three people from the reference photos, emotional expressive faces.'
     : ''
 
   return [
-    `YouTube podcast thumbnail, 1280x720.`,
-    `Dark green-black gradient background, cinematic moody lighting.`,
+    'YouTube podcast thumbnail, 1280x720, 16:9.',
+    'Dark green-black gradient background.',
     layout,
     `Large bold Russian Cyrillic text: "${text}".`,
-    `One key word highlighted in bright green (#4CAF50), rest white.`,
-    `Professional podcast thumbnail style, high contrast.`,
-    guestInfo ? `Guest: ${guestInfo}, name shown at bottom.` : '',
-    `Emotional faces that boost CTR. Clean composition.`,
-    refinement ? `MODIFICATION: ${refinement}` : '',
+    'One key word highlighted in bright green (#4CAF50), rest white.',
+    guestInfo ? `Guest: ${guestInfo}, name at bottom.` : '',
+    'Professional podcast thumbnail, high contrast.',
+    variantSuffix,
+    refinement ? `IMPORTANT: ${refinement}` : '',
   ].filter(Boolean).join(' ')
 }
 
-async function runModel(
-  model: typeof MODELS[0],
-  params: GenParams,
-): Promise<string | null> {
+async function runNanoBanana(
+  prompt: string,
+  imageUrls: string[],
+  name: string,
+): Promise<{ url: string | null; name: string }> {
   try {
-    const input = model.build(params)
-    console.log(`[thumb] ${model.name}: starting...`)
+    console.log(`[thumb] ${name}: starting with ${imageUrls.length} images...`)
 
-    const result = await fal.subscribe(model.id, { input: input as any }) as any
+    const input: Record<string, unknown> = {
+      prompt,
+      aspect_ratio: '16:9',
+      resolution: '2K',
+      num_images: 1,
+      safety_tolerance: 5,
+    }
+
+    if (imageUrls.length > 0) {
+      input.image_urls = imageUrls
+    }
+
+    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', { input: input as any }) as any
 
     const url =
       result?.data?.images?.[0]?.url ??
       result?.images?.[0]?.url ??
-      result?.data?.output?.images?.[0]?.url ??
+      null
+
+    console.log(`[thumb] ${name}: ${url ? 'OK' : 'no image'}`)
+    return { url, name }
+  } catch (err: any) {
+    console.error(`[thumb] ${name} failed:`, err.message?.slice(0, 200))
+    return { url: null, name }
+  }
+}
+
+async function runYTThumbnails(
+  text: string,
+  photoUrl: string | undefined,
+): Promise<{ url: string | null; name: string }> {
+  const name = 'YT Thumbnails'
+  try {
+    console.log(`[thumb] ${name}: starting...`)
+
+    const input: Record<string, unknown> = {
+      image_url: photoUrl ?? 'https://fal.media/files/koala/QUihQrMqowYu30UFC_Atk.png',
+      prompt: `${text}. Bold large Russian Cyrillic text overlay, green highlight on key word. Professional YouTube podcast thumbnail.`,
+      guidance_scale: 5.0,
+      num_inference_steps: 35,
+      lora_scale: 0.8,
+    }
+
+    const result = await fal.subscribe('fal-ai/image-editing/youtube-thumbnails', { input: input as any }) as any
+
+    const url =
+      result?.data?.images?.[0]?.url ??
+      result?.images?.[0]?.url ??
       result?.data?.image?.url ??
       null
 
-    if (url) console.log(`[thumb] ${model.name}: OK`)
-    else console.log(`[thumb] ${model.name}: no image in response`)
-
-    return url
+    console.log(`[thumb] ${name}: ${url ? 'OK' : 'no image'}`)
+    return { url, name }
   } catch (err: any) {
-    console.error(`[thumb] ${model.name} failed:`, err.message?.slice(0, 200))
-    return null
+    console.error(`[thumb] ${name} failed:`, err.message?.slice(0, 200))
+    return { url: null, name }
   }
 }
 
@@ -131,38 +135,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'videoId and text required' }, { status: 400 })
     }
 
-    const fullPrompt = buildPrompt({
-      text,
-      photoCount: photos?.length ?? 0,
-      refinement,
-      guestInfo,
-    })
+    // Combine photos + reference into image_urls for Nano Banana
+    const allImages = [
+      ...(photos ?? []),
+      ...(referenceUrl ? [referenceUrl] : []),
+    ].filter(Boolean) as string[]
 
-    const params: GenParams = {
-      text,
-      fullPrompt,
-      photoUrl: photos?.[0],
-      refUrl: referenceUrl,
-    }
+    console.log(`[thumb] Generating "${text}" | ${allImages.length} images | ${NANO_VARIANTS.length + 1} models...`)
 
-    console.log(`[thumb] Generating "${text}" with ${MODELS.length} models...`)
-
-    // Run all 4 in parallel
-    const settled = await Promise.allSettled(
-      MODELS.map(m => runModel(m, params))
-    )
+    // Run all 4 in parallel: 3x Nano Banana + 1x YT Thumbnails
+    const settled = await Promise.allSettled([
+      ...NANO_VARIANTS.map(v =>
+        runNanoBanana(
+          buildNanoPrompt({
+            text,
+            guestInfo,
+            photoCount: photos?.length ?? 0,
+            refinement,
+            variantSuffix: v.suffix,
+          }),
+          allImages,
+          v.name,
+        )
+      ),
+      runYTThumbnails(text, photos?.[0] ?? referenceUrl),
+    ])
 
     const urls: string[] = []
     const modelNames: string[] = []
 
-    for (let i = 0; i < settled.length; i++) {
-      const r = settled[i]
-      if (r.status !== 'fulfilled' || !r.value) continue
+    for (const r of settled) {
+      if (r.status !== 'fulfilled' || !r.value.url) continue
 
       try {
-        const imgRes = await fetch(r.value)
+        const imgRes = await fetch(r.value.url)
         const imgBuf = Buffer.from(await imgRes.arrayBuffer())
-        const slug = MODELS[i].name.toLowerCase().replace(/\s+/g, '_')
+        const slug = r.value.name.toLowerCase().replace(/\s+/g, '_')
         const fileName = `${videoId}/gen_${slug}_${Date.now()}.jpg`
 
         await supabase.storage.from('thumbnails').upload(fileName, imgBuf, {
@@ -170,9 +178,9 @@ export async function POST(req: NextRequest) {
         })
         const { data } = supabase.storage.from('thumbnails').getPublicUrl(fileName)
         urls.push(data.publicUrl)
-        modelNames.push(MODELS[i].name)
+        modelNames.push(r.value.name)
       } catch (err: any) {
-        console.error(`[thumb] ${MODELS[i].name} upload:`, err.message)
+        console.error(`[thumb] ${r.value.name} upload:`, err.message)
       }
     }
 
@@ -193,7 +201,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true, urls, models: modelNames,
-      prompt: fullPrompt.slice(0, 200) + '...',
     })
   } catch (err: any) {
     console.error('[thumb-gen]', err)
