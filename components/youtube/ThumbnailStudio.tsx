@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useRef, DragEvent } from 'react'
-import { Wand2, Loader2, X, Plus, RefreshCw, Check, Image as ImageIcon } from 'lucide-react'
+import { useState, useRef, useEffect, DragEvent } from 'react'
+import { Wand2, Loader2, X, Plus, RefreshCw, Check, Image as ImageIcon, Download } from 'lucide-react'
 
 interface Props {
   videoId: string
   textVariants: string[]
   currentThumbnail?: string
   generatedUrls?: string[]
+  savedPhotos?: string[]      // persisted photo URLs from DB
+  savedReference?: string     // persisted reference URL from DB
   onSelect: (url: string) => void
 }
 
@@ -20,10 +22,20 @@ function apiUrl(path: string): string {
   return path
 }
 
-export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, generatedUrls: initialUrls, onSelect }: Props) {
-  const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([])
-  const [reference, setReference] = useState<{ file: File; preview: string } | null>(null)
+export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, generatedUrls: initialUrls, savedPhotos, savedReference, onSelect }: Props) {
+  const [photos, setPhotos] = useState<{ file?: File; preview: string }[]>([])
+  const [reference, setReference] = useState<{ file?: File; preview: string } | null>(null)
   const [selectedText, setSelectedText] = useState(textVariants[0] ?? '')
+
+  // Load saved photos/reference on mount
+  useEffect(() => {
+    if (savedPhotos?.length && photos.length === 0) {
+      setPhotos(savedPhotos.map(url => ({ preview: url })))
+    }
+    if (savedReference && !reference) {
+      setReference({ preview: savedReference })
+    }
+  }, [savedPhotos, savedReference])
   const [customText, setCustomText] = useState('')
   const [refinement, setRefinement] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -66,24 +78,39 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
     setGenerating(true)
     setError(null)
     try {
-      let photoUrls: string[] = []
-      let refUrl = ''
+      // Separate new files vs already-uploaded URLs
+      const existingPhotoUrls = photos.filter(p => !p.file).map(p => p.preview)
+      const newPhotoFiles = photos.filter(p => p.file).map(p => p.file!)
+      const existingRefUrl = (!reference?.file && reference?.preview) ? reference.preview : ''
+      const newRefFile = reference?.file
 
-      const allFiles = [...photos.map(p => p.file), ...(reference ? [reference.file] : [])]
-      if (allFiles.length > 0) {
+      let photoUrls: string[] = [...existingPhotoUrls]
+      let refUrl = existingRefUrl
+
+      const allNewFiles = [...newPhotoFiles, ...(newRefFile ? [newRefFile] : [])]
+      if (allNewFiles.length > 0) {
         const fd = new FormData()
         fd.set('videoId', videoId)
-        allFiles.forEach((f, i) => fd.set(`file${i}`, f))
+        allNewFiles.forEach((f, i) => fd.set(`file${i}`, f))
         const upRes = await fetch(apiUrl('/api/thumbnail/upload'), { method: 'POST', body: fd })
         const upData = await upRes.json()
         if (upData.urls) {
-          if (reference) {
+          if (newRefFile) {
             refUrl = upData.urls[upData.urls.length - 1]
-            photoUrls = upData.urls.slice(0, -1)
+            photoUrls = [...photoUrls, ...upData.urls.slice(0, -1)]
           } else {
-            photoUrls = upData.urls
+            photoUrls = [...photoUrls, ...upData.urls]
           }
         }
+      }
+
+      // Save uploaded URLs to DB for persistence
+      if (photoUrls.length > 0 || refUrl) {
+        fetch(apiUrl('/api/thumbnail/save-assets'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoId, photos: photoUrls, reference: refUrl || undefined }),
+        }).catch(() => {}) // fire and forget
       }
 
       const res = await fetch(apiUrl('/api/thumbnail/generate'), {
@@ -126,7 +153,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
             <button
               key={r.url + i}
               onClick={() => { setSelectedUrl(r.url); onSelect(r.url) }}
-              className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+              className={`relative group rounded-lg overflow-hidden border-2 transition-all ${
                 selectedUrl === r.url ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'border-white/[0.06] hover:border-white/20'
               }`}
             >
@@ -137,6 +164,15 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
                   <Check className="w-3 h-3 text-white" />
                 </div>
               )}
+              <a
+                href={r.url}
+                download={`thumbnail_${i + 1}.jpg`}
+                onClick={e => e.stopPropagation()}
+                className="absolute top-1.5 left-1.5 w-6 h-6 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+                title="Скачать"
+              >
+                <Download className="w-3 h-3 text-white" />
+              </a>
             </button>
           ))}
         </div>

@@ -28,6 +28,28 @@ const supabase = createClient(
 )
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+
+// Retry wrapper for Claude API (handles 529 overloaded errors)
+async function claudeWithRetry(
+  params: Parameters<typeof anthropic.messages.create>[0],
+  maxRetries = 3,
+): Promise<any> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await anthropic.messages.create(params)
+    } catch (err: any) {
+      const status = err?.status ?? err?.error?.status
+      if ((status === 529 || err?.message?.includes('Overloaded')) && attempt < maxRetries) {
+        const delay = attempt * 30000 // 30s, 60s, 90s
+        console.log(`[claude] 529 Overloaded, retry ${attempt}/${maxRetries} in ${delay / 1000}s...`)
+        await new Promise(r => setTimeout(r, delay))
+        continue
+      }
+      throw err
+    }
+  }
+  throw new Error('Claude API: max retries exceeded')
+}
 const redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: null })
 
 // --- DB Helpers ---
@@ -123,7 +145,7 @@ async function proofread(segments: { start: number; end: number; text: string }[
     const batch = segments.slice(i, i + BATCH)
     const numbered = batch.map((s, idx) => `${idx}|${s.text}`).join('\n')
 
-    const msg = await anthropic.messages.create({
+    const msg = await claudeWithRetry({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 8192,
       system: `Ты — корректор транскриптов подкастов на русском языке.
@@ -148,12 +170,12 @@ async function proofread(segments: { start: number; end: number; text: string }[
       messages: [{ role: 'user', content: `Исправь. Верни РОВНО ${batch.length} строк:\n\n${numbered}` }],
     })
 
-    const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('')
-    const lines = text.trim().split('\n').filter(l => l.includes('|'))
+    const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
+    const lines = text.trim().split('\n').filter((l: string) => l.includes('|'))
 
     for (let j = 0; j < batch.length; j++) {
       const seg = batch[j]
-      const line = lines.find(l => l.startsWith(`${j}|`))
+      const line = lines.find((l: string) => l.startsWith(`${j}|`))
       result.push({
         start: seg.start,
         end: seg.end,
@@ -263,7 +285,7 @@ async function handleGenerate(videoId: string) {
       ? video.transcript.slice(0, 100000) + '\n\n[...обрезано...]'
       : video.transcript
 
-    const msg = await anthropic.messages.create({
+    const msg = await claudeWithRetry({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
       system: buildSystemPrompt(rules),
@@ -273,7 +295,7 @@ async function handleGenerate(videoId: string) {
       }],
     })
 
-    const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('')
+    const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('No JSON in Claude response')
     const result = JSON.parse(jsonMatch[0])
@@ -477,7 +499,7 @@ async function handleProduce(videoId: string) {
     console.log('[produce] Calling Claude Producer Agent...')
     const durationMin = Math.round(video.duration_seconds / 60)
 
-    const msg = await anthropic.messages.create({
+    const msg = await claudeWithRetry({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 8192,
       system: buildProducerSystemPrompt(rules, durationMin),
@@ -492,7 +514,7 @@ async function handleProduce(videoId: string) {
       }],
     })
 
-    const text = msg.content.filter(b => b.type === 'text').map(b => (b as any).text).join('')
+    const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('No JSON in producer response')
 

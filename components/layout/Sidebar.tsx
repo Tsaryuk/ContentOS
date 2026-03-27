@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { AnimatePresence } from 'framer-motion'
 import {
   LayoutGrid, Mail, Globe, Settings,
-  Youtube, Send, Instagram
+  Play, Send, Camera
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
@@ -25,10 +25,10 @@ const ThreadsIcon = () => (
 )
 
 export const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
-  'youtube': <Youtube className="w-[18px] h-[18px]" />,
-  'youtube-shorts': <Youtube className="w-[18px] h-[18px]" />,
+  'youtube': <Play className="w-[18px] h-[18px]" />,
+  'youtube-shorts': <Play className="w-[18px] h-[18px]" />,
   'telegram': <Send className="w-[18px] h-[18px]" />,
-  'instagram': <Instagram className="w-[18px] h-[18px]" />,
+  'instagram': <Camera className="w-[18px] h-[18px]" />,
   'tiktok': <TikTokIcon />,
   'threads': <ThreadsIcon />,
   'email': <Mail className="w-[18px] h-[18px]" />,

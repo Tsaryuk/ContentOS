@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { Sidebar } from '@/components/layout/Sidebar'
 
 export const metadata: Metadata = {
   title: 'ContentOS',
-  description: 'YouTube content management system',
+  description: 'Content management system',
 }
 
 export default function RootLayout({
@@ -12,8 +13,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ru">
-      <body className="antialiased">{children}</body>
+    <html lang="ru" className="dark">
+      <body className="antialiased flex h-screen overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </body>
     </html>
   )
 }

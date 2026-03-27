@@ -139,7 +139,7 @@ export default function YouTubePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans">
+    <div className="text-white font-sans">
 
       {/* Header */}
       <div className="border-b border-white/[0.06] px-6 py-4 flex items-center gap-4">
