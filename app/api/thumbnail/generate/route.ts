@@ -91,8 +91,8 @@ function buildMasterPrompt(params: {
 }
 
 function splitText(text: string): { line1: string; line2: string } {
-  // Try to split at — or -
-  const dashSplit = text.split(/\s*[—–-]\s*/)
+  // Try to split at / — – -
+  const dashSplit = text.split(/\s*[\/—–-]\s*/)
   if (dashSplit.length >= 2) {
     return { line1: dashSplit[0].trim(), line2: dashSplit.slice(1).join(' ').trim() }
   }

@@ -32,7 +32,7 @@ export function VariantSelector({
     <div className="space-y-2">
       {variants.map((v, idx) => {
         const isSelected = selectedIndex === idx
-        const style = STYLE_LABELS[v.style] ?? { label: v.style, color: 'bg-white/10 text-white/50' }
+        const style = STYLE_LABELS[v.style] ?? { label: v.style, color: 'bg-white/10 text-muted' }
 
         return (
           <button
@@ -41,7 +41,7 @@ export function VariantSelector({
             className={`w-full text-left p-3 rounded-xl border transition-all ${
               isSelected
                 ? 'border-purple-500/50 bg-purple-500/10'
-                : 'border-white/[0.06] bg-white/[0.02] hover:border-white/10'
+                : 'border-border bg-surface hover:border-accent/30'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -61,8 +61,8 @@ export function VariantSelector({
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-white/90 font-medium leading-snug">{v.text}</p>
-                <p className="text-[11px] text-white/40 mt-1.5 flex items-start gap-1">
+                <p className="text-sm text-cream font-medium leading-snug">{v.text}</p>
+                <p className="text-[11px] text-muted mt-1.5 flex items-start gap-1">
                   <MessageSquare className="w-3 h-3 shrink-0 mt-0.5" />
                   {v.reasoning}
                 </p>

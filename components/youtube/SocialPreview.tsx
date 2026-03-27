@@ -46,7 +46,7 @@ export function SocialPreview({
       {/* Tabs */}
       <div className="flex gap-1 mb-3">
         {drafts.map(draft => {
-          const platform = PLATFORMS[draft.platform] ?? { label: draft.platform, icon: Send, color: 'text-white/40' }
+          const platform = PLATFORMS[draft.platform] ?? { label: draft.platform, icon: Send, color: 'text-muted' }
           const Icon = platform.icon
           const isActive = activeTab === draft.platform
 
@@ -57,7 +57,7 @@ export function SocialPreview({
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 isActive
                   ? 'bg-white/10 text-white'
-                  : 'text-white/40 hover:text-white/60 hover:bg-white/5'
+                  : 'text-muted hover:text-muted hover:bg-surface'
               }`}
             >
               <Icon className={`w-3.5 h-3.5 ${isActive ? platform.color : ''}`} />
@@ -73,13 +73,13 @@ export function SocialPreview({
           <textarea
             value={content}
             onChange={e => handleContentChange(e.target.value)}
-            className="w-full min-h-[150px] p-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white/80 leading-relaxed resize-y focus:outline-none focus:border-purple-500/30 placeholder:text-white/20"
+            className="w-full min-h-[150px] p-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white/80 leading-relaxed resize-y focus:outline-none focus:border-purple-500/30 placeholder:text-dim"
           />
           <div className="flex items-center justify-between mt-2">
-            <span className="text-[10px] text-white/20">{content.length} символов</span>
+            <span className="text-[10px] text-dim">{content.length} символов</span>
             <button
               onClick={() => handleCopy(activeTab)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-white/60 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface hover:bg-white/10 text-xs text-muted hover:text-white transition-colors"
             >
               {copied === activeTab
                 ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Скопировано</>

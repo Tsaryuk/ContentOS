@@ -141,10 +141,10 @@ export default function VideoDetailPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen bg-[#09090b] text-white flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-white/40" /></div>
+    return <div className="min-h-screen bg-bg text-cream flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted" /></div>
   }
   if (!video) {
-    return <div className="min-h-screen bg-[#09090b] text-white flex items-center justify-center"><div className="text-white/40">Видео не найдено</div></div>
+    return <div className="min-h-screen bg-bg text-cream flex items-center justify-center"><div className="text-muted">Видео не найдено</div></div>
   }
 
   const po = video.producer_output
@@ -154,7 +154,7 @@ export default function VideoDetailPage() {
   const canPublish = video.status === 'review' && video.is_approved
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white font-sans">
+    <div className="min-h-screen bg-bg text-cream font-sans">
       <div className="max-w-7xl mx-auto px-6 py-6">
 
         {/* Header */}
@@ -164,7 +164,7 @@ export default function VideoDetailPage() {
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-medium truncate">{video.current_title}</h1>
-            <div className="flex items-center gap-4 mt-1 text-xs text-white/40">
+            <div className="flex items-center gap-4 mt-1 text-xs text-muted">
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(video.duration_seconds)}</span>
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatCount(video.view_count)}</span>
               <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" />{formatCount(video.like_count)}</span>
@@ -179,7 +179,7 @@ export default function VideoDetailPage() {
         </div>
 
         {/* Status */}
-        <div className="mb-6 p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+        <div className="mb-6 p-3 bg-surface rounded-xl border border-border">
           <StatusStepper status={video.status} />
           {video.error_message && !video.error_message.startsWith('progress:') && (
             <p className="text-xs text-red-400 mt-2 px-2">{video.error_message}</p>
@@ -222,14 +222,14 @@ export default function VideoDetailPage() {
             {po && (
               <>
                 {/* Guest Info */}
-                <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><User className="w-4 h-4" /> Гость</h3>
+                <div className="p-4 bg-surface rounded-xl border border-border">
+                  <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><User className="w-4 h-4" /> Гость</h3>
                   <GuestInfo guest={po.guest_info} onUpdate={(g) => patchVideo({ producer_output: { ...po, guest_info: g } })} />
                 </div>
 
                 {/* Titles */}
-                <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <h3 className="text-sm font-medium text-white/60 mb-3">Заголовок</h3>
+                <div className="p-4 bg-surface rounded-xl border border-border">
+                  <h3 className="text-sm font-medium text-muted mb-3">Заголовок</h3>
                   <VariantSelector
                     variants={po.title_variants}
                     selectedIndex={sv.title_index}
@@ -238,20 +238,20 @@ export default function VideoDetailPage() {
                 </div>
 
                 {/* Description */}
-                <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <h3 className="text-sm font-medium text-white/60 mb-3">Описание</h3>
-                  <div className="text-xs text-white/70 whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
+                <div className="p-4 bg-surface rounded-xl border border-border">
+                  <h3 className="text-sm font-medium text-muted mb-3">Описание</h3>
+                  <div className="text-xs text-muted whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
                     {po.description}
                   </div>
                 </div>
 
                 {/* Tags */}
                 {po.tags?.length > 0 && (
-                  <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                    <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
+                  <div className="p-4 bg-surface rounded-xl border border-border">
+                    <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
                     <div className="flex flex-wrap gap-1.5">
                       {po.tags.map((tag: string, i: number) => (
-                        <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-xs text-white/50">{tag}</span>
+                        <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-xs text-muted">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -259,13 +259,13 @@ export default function VideoDetailPage() {
 
                 {/* Timecodes */}
                 {po.timecodes?.length > 0 && (
-                  <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                    <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
+                  <div className="p-4 bg-surface rounded-xl border border-border">
+                    <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
                     <div className="space-y-1">
                       {po.timecodes.map((tc: any, i: number) => (
                         <div key={i} className="flex gap-3 text-xs">
                           <span className="text-purple-400 font-mono w-14 shrink-0">{tc.time}</span>
-                          <span className="text-white/60">{tc.label}</span>
+                          <span className="text-muted">{tc.label}</span>
                         </div>
                       ))}
                     </div>
@@ -273,8 +273,8 @@ export default function VideoDetailPage() {
                 )}
 
                 {/* Clips & Shorts */}
-                <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                  <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Scissors className="w-4 h-4" /> Контент для нарезки</h3>
+                <div className="p-4 bg-surface rounded-xl border border-border">
+                  <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><Scissors className="w-4 h-4" /> Контент для нарезки</h3>
                   <ClipList
                     clips={po.clip_suggestions ?? []}
                     shorts={po.short_suggestions ?? []}
@@ -287,8 +287,8 @@ export default function VideoDetailPage() {
 
                 {/* Social Previews */}
                 {po.social_drafts?.length > 0 && (
-                  <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                    <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Анонсы</h3>
+                  <div className="p-4 bg-surface rounded-xl border border-border">
+                    <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Анонсы</h3>
                     <SocialPreview drafts={po.social_drafts} />
                   </div>
                 )}
@@ -296,8 +296,8 @@ export default function VideoDetailPage() {
             )}
 
             {/* Transcript */}
-            <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-              <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><FileText className="w-4 h-4" /> Транскрипт</h3>
+            <div className="p-4 bg-surface rounded-xl border border-border">
+              <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><FileText className="w-4 h-4" /> Транскрипт</h3>
               <TranscriptViewer videoTitle={video.current_title} chunks={video.transcript_chunks} transcript={video.transcript} />
             </div>
           </div>
@@ -306,8 +306,8 @@ export default function VideoDetailPage() {
           <div className="space-y-4">
 
             {/* Actions */}
-            <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06] space-y-2 sticky top-6">
-              <h3 className="text-sm font-medium text-white/60 mb-3">Действия</h3>
+            <div className="p-4 bg-surface rounded-xl border border-border space-y-2 sticky top-6">
+              <h3 className="text-sm font-medium text-muted mb-3">Действия</h3>
 
               {po ? (
                 <>
@@ -325,7 +325,7 @@ export default function VideoDetailPage() {
                       onClick={() => patchVideo({ is_approved: !video.is_approved })}
                       disabled={video.status !== 'review' || isProcessing}
                       className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 ${
-                        video.is_approved ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/60 hover:bg-white/10'
+                        video.is_approved ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-muted hover:bg-white/10'
                       }`}
                     >
                       {video.is_approved ? <><Check className="w-4 h-4 inline mr-2" />Одобрено</> : 'Одобрить'}
@@ -356,7 +356,7 @@ export default function VideoDetailPage() {
 
             {/* Thumbnail Studio */}
             {po && (
-              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+              <div className="p-4 bg-surface rounded-xl border border-border">
                 <ThumbnailStudio
                   videoId={video.id}
                   textVariants={po.thumbnail_spec?.text_overlay_variants ?? []}
@@ -371,8 +371,8 @@ export default function VideoDetailPage() {
 
             {/* Thumbnails (legacy gallery) */}
             {!po && video.thumbnail_url && (
-              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Обложки</h3>
+              <div className="p-4 bg-surface rounded-xl border border-border">
+                <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Обложки</h3>
                 <ThumbnailGallery
                   thumbnailUrls={[video.thumbnail_url]}
                   currentThumbnail={video.current_thumbnail}
@@ -384,8 +384,8 @@ export default function VideoDetailPage() {
 
             {/* AI Score */}
             {po?.ai_score != null && (
-              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Score</h3>
+              <div className="p-4 bg-surface rounded-xl border border-border">
+                <h3 className="text-sm font-medium text-muted mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Score</h3>
                 <div className="flex items-center gap-3">
                   <div className="text-3xl font-bold text-purple-400">{po.ai_score}</div>
                   <div className="flex-1">
@@ -399,9 +399,9 @@ export default function VideoDetailPage() {
 
             {/* Summary */}
             {po?.content_summary && (
-              <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-                <h3 className="text-sm font-medium text-white/60 mb-2">Резюме</h3>
-                <p className="text-xs text-white/50 leading-relaxed">{po.content_summary}</p>
+              <div className="p-4 bg-surface rounded-xl border border-border">
+                <h3 className="text-sm font-medium text-muted mb-2">Резюме</h3>
+                <p className="text-xs text-muted leading-relaxed">{po.content_summary}</p>
               </div>
             )}
           </div>

@@ -31,18 +31,18 @@ export function StatusStepper({ status }: { status: string }) {
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 ${
                 isDone ? 'bg-emerald-500/20 text-emerald-400' :
                 isCurrent ? 'bg-purple-500/20 text-purple-400' :
-                'bg-white/5 text-white/20'
+                'bg-surface text-dim'
               }`}>
                 {isDone ? <Check className="w-3.5 h-3.5" /> :
                  isCurrent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
                  <span>{idx + 1}</span>}
               </div>
               <span className={`text-xs whitespace-nowrap ${
-                isActive ? 'text-white/70' : 'text-white/20'
+                isActive ? 'text-cream' : 'text-dim'
               }`}>{step.label}</span>
             </div>
             {idx < STEPS.length - 1 && (
-              <div className={`w-4 h-px mx-1 ${isDone ? 'bg-emerald-500/30' : 'bg-white/10'}`} />
+              <div className={`w-4 h-px mx-1 ${isDone ? 'bg-emerald-500/30' : 'bg-border'}`} />
             )}
           </div>
         )

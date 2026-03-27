@@ -52,13 +52,13 @@ function ClipCard({
 
   return (
     <div className={`rounded-xl border transition-colors ${
-      isSelected ? 'border-purple-500/30 bg-purple-500/5' : 'border-white/[0.06] bg-white/[0.02]'
+      isSelected ? 'border-purple-500/30 bg-purple-500/5' : 'border-border bg-surface'
     }`}>
       <div className="p-3 flex items-start gap-3">
         {/* Checkbox */}
         <button onClick={onToggle} className="mt-0.5 shrink-0">
           <div className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${
-            isSelected ? 'border-purple-500 bg-purple-500' : 'border-white/20'
+            isSelected ? 'border-purple-500 bg-purple-500' : 'border-border'
           }`}>
             {isSelected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
           </div>
@@ -72,16 +72,16 @@ function ClipCard({
             }`}>
               {isShort ? <><Film className="w-3 h-3 inline mr-0.5" />Short</> : <><Scissors className="w-3 h-3 inline mr-0.5" />Клип</>}
             </span>
-            <span className="text-[10px] text-white/30 font-mono">
+            <span className="text-[10px] text-dim font-mono">
               {fmtTime(clip.start)} — {fmtTime(clip.end)} ({fmtDuration(clip.start, clip.end)})
             </span>
           </div>
 
           {/* Title */}
-          <p className="text-sm text-white/90 font-medium">{recommended?.text ?? 'Без заголовка'}</p>
+          <p className="text-sm text-cream font-medium">{recommended?.text ?? 'Без заголовка'}</p>
 
           {/* Why it works */}
-          <p className="text-[11px] text-white/40 mt-1 flex items-start gap-1">
+          <p className="text-[11px] text-muted mt-1 flex items-start gap-1">
             <Zap className="w-3 h-3 shrink-0 mt-0.5 text-amber-400" />
             {clip.why_it_works}
           </p>
@@ -94,7 +94,7 @@ function ClipCard({
           {/* Expand button */}
           <button
             onClick={() => setExpanded(!expanded)}
-            className="mt-2 flex items-center gap-1 text-[11px] text-white/30 hover:text-white/50 transition-colors"
+            className="mt-2 flex items-center gap-1 text-[11px] text-dim hover:text-muted transition-colors"
           >
             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             {expanded ? 'Свернуть' : 'Подробнее'}
@@ -102,13 +102,13 @@ function ClipCard({
 
           {/* Expanded details */}
           {expanded && (
-            <div className="mt-2 space-y-2 border-t border-white/[0.06] pt-2">
+            <div className="mt-2 space-y-2 border-t border-border pt-2">
               {/* All title variants */}
               {clip.title_variants?.length > 1 && (
                 <div>
-                  <span className="text-[10px] text-white/30 block mb-1">Варианты заголовков:</span>
+                  <span className="text-[10px] text-dim block mb-1">Варианты заголовков:</span>
                   {clip.title_variants.map((t, i) => (
-                    <p key={i} className="text-[11px] text-white/60 pl-2 border-l border-white/10 mb-1">
+                    <p key={i} className="text-[11px] text-muted pl-2 border-l border-border mb-1">
                       {t.text} {t.is_recommended && <span className="text-amber-400 text-[9px]">★</span>}
                     </p>
                   ))}
@@ -117,15 +117,15 @@ function ClipCard({
 
               {/* Description */}
               <div>
-                <span className="text-[10px] text-white/30 block mb-1">Описание:</span>
-                <p className="text-[11px] text-white/50">{clip.description}</p>
+                <span className="text-[10px] text-dim block mb-1">Описание:</span>
+                <p className="text-[11px] text-muted">{clip.description}</p>
               </div>
 
               {/* Tags */}
               {clip.tags?.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {clip.tags.map((tag, i) => (
-                    <span key={i} className="px-1.5 py-0.5 bg-white/5 rounded text-[10px] text-white/40">{tag}</span>
+                    <span key={i} className="px-1.5 py-0.5 bg-surface rounded text-[10px] text-muted">{tag}</span>
                   ))}
                 </div>
               )}
@@ -161,7 +161,7 @@ export function ClipList({
     <div className="space-y-4">
       {hasClips && (
         <div>
-          <h4 className="text-xs text-white/40 mb-2 flex items-center gap-1.5">
+          <h4 className="text-xs text-muted mb-2 flex items-center gap-1.5">
             <Scissors className="w-3.5 h-3.5" /> Клипы ({clips.length})
           </h4>
           <div className="space-y-2">
@@ -180,7 +180,7 @@ export function ClipList({
 
       {hasShorts && (
         <div>
-          <h4 className="text-xs text-white/40 mb-2 flex items-center gap-1.5">
+          <h4 className="text-xs text-muted mb-2 flex items-center gap-1.5">
             <Film className="w-3.5 h-3.5" /> Shorts ({shorts.length})
           </h4>
           <div className="space-y-2">

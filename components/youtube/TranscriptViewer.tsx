@@ -36,7 +36,7 @@ export function TranscriptViewer({
 
   if (!transcript) {
     return (
-      <div className="text-white/30 text-sm py-8 text-center">
+      <div className="text-dim text-sm py-8 text-center">
         Транскрипт ещё не создан. Нажмите &quot;Транскрибировать&quot;.
       </div>
     )
@@ -73,20 +73,20 @@ export function TranscriptViewer({
     <div>
       {/* Header with actions */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-white/30">
+        <span className="text-xs text-dim">
           {totalSegments} сегментов
         </span>
         <div className="flex items-center gap-1">
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-md hover:bg-white/5 transition-colors text-white/40 hover:text-white/70"
+            className="p-1.5 rounded-md hover:bg-surface transition-colors text-muted hover:text-white/70"
             title="Копировать"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
           <button
             onClick={handleDownload}
-            className="p-1.5 rounded-md hover:bg-white/5 transition-colors text-white/40 hover:text-white/70"
+            className="p-1.5 rounded-md hover:bg-surface transition-colors text-muted hover:text-white/70"
             title="Скачать .txt"
           >
             <Download className="w-3.5 h-3.5" />
@@ -97,13 +97,13 @@ export function TranscriptViewer({
       {/* Search (only when expanded) */}
       {expanded && hasChunks && (
         <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dim" />
           <input
             type="text"
             placeholder="Поиск по транскрипту..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50"
+            className="w-full pl-9 pr-3 py-2 bg-surface border border-border rounded-lg text-sm text-white placeholder:text-dim focus:outline-none focus:border-purple-500/50"
           />
         </div>
       )}
@@ -113,7 +113,7 @@ export function TranscriptViewer({
         <>
           <div className={`${expanded ? 'max-h-[600px] overflow-y-auto' : ''} space-y-0.5`}>
             {displayChunks.map((chunk, idx) => (
-              <div key={idx} className="flex gap-3 py-1 hover:bg-white/5 rounded px-2 -mx-2 transition-colors">
+              <div key={idx} className="flex gap-3 py-1 hover:bg-surface rounded px-2 -mx-2 transition-colors">
                 <span className="text-[11px] text-purple-400 font-mono shrink-0 pt-0.5 w-12">
                   {formatTime(chunk.start)}
                 </span>
@@ -126,7 +126,7 @@ export function TranscriptViewer({
           {totalSegments > 5 && (
             <button
               onClick={() => { setExpanded(!expanded); setSearch('') }}
-              className="mt-3 w-full py-2 flex items-center justify-center gap-1.5 text-xs text-white/40 hover:text-white/60 hover:bg-white/5 rounded-lg transition-colors"
+              className="mt-3 w-full py-2 flex items-center justify-center gap-1.5 text-xs text-muted hover:text-muted hover:bg-surface rounded-lg transition-colors"
             >
               {expanded ? (
                 <><ChevronUp className="w-3.5 h-3.5" /> Свернуть</>
@@ -137,7 +137,7 @@ export function TranscriptViewer({
           )}
         </>
       ) : (
-        <div className="text-white/60 text-sm whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+        <div className="text-muted text-sm whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
           {transcript.slice(0, 500)}{transcript.length > 500 ? '...' : ''}
         </div>
       )}
