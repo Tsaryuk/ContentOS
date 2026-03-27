@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Save, Loader2, Plus, X, ChevronDown, ChevronUp,
-  Play, FolderOpen, User, Check, LogOut
+  Play, FolderOpen, User, Check, LogOut, Trash2
 } from 'lucide-react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -67,6 +67,7 @@ export default function SettingsPage() {
   const [addChannelProject, setAddChannelProject] = useState('')
   const [addingChannel, setAddingChannel] = useState(false)
   const [addChannelError, setAddChannelError] = useState('')
+  const [deletingChannel, setDeletingChannel] = useState<string | null>(null)
 
   // Channel rules
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null)
@@ -139,6 +140,14 @@ export default function SettingsPage() {
     setAddChannelId('')
     await loadData()
     setAddingChannel(false)
+  }
+
+  async function deleteChannel(channelId: string) {
+    if (!confirm('Удалить канал из системы?')) return
+    setDeletingChannel(channelId)
+    await fetch(`/api/channels/${channelId}`, { method: 'DELETE' })
+    setChannels(prev => prev.filter(c => c.id !== channelId))
+    setDeletingChannel(null)
   }
 
   async function assignToProject(channelId: string, projectId: string | null) {
@@ -408,6 +417,16 @@ export default function SettingsPage() {
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
+
+                    <button
+                      onClick={() => deleteChannel(ch.id)}
+                      disabled={deletingChannel === ch.id}
+                      className="text-dim hover:text-red-400 transition-colors ml-1"
+                    >
+                      {deletingChannel === ch.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Trash2 className="w-4 h-4" />}
+                    </button>
 
                     <button
                       onClick={() => setExpandedChannel(isExpanded ? null : ch.id)}
