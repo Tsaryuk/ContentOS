@@ -194,6 +194,9 @@ export function Sidebar() {
           <Settings className="w-4 h-4" />
         </Link>
       </div>
+      <div className="w-full px-2 pb-1 text-[9px] text-dim/40 text-center font-mono">
+        {process.env.NEXT_PUBLIC_BUILD_SHA ?? 'dev'}
+      </div>
     </aside>
   )
 }
