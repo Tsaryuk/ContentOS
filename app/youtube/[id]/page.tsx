@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Clock, Eye, ThumbsUp, Sparkles, ExternalLink,
   Loader2, FileText, Tag, Scissors, MessageSquare, Image,
-  User, Rocket, Check
+  User, Rocket, Check, Copy
 } from 'lucide-react'
 import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
@@ -39,6 +39,7 @@ export default function VideoDetailPage() {
   const [video, setVideo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
+  const [copiedTags, setCopiedTags] = useState(false)
 
   const loadVideo = useCallback(async () => {
     if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
@@ -248,7 +249,21 @@ export default function VideoDetailPage() {
                 {/* Tags */}
                 {po.tags?.length > 0 && (
                   <div className="p-4 bg-surface rounded-xl border border-border">
-                    <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-medium text-muted flex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
+                      <button
+                        onClick={() => {
+                          const text = po.tags.map((t: string) => t.replace(/^#/, '')).join(', ')
+                          navigator.clipboard.writeText(text)
+                          setCopiedTags(true)
+                          setTimeout(() => setCopiedTags(false), 2000)
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors"
+                      >
+                        {copiedTags ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedTags ? 'Скопировано' : 'Копировать'}
+                      </button>
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {po.tags.map((tag: string, i: number) => (
                         <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-xs text-muted">{tag}</span>
