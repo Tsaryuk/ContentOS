@@ -1,24 +1,24 @@
 'use client'
 
 import { useState, useRef, useEffect, DragEvent } from 'react'
-import { Wand2, Loader2, X, Plus, RefreshCw, Check, Image as ImageIcon, Download } from 'lucide-react'
+import { Wand2, Loader2, X, Plus, Check, Image as ImageIcon, Download } from 'lucide-react'
+
+type Template = 'solo' | 'duo' | 'custom'
 
 interface Props {
   videoId: string
   textVariants: string[]
   currentThumbnail?: string
   generatedUrls?: string[]
-  savedPhotos?: string[]      // persisted photo URLs from DB
-  savedReference?: string     // persisted reference URL from DB
+  savedPhotos?: string[]
+  savedReference?: string
   onSelect: (url: string) => void
 }
 
 const hiddenInput: React.CSSProperties = { position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }
 
 function apiUrl(path: string): string {
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}${path}`
-  }
+  if (typeof window !== 'undefined') return `${window.location.origin}${path}`
   return path
 }
 
@@ -39,20 +39,61 @@ async function downloadImage(url: string, filename: string) {
   }
 }
 
+// SVG previews for template picker
+function SoloIcon() {
+  return (
+    <svg viewBox="0 0 64 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <rect width="64" height="36" rx="2" fill="#0f1a10"/>
+      {/* text lines left */}
+      <rect x="4" y="10" width="22" height="3" rx="1" fill="white" opacity="0.9"/>
+      <rect x="4" y="15" width="18" height="3" rx="1" fill="#4CAF50" opacity="0.9"/>
+      {/* silhouette right */}
+      <ellipse cx="48" cy="12" rx="7" ry="8" fill="#2d4a2f"/>
+      <path d="M34 36 Q41 20 48 20 Q55 20 62 36Z" fill="#2d4a2f"/>
+    </svg>
+  )
+}
+
+function DuoIcon() {
+  return (
+    <svg viewBox="0 0 64 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <rect width="64" height="36" rx="2" fill="#0f1a10"/>
+      {/* silhouette left */}
+      <ellipse cx="12" cy="11" rx="6" ry="7" fill="#2d4a2f"/>
+      <path d="M2 36 Q7 20 12 20 Q17 20 22 36Z" fill="#2d4a2f"/>
+      {/* text center */}
+      <rect x="22" y="12" width="20" height="3" rx="1" fill="white" opacity="0.9"/>
+      <rect x="22" y="17" width="16" height="3" rx="1" fill="#4CAF50" opacity="0.9"/>
+      {/* silhouette right */}
+      <ellipse cx="52" cy="11" rx="6" ry="7" fill="#2d4a2f"/>
+      <path d="M42 36 Q47 20 52 20 Q57 20 62 36Z" fill="#2d4a2f"/>
+    </svg>
+  )
+}
+
+function CustomIcon() {
+  return (
+    <svg viewBox="0 0 64 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <rect width="64" height="36" rx="2" fill="#0f1a10"/>
+      <rect x="2" y="2" width="60" height="32" rx="2" stroke="#4b5563" strokeWidth="1.5" strokeDasharray="4 2"/>
+      <path d="M28 14 L32 10 L36 14" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M32 10 L32 22" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M24 26 L28 22 L34 28 L38 24 L42 28" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+const TEMPLATES: { id: Template; label: string; icon: React.ReactNode }[] = [
+  { id: 'solo', label: 'Гость', icon: <SoloIcon /> },
+  { id: 'duo',  label: 'Я + Гость', icon: <DuoIcon /> },
+  { id: 'custom', label: 'Свой реф', icon: <CustomIcon /> },
+]
+
 export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, generatedUrls: initialUrls, savedPhotos, savedReference, onSelect }: Props) {
+  const [template, setTemplate] = useState<Template>('solo')
   const [photos, setPhotos] = useState<{ file?: File; preview: string }[]>([])
   const [reference, setReference] = useState<{ file?: File; preview: string } | null>(null)
   const [selectedText, setSelectedText] = useState(textVariants[0] ?? '')
-
-  // Load saved photos/reference on mount
-  useEffect(() => {
-    if (savedPhotos?.length && photos.length === 0) {
-      setPhotos(savedPhotos.map(url => ({ preview: url })))
-    }
-    if (savedReference && !reference) {
-      setReference({ preview: savedReference })
-    }
-  }, [savedPhotos, savedReference])
   const [customText, setCustomText] = useState('')
   const [refinement, setRefinement] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -65,6 +106,15 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
 
   const photoRef = useRef<HTMLInputElement>(null)
   const refRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (savedPhotos?.length && photos.length === 0) {
+      setPhotos(savedPhotos.map(url => ({ preview: url })))
+    }
+    if (savedReference && !reference) {
+      setReference({ preview: savedReference })
+    }
+  }, [savedPhotos, savedReference])
 
   const addPhotos = (files: FileList | null) => {
     if (!files) return
@@ -98,7 +148,6 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
     setGenerating(true)
     setError(null)
     try {
-      // Separate new files vs already-uploaded URLs
       const existingPhotoUrls = photos.filter(p => !p.file).map(p => p.preview)
       const newPhotoFiles = photos.filter(p => p.file).map(p => p.file!)
       const existingRefUrl = (!reference?.file && reference?.preview) ? reference.preview : ''
@@ -124,20 +173,22 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
         }
       }
 
-      // Save uploaded URLs to DB for persistence
       if (photoUrls.length > 0 || refUrl) {
         fetch(apiUrl('/api/thumbnail/save-assets'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ videoId, photos: photoUrls, reference: refUrl || undefined }),
-        }).catch(() => {}) // fire and forget
+        }).catch(() => {})
       }
 
       const res = await fetch(apiUrl('/api/thumbnail/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoId, photos: photoUrls, text: activeText,
+          videoId,
+          photos: photoUrls,
+          text: activeText,
+          template,
           referenceUrl: refUrl || undefined,
           refinement: refinement || undefined,
         }),
@@ -203,6 +254,24 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
         onDragLeave={() => setDragOver(false)}
         onDrop={(e: DragEvent) => { e.preventDefault(); setDragOver(false); addPhotos(e.dataTransfer.files) }}
       >
+        {/* Template selector */}
+        <div className="flex gap-2">
+          {TEMPLATES.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTemplate(t.id)}
+              className={`flex-1 flex flex-col items-center gap-1 rounded-lg border p-1.5 transition-all ${
+                template === t.id
+                  ? 'border-purple-500/60 bg-purple-500/10'
+                  : 'border-border bg-bg hover:border-border/80'
+              }`}
+            >
+              <div className="w-full aspect-video rounded overflow-hidden">{t.icon}</div>
+              <span className={`text-[10px] font-medium ${template === t.id ? 'text-purple-300' : 'text-dim'}`}>{t.label}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Photos + ref row */}
         <div className="flex gap-2 items-center flex-wrap">
           {photos.map((p, i) => (
@@ -213,7 +282,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
               </button>
             </div>
           ))}
-          {reference && (
+          {template === 'custom' && reference && (
             <div className="relative group w-14 h-14 rounded-lg overflow-hidden border border-purple-500/40 flex-shrink-0">
               <img src={reference.preview} alt="" className="w-full h-full object-cover" />
               <span className="absolute bottom-0 inset-x-0 bg-purple-600/90 text-[7px] text-center text-white leading-tight py-px">REF</span>
@@ -228,7 +297,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
               <span className="text-[8px] leading-none">Фото</span>
             </button>
           )}
-          {!reference && (
+          {template === 'custom' && !reference && (
             <button onClick={() => refRef.current?.click()} className="w-14 h-14 rounded-lg border border-dashed border-purple-500/20 flex flex-col items-center justify-center text-purple-400/30 hover:text-purple-400/50 hover:border-purple-500/30 transition-colors flex-shrink-0 gap-0.5">
               <Plus className="w-3.5 h-3.5" />
               <span className="text-[8px] leading-none">Стиль</span>
