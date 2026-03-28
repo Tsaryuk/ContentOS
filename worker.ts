@@ -102,14 +102,87 @@ async function ensureTmpDir() {
   if (!existsSync(TMP_DIR)) await mkdir(TMP_DIR, { recursive: true })
 }
 
+async function getAccessToken(refreshToken: string): Promise<string> {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.YOUTUBE_CLIENT_ID!,
+      client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  })
+  const data = await res.json()
+  if (!data.access_token) throw new Error(`Token refresh failed: ${JSON.stringify(data)}`)
+  return data.access_token
+}
+
+function parseTtml(ttml: string): { start: number; end: number; text: string }[] {
+  const segs: { start: number; end: number; text: string }[] = []
+  const re = /<p[^>]+begin="([^"]+)"[^>]+end="([^"]+)"[^>]*>([\s\S]*?)<\/p>/g
+  let m
+  while ((m = re.exec(ttml)) !== null) {
+    const text = m[3].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+    if (!text) continue
+    segs.push({ start: parseTtmlTime(m[1]), end: parseTtmlTime(m[2]), text })
+  }
+  return segs
+}
+
+function parseTtmlTime(t: string): number {
+  // formats: "0:00:01.234" or "00:00:01.234" or "1.234s"
+  if (t.endsWith('s')) return Math.round(parseFloat(t))
+  const parts = t.split(':').map(Number)
+  if (parts.length === 3) return Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2])
+  if (parts.length === 2) return Math.round(parts[0] * 60 + parts[1])
+  return Math.round(parts[0])
+}
+
+async function fetchYouTubeCaptions(
+  ytVideoId: string,
+  accessToken: string,
+): Promise<{ start: number; end: number; text: string }[] | null> {
+  const listRes = await fetch(
+    `https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${ytVideoId}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  const listData = await listRes.json()
+  if (!listRes.ok || !listData.items?.length) {
+    console.log(`[captions] No captions found for ${ytVideoId}`)
+    return null
+  }
+
+  const items = listData.items as any[]
+  const pick =
+    items.find(c => c.snippet.language === 'ru' && c.snippet.trackKind === 'standard') ??
+    items.find(c => c.snippet.language === 'ru') ??
+    items.find(c => c.snippet.trackKind === 'asr') ??
+    items[0]
+
+  console.log(`[captions] Using track: ${pick.snippet.language} / ${pick.snippet.trackKind}`)
+
+  const dlRes = await fetch(
+    `https://www.googleapis.com/youtube/v3/captions/${pick.id}?tfmt=ttml`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!dlRes.ok) {
+    console.log(`[captions] Download failed: ${dlRes.status}`)
+    return null
+  }
+
+  const ttml = await dlRes.text()
+  const segs = parseTtml(ttml)
+  console.log(`[captions] Parsed ${segs.length} segments from TTML`)
+  return segs.length > 0 ? segs : null
+}
+
 async function downloadAudio(ytVideoId: string): Promise<string> {
   const outPath = join(TMP_DIR, `${ytVideoId}.mp3`)
   const url = `https://www.youtube.com/watch?v=${ytVideoId}`
   const proxyArg = PROXY_URL ? `--proxy "${PROXY_URL}"` : ''
-  const cookiesFile = process.env.YTDLP_COOKIES_FILE ?? '/opt/contentos/youtube-cookies.txt'
-  const cookiesArg = require('fs').existsSync(cookiesFile) ? `--cookies "${cookiesFile}"` : ''
-  const cmd = `yt-dlp ${proxyArg} ${cookiesArg} -x --audio-format mp3 --postprocessor-args "ffmpeg:-ac 1 -ab 48k" -o "${outPath}" "${url}"`
-  console.log(`[download] yt-dlp${cookiesArg ? ' +cookies' : ''}${PROXY_URL ? ' +proxy' : ''} for ${ytVideoId}`)
+  const cmd = `yt-dlp ${proxyArg} -x --audio-format mp3 --postprocessor-args "ffmpeg:-ac 1 -ab 48k" -o "${outPath}" "${url}"`
+  console.log(`[download] yt-dlp${PROXY_URL ? ' +proxy' : ''} for ${ytVideoId}`)
   execSync(cmd, { timeout: 600000, stdio: 'pipe' })
   if (!existsSync(outPath)) throw new Error(`Audio file not created: ${outPath}`)
   console.log(`[download] OK: ${(statSync(outPath).size / 1024 / 1024).toFixed(1)}MB`)
@@ -204,21 +277,41 @@ async function cleanup(ytVideoId: string) {
 
 async function handleTranscribe(videoId: string) {
   const video = await getVideo(videoId)
+  const channel = await getChannel(video.channel_id)
   await updateStatus(videoId, 'transcribing')
   await logJob(videoId, 'transcribe', 'running')
 
   try {
-    await ensureTmpDir()
-    await updateProgress(videoId, 'Скачивание аудио...')
-    const audioPath = await downloadAudio(video.yt_video_id)
-    const chunks = splitAudio(audioPath, video.yt_video_id)
+    let allSegs: { start: number; end: number; text: string }[] = []
 
-    const allSegs: { start: number; end: number; text: string }[] = []
-    for (let i = 0; i < chunks.length; i++) {
-      await updateProgress(videoId, `Расшифровка${chunks.length > 1 ? ` (${i + 1} из ${chunks.length})` : ''}...`)
-      allSegs.push(...await transcribeChunk(chunks[i], i * CHUNK_MINUTES * 60))
+    // Step 1: Try YouTube Captions API (fast, free, no yt-dlp needed)
+    if (channel.refresh_token) {
+      await updateProgress(videoId, 'Получение субтитров через YouTube API...')
+      try {
+        const accessToken = await getAccessToken(channel.refresh_token)
+        const captionSegs = await fetchYouTubeCaptions(video.yt_video_id, accessToken)
+        if (captionSegs && captionSegs.length > 0) {
+          allSegs = captionSegs
+          console.log(`[transcribe] Using YouTube captions (${allSegs.length} segments)`)
+        }
+      } catch (captionErr: any) {
+        console.log(`[transcribe] Captions API error: ${captionErr.message}, falling back to Whisper`)
+      }
     }
-    if (allSegs.length === 0) throw new Error('Whisper returned empty transcript')
+
+    // Step 2: Fallback to Whisper via yt-dlp
+    if (allSegs.length === 0) {
+      await ensureTmpDir()
+      await updateProgress(videoId, 'Скачивание аудио...')
+      const audioPath = await downloadAudio(video.yt_video_id)
+      const chunks = splitAudio(audioPath, video.yt_video_id)
+
+      for (let i = 0; i < chunks.length; i++) {
+        await updateProgress(videoId, `Расшифровка Whisper${chunks.length > 1 ? ` (${i + 1} из ${chunks.length})` : ''}...`)
+        allSegs.push(...await transcribeChunk(chunks[i], i * CHUNK_MINUTES * 60))
+      }
+      if (allSegs.length === 0) throw new Error('Whisper returned empty transcript')
+    }
 
     await updateProgress(videoId, 'Проверка и исправление транскрипта...')
     const corrected = await proofread(allSegs, video.current_title)
