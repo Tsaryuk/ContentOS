@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Save, Loader2, Plus, X, ChevronDown, ChevronUp,
-  Play, FolderOpen, User, Check, LogOut, Trash2
+  Play, FolderOpen, User, Check, LogOut, Trash2, RotateCcw
 } from 'lucide-react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -68,6 +68,7 @@ export default function SettingsPage() {
   const [addingChannel, setAddingChannel] = useState(false)
   const [addChannelError, setAddChannelError] = useState('')
   const [deletingChannel, setDeletingChannel] = useState<string | null>(null)
+  const [refreshingChannel, setRefreshingChannel] = useState<string | null>(null)
 
   // Channel rules
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null)
@@ -148,6 +149,20 @@ export default function SettingsPage() {
     await fetch(`/api/channels/${channelId}`, { method: 'DELETE' })
     setChannels(prev => prev.filter(c => c.id !== channelId))
     setDeletingChannel(null)
+  }
+
+  async function refreshChannel(channelId: string) {
+    setRefreshingChannel(channelId)
+    const res = await fetch(`/api/channels/${channelId}/refresh`, { method: 'POST' })
+    const data = await res.json()
+    if (data.ok) {
+      setChannels(prev => prev.map(c =>
+        c.id === channelId
+          ? { ...c, title: data.title, handle: data.handle, thumbnail_url: data.thumbnail_url }
+          : c
+      ))
+    }
+    setRefreshingChannel(null)
   }
 
   async function assignToProject(channelId: string, projectId: string | null) {
@@ -417,6 +432,17 @@ export default function SettingsPage() {
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
+
+                    <button
+                      onClick={() => refreshChannel(ch.id)}
+                      disabled={refreshingChannel === ch.id}
+                      title="Обновить название и аватар с YouTube"
+                      className="text-dim hover:text-accent transition-colors ml-1"
+                    >
+                      {refreshingChannel === ch.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <RotateCcw className="w-4 h-4" />}
+                    </button>
 
                     <button
                       onClick={() => deleteChannel(ch.id)}

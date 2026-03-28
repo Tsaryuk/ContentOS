@@ -106,6 +106,19 @@ export default function YouTubePage() {
 
   useEffect(() => { if (configured && activeChannelDbId) loadVideos() }, [configured, activeChannelDbId])
 
+  // Auto-switch to first visible tab after videos load
+  useEffect(() => {
+    const visible = [
+      { id: 'podcasts' as ContentType, count: allVideos.filter(v => classifyVideo(v) === 'podcasts').length },
+      { id: 'videos'   as ContentType, count: allVideos.filter(v => classifyVideo(v) === 'videos').length },
+      { id: 'shorts'   as ContentType, count: allVideos.filter(v => classifyVideo(v) === 'shorts').length },
+      { id: 'queue'    as ContentType, count: allVideos.filter(v => !v.is_published_back && v.status !== 'done').length },
+    ].filter(t => t.count > 0)
+    if (visible.length > 0 && !visible.find(t => t.id === activeTab)) {
+      setActiveTab(visible[0].id)
+    }
+  }, [allVideos])
+
   function selectChannel(ch: YtChannel) {
     setActiveChannelDbId(ch.id)
     setActiveYtChannelId(ch.yt_channel_id)
@@ -159,6 +172,7 @@ export default function YouTubePage() {
     { id: 'shorts' as ContentType,   label: 'Shorts',   icon: <Film className="w-4 h-4" />, count: shorts.length },
     { id: 'queue' as ContentType,    label: 'Очередь',  icon: <AlertCircle className="w-4 h-4" />, count: queue.length },
   ]
+  const visibleTabs = tabs.filter(t => t.count > 0)
 
   const currentVideos =
     activeTab === 'videos'   ? videos :
@@ -240,7 +254,7 @@ export default function YouTubePage() {
         {/* Tabs */}
         <div className="mb-6">
           <div className="relative inline-flex bg-surface rounded-lg p-1 border border-border">
-            {tabs.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
