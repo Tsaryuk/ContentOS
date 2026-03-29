@@ -676,11 +676,18 @@ async function handleProduce(videoId: string) {
     // Thumbnails: NOT auto-generated. User creates via Thumbnail Studio (fal.ai)
     // Producer only saves thumbnail_spec (prompt + text variants)
 
-    // Step 3: Save producer output (DO NOT overwrite generated_title until user approves)
+    // Step 3: Save producer output + copy tags/description to top-level fields for publish
+    const recommendedTitle = output.title_variants?.find((v: any) => v.is_recommended)?.text
+      ?? output.title_variants?.[0]?.text
+      ?? null
+
     await supabase.from('yt_videos').update({
       producer_output: output,
       selected_variants: { title_index: null, thumbnail_text_index: null, clips_selected: [], shorts_selected: [] },
       ai_score: output.ai_score,
+      generated_description: output.description ?? null,
+      generated_tags: output.tags?.length ? output.tags : null,
+      ...(recommendedTitle ? { generated_title: recommendedTitle } : {}),
       updated_at: new Date().toISOString(),
     }).eq('id', videoId)
 
