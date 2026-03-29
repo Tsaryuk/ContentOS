@@ -39,24 +39,27 @@ const VARIANTS = [
 function templateLayout(template: Template, photoCount: number): string {
   if (template === 'duo') {
     return [
-      'TWO people, one person on the far left side, one person on the far right side.',
-      'Text block centered between them.',
-      'Both people are large, taking up most of the frame height.',
-      'Both looking toward camera. Symmetrical composition.',
-      'Dark glowing green light from behind each person.',
+      'COMPOSITION: Two people side by side filling the full frame height.',
+      'Left person occupies the left third, right person occupies the right third.',
+      'Text block in the center third between them.',
+      'Both people from chest up, large, dominant in frame.',
+      'BACKGROUND: Very dark near-black background with a bright concentrated green (#3a8c3a) glow/halo radiating from behind each person.',
+      'Green glow is intense and circular, like a spotlight from behind.',
+      'Overall color palette: dark charcoal black background, rich forest green glow, white and bright green text.',
     ].join(' ')
   }
 
   if (template === 'solo') {
     return [
-      'ONE person positioned on the RIGHT side of the frame.',
-      'Person takes up roughly 40% of total width, tall, from chest up.',
-      'Text on the LEFT side of the frame.',
-      'Dark moody background with subtle green glow behind the person.',
+      'COMPOSITION: One person on the RIGHT half of the frame, from chest up, large.',
+      'Text block on the LEFT half.',
+      'BACKGROUND: Very dark near-black background with a bright concentrated green (#3a8c3a) glow/halo radiating from behind the person.',
+      'Green glow is intense and circular, like a spotlight from behind.',
+      'Overall color palette: dark charcoal black background, rich forest green glow, white and bright green text.',
     ].join(' ')
   }
 
-  // custom — infer from photoCount like before
+  // custom
   if (photoCount <= 1) return 'One person from the reference photo, positioned right side. Text on the left.'
   if (photoCount === 2) return 'Two people from reference photos. Guest on left. Host on right. Both looking at camera.'
   return 'Multiple people from reference photos. Main guest prominent. All facing camera.'
@@ -80,13 +83,8 @@ function buildMasterPrompt(params: {
     'Dark moody background with subtle dark green gradient tones.',
     'Cinematic studio lighting, high contrast, editorial photography quality.',
 
-    // Image role instructions — only when template is passed
-    hasTemplate && photoCount > 0
-      ? `IMAGE ROLES: The first ${photoCount} image(s) show the REAL PERSON whose face must be reproduced EXACTLY — same face, same features, photorealistic likeness. The LAST image is a layout/style reference ONLY — use its color palette, background tones, and composition but DO NOT copy any faces from it.`
-      : hasTemplate
-      ? 'The provided image is a layout/style reference ONLY — match its color palette, background tones, and composition.'
-      : photoCount > 0
-      ? 'Reproduce the face from the provided photo EXACTLY — same person, photorealistic likeness.'
+    photoCount > 0
+      ? `CRITICAL: Reproduce the exact face(s) from the provided photo(s) with photorealistic accuracy. Same person, same facial features, same bone structure. DO NOT invent new faces.`
       : '',
 
     templateLayout(template, photoCount),
@@ -195,17 +193,12 @@ export async function POST(req: NextRequest) {
 
     const { line1, line2 } = splitText(text)
 
-    // Build image list: user photos + reference (for custom template or if explicitly provided)
-    const templateUrl = template === 'solo'
-      ? process.env.THUMBNAIL_TEMPLATE_SOLO ?? ''
-      : template === 'duo'
-      ? process.env.THUMBNAIL_TEMPLATE_DUO ?? ''
-      : ''
-
-    const imageUrls = [
-      ...(photos ?? []),
-      ...(referenceUrl ? [referenceUrl] : templateUrl ? [templateUrl] : []),
-    ].filter(Boolean) as string[]
+    // For solo/duo templates: pass ONLY face photos as image_urls.
+    // Style and layout are described in the prompt text — not via template image.
+    // For custom: user uploads their own reference, which goes into image_urls alongside photos.
+    const imageUrls: string[] = template === 'custom'
+      ? [...(photos ?? []), ...(referenceUrl ? [referenceUrl] : [])].filter(Boolean)
+      : [...(photos ?? [])].filter(Boolean)
 
     console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images | 4 variants...`)
 
@@ -219,7 +212,7 @@ export async function POST(req: NextRequest) {
             emotion: v.emotion,
             template: template as Template,
             photoCount: photos?.length ?? 0,
-            hasTemplate: !!templateUrl || !!referenceUrl,
+            hasTemplate: template === 'custom' && (!!referenceUrl),
             refinement,
           }),
           imageUrls,
