@@ -43,9 +43,8 @@ function templateLayout(template: Template, photoCount: number): string {
       'Left person occupies the left third, right person occupies the right third.',
       'Text block in the center third between them.',
       'Both people from chest up, large, dominant in frame.',
-      'BACKGROUND: Very dark near-black background with a bright concentrated green (#3a8c3a) glow/halo radiating from behind each person.',
-      'Green glow is intense and circular, like a spotlight from behind.',
-      'Overall color palette: dark charcoal black background, rich forest green glow, white and bright green text.',
+      'BACKGROUND: Very dark near-black (#0f1a10). Soft, diffused deep green ambient light emanating from behind each person — subtle, atmospheric, NOT neon, NOT circular rings.',
+      'Overall palette: near-black background, muted forest green soft glow, white and bright green (#4CAF50) text.',
     ].join(' ')
   }
 
@@ -53,9 +52,8 @@ function templateLayout(template: Template, photoCount: number): string {
     return [
       'COMPOSITION: One person on the RIGHT half of the frame, from chest up, large.',
       'Text block on the LEFT half.',
-      'BACKGROUND: Very dark near-black background with a bright concentrated green (#3a8c3a) glow/halo radiating from behind the person.',
-      'Green glow is intense and circular, like a spotlight from behind.',
-      'Overall color palette: dark charcoal black background, rich forest green glow, white and bright green text.',
+      'BACKGROUND: Very dark near-black (#0f1a10). Soft, diffused deep green ambient light from behind the person — subtle, atmospheric, NOT neon, NOT circular rings.',
+      'Overall palette: near-black background, muted forest green soft glow, white and bright green (#4CAF50) text.',
     ].join(' ')
   }
 
@@ -80,15 +78,15 @@ function buildMasterPrompt(params: {
   return [
     'YouTube podcast thumbnail. 1280x720, 16:9 aspect ratio.',
 
-    'Dark moody background with subtle dark green gradient tones.',
-    'Cinematic studio lighting, high contrast, editorial photography quality.',
+    'Very dark near-black background with a deep green tint (#0f1a10). NO neon rings, NO circular halos.',
+    'Soft diffused green ambient light gently wrapping around subjects from behind. Natural skin tones. High contrast editorial photography quality.',
 
     photoCount > 0
       ? `CRITICAL: The first ${photoCount} image(s) are FACE REFERENCES. Reproduce the exact face(s) with photorealistic accuracy — same person, same facial features, same bone structure. DO NOT invent new faces.`
       : '',
 
     hasStyleRef
-      ? 'The LAST image is a STYLE REFERENCE ONLY — copy its exact background color (#0f1a10 very dark green-black), the bright green circular glow/halo behind people, and overall dark atmospheric composition. DO NOT copy any faces or silhouettes from this style image.'
+      ? 'The LAST image is a STYLE REFERENCE ONLY — match its exact background color (very dark green-black), soft diffused atmospheric green glow behind subjects, and overall dark moody composition. DO NOT copy any faces or silhouettes from this style image. NO neon rings, NO bright circular halos — keep the glow soft and diffused like the reference.'
       : '',
 
     templateLayout(template, photoCount),

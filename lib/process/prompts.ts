@@ -68,6 +68,7 @@ export function buildProducerSystemPrompt(rules: ExtendedChannelRules, durationM
 - One 1-hour episode can rank for DOZENS of search queries through chapters.
 - First timecode MUST be 00:00. Minimum 3 chapters. Each chapter minimum 10 seconds.
 - Each chapter title = separate search keyword (NOT "Part 1" or "Introduction").
+- CRITICAL: Video duration is ${Math.floor(durationMin / 60)}h ${Math.round(durationMin % 60)}min (${String(Math.floor(durationMin / 60)).padStart(2, '0')}:${String(Math.round(durationMin % 60)).padStart(2, '0')}:00). The LAST timecode MUST NOT exceed this. Generate timecodes proportionally distributed across the full video.
 
 ### Tags:
 - Tags play minimal role in ranking BUT are a safety net for discovery.
