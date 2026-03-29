@@ -7,6 +7,7 @@ type Template = 'solo' | 'duo' | 'custom'
 
 interface Props {
   videoId: string
+  channelId?: string
   textVariants: string[]
   currentThumbnail?: string
   savedUrlsByTemplate?: Record<string, string[]>
@@ -89,7 +90,7 @@ const TEMPLATES: { id: Template; label: string; icon: React.ReactNode }[] = [
   { id: 'custom', label: 'Свой реф', icon: <CustomIcon /> },
 ]
 
-export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, savedUrlsByTemplate, savedPhotos, savedReference, onSelect }: Props) {
+export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumbnail, savedUrlsByTemplate, savedPhotos, savedReference, onSelect }: Props) {
   const [template, setTemplate] = useState<Template>('solo')
   const [photos, setPhotos] = useState<{ file?: File; preview: string }[]>([])
   const [reference, setReference] = useState<{ file?: File; preview: string } | null>(null)
@@ -195,6 +196,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, saved
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           videoId,
+          channelId,
           photos: photoUrls,
           text: activeText,
           template,
@@ -202,6 +204,10 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, saved
           refinement: refinement || undefined,
         }),
       })
+
+      // Handle network timeout — server may have finished and saved results to DB
+      if (!res.ok && res.status === 0 || res.type === 'error') throw new Error('network')
+
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       if (data.urls?.length) {
@@ -212,6 +218,24 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, saved
         setError('AI не вернул результатов')
       }
     } catch (err: any) {
+      // If network timeout — results may already be saved in DB, reload page data
+      if (err.name === 'TypeError' || err.message === 'network' || err.message === 'Load failed' || err.message === 'Failed to fetch') {
+        setError('Подождите, загружаем результаты...')
+        await new Promise(r => setTimeout(r, 3000))
+        // Reload saved URLs from DB via page refresh of producer_output
+        const poRes = await fetch(`/api/youtube/video/${videoId}/producer-output`).catch(() => null)
+        if (poRes?.ok) {
+          const poData = await poRes.json()
+          const saved = poData?.thumbnail_urls_by_template?.[template]
+          if (saved?.length) {
+            setResultsByTemplate(prev => ({ ...prev, [template]: saved.map((u: string) => ({ url: u, model: '' })) }))
+            setError(null)
+            return
+          }
+        }
+        setError('Обновите страницу — обложки уже сгенерированы')
+        return
+      }
       console.error('[ThumbnailStudio]', err)
       setError(`${err.name}: ${err.message}`)
     } finally {

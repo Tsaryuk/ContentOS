@@ -115,6 +115,7 @@ export interface ExtendedChannelRules extends ChannelRules {
   thumbnail_preferences?: ThumbnailPreferences
   brand_voice?: string
   guest_info_template?: string
+  thumbnail_style_prompt?: string
 }
 
 // --- Core Types ---

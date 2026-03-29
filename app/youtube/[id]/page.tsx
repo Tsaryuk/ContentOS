@@ -421,6 +421,7 @@ export default function VideoDetailPage() {
               <div className="p-4 bg-surface rounded-xl border border-border">
                 <ThumbnailStudio
                   videoId={video.id}
+                  channelId={video.channel_id}
                   textVariants={po.thumbnail_spec?.text_overlay_variants ?? []}
                   currentThumbnail={video.current_thumbnail}
                   savedUrlsByTemplate={po.thumbnail_urls_by_template}

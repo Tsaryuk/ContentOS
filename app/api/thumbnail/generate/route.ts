@@ -72,8 +72,9 @@ function buildMasterPrompt(params: {
   photoCount: number
   hasStyleRef: boolean
   refinement?: string
+  channelStylePrompt?: string | null
 }): string {
-  const { textLine1, textLine2, guestName, emotion, template, photoCount, hasStyleRef, refinement } = params
+  const { textLine1, textLine2, guestName, emotion, template, photoCount, hasStyleRef, refinement, channelStylePrompt } = params
 
   return [
     'YouTube podcast thumbnail. 1280x720, 16:9 aspect ratio.',
@@ -107,6 +108,7 @@ function buildMasterPrompt(params: {
     'Dark background ensures text contrast.',
     'Professional YouTube podcast thumbnail quality.',
 
+    channelStylePrompt ? `CHANNEL STYLE: ${channelStylePrompt}` : '',
     refinement ? `IMPORTANT MODIFICATION: ${refinement}` : '',
   ].filter(Boolean).join(' ')
 }
@@ -187,10 +189,17 @@ export async function POST(req: NextRequest) {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })
     const supabase = getSupabase()
     const body = await req.json()
-    const { videoId, photos, text, template = 'solo', referenceUrl, refinement, guestInfo } = body
+    const { videoId, channelId, photos, text, template = 'solo', referenceUrl, refinement, guestInfo } = body
 
     if (!videoId || !text) {
       return NextResponse.json({ error: 'videoId and text required' }, { status: 400 })
+    }
+
+    // Load per-channel thumbnail style prompt if channelId provided
+    let channelStylePrompt: string | null = null
+    if (channelId) {
+      const { data: ch } = await supabase.from('yt_channels').select('rules').eq('id', channelId).single()
+      channelStylePrompt = ch?.rules?.thumbnail_style_prompt ?? null
     }
 
     const { line1, line2 } = splitText(text)
@@ -199,7 +208,7 @@ export async function POST(req: NextRequest) {
     const imageUrls: string[] = [...(photos ?? []), ...(referenceUrl ? [referenceUrl] : [])].filter(Boolean)
     const hasStyleRef = !!referenceUrl
 
-    console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images | 4 variants...`)
+    console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images | channelPrompt=${!!channelStylePrompt} | 4 variants...`)
 
     const settled = await Promise.allSettled(
       VARIANTS.map(v =>
@@ -213,6 +222,7 @@ export async function POST(req: NextRequest) {
             photoCount: photos?.length ?? 0,
             hasStyleRef,
             refinement,
+            channelStylePrompt,
           }),
           imageUrls,
           v.name,

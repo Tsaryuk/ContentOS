@@ -23,6 +23,7 @@ interface ChannelRules {
   required_links: string[]; hashtags_fixed: string[]
   shorts_count: number; clip_max_minutes: number
   brand_voice?: string
+  thumbnail_style_prompt?: string
   social_templates?: { telegram?: string; youtube_community?: string; instagram_stories?: string }
 }
 
@@ -510,6 +511,17 @@ export default function SettingsPage() {
                         >
                           <Plus className="w-3.5 h-3.5" /> Добавить ссылку
                         </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Стиль обложки (промпт)</label>
+                        <textarea
+                          rows={2}
+                          value={draft.thumbnail_style_prompt ?? ''}
+                          onChange={e => updateDraft(ch.id, { thumbnail_style_prompt: e.target.value })}
+                          placeholder="например: тёмный фон с зелёным свечением, крупные лица..."
+                          className="w-full px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/40 resize-none"
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
