@@ -9,7 +9,7 @@ interface Props {
   videoId: string
   textVariants: string[]
   currentThumbnail?: string
-  generatedUrls?: string[]
+  savedUrlsByTemplate?: Record<string, string[]>
   savedPhotos?: string[]
   savedReference?: string
   onSelect: (url: string) => void
@@ -89,7 +89,7 @@ const TEMPLATES: { id: Template; label: string; icon: React.ReactNode }[] = [
   { id: 'custom', label: 'Свой реф', icon: <CustomIcon /> },
 ]
 
-export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, generatedUrls: initialUrls, savedPhotos, savedReference, onSelect }: Props) {
+export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, savedUrlsByTemplate, savedPhotos, savedReference, onSelect }: Props) {
   const [template, setTemplate] = useState<Template>('solo')
   const [photos, setPhotos] = useState<{ file?: File; preview: string }[]>([])
   const [reference, setReference] = useState<{ file?: File; preview: string } | null>(null)
@@ -97,9 +97,9 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
   const [customText, setCustomText] = useState('')
   const [refinement, setRefinement] = useState('')
   const [generating, setGenerating] = useState(false)
-  const [results, setResults] = useState<{ url: string; model: string }[]>(
-    (initialUrls ?? []).map(u => ({ url: u, model: '' }))
-  )
+  const [resultsByTemplate, setResultsByTemplate] = useState<Record<Template, { url: string; model: string }[]>>({
+    solo: [], duo: [], custom: [],
+  })
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -115,6 +115,15 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
       setReference({ preview: savedReference })
     }
   }, [savedPhotos, savedReference])
+
+  useEffect(() => {
+    if (!savedUrlsByTemplate) return
+    setResultsByTemplate({
+      solo:   (savedUrlsByTemplate.solo   ?? []).map(u => ({ url: u, model: '' })),
+      duo:    (savedUrlsByTemplate.duo    ?? []).map(u => ({ url: u, model: '' })),
+      custom: (savedUrlsByTemplate.custom ?? []).map(u => ({ url: u, model: '' })),
+    })
+  }, [savedUrlsByTemplate])
 
   const addPhotos = (files: FileList | null) => {
     if (!files) return
@@ -196,7 +205,8 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       if (data.urls?.length) {
-        setResults(data.urls.map((url: string, i: number) => ({ url, model: data.models?.[i] ?? '' })))
+        const newResults = data.urls.map((url: string, i: number) => ({ url, model: data.models?.[i] ?? '' }))
+        setResultsByTemplate(prev => ({ ...prev, [template]: newResults }))
         setRefinement('')
       } else {
         setError('AI не вернул результатов')
@@ -218,9 +228,9 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
       </div>
 
       {/* Results */}
-      {results.length > 0 && (
+      {resultsByTemplate[template].length > 0 && (
         <div className="grid grid-cols-2 gap-2">
-          {results.map((r, i) => (
+          {resultsByTemplate[template].map((r, i) => (
             <button
               key={r.url + i}
               onClick={() => { setSelectedUrl(r.url); onSelect(r.url) }}
@@ -345,7 +355,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, gener
         </div>
 
         {/* Refine */}
-        {results.length > 0 && (
+        {resultsByTemplate[template].length > 0 && (
           <input
             type="text"
             value={refinement}

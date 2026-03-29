@@ -72,10 +72,10 @@ function buildMasterPrompt(params: {
   emotion: string
   template: Template
   photoCount: number
-  hasTemplate: boolean
+  hasStyleRef: boolean
   refinement?: string
 }): string {
-  const { textLine1, textLine2, guestName, emotion, template, photoCount, hasTemplate, refinement } = params
+  const { textLine1, textLine2, guestName, emotion, template, photoCount, hasStyleRef, refinement } = params
 
   return [
     'YouTube podcast thumbnail. 1280x720, 16:9 aspect ratio.',
@@ -84,7 +84,11 @@ function buildMasterPrompt(params: {
     'Cinematic studio lighting, high contrast, editorial photography quality.',
 
     photoCount > 0
-      ? `CRITICAL: Reproduce the exact face(s) from the provided photo(s) with photorealistic accuracy. Same person, same facial features, same bone structure. DO NOT invent new faces.`
+      ? `CRITICAL: The first ${photoCount} image(s) are FACE REFERENCES. Reproduce the exact face(s) with photorealistic accuracy — same person, same facial features, same bone structure. DO NOT invent new faces.`
+      : '',
+
+    hasStyleRef
+      ? 'The LAST image is a STYLE REFERENCE ONLY — copy its exact background color (#0f1a10 very dark green-black), the bright green circular glow/halo behind people, and overall dark atmospheric composition. DO NOT copy any faces or silhouettes from this style image.'
       : '',
 
     templateLayout(template, photoCount),
@@ -193,14 +197,19 @@ export async function POST(req: NextRequest) {
 
     const { line1, line2 } = splitText(text)
 
-    // For solo/duo templates: pass ONLY face photos as image_urls.
-    // Style and layout are described in the prompt text — not via template image.
-    // For custom: user uploads their own reference, which goes into image_urls alongside photos.
+    // For solo/duo: face photos first, then the fixed style template image last.
+    // For custom: face photos + user's reference image (no fixed template).
+    const templateImageUrl =
+      template === 'solo' ? (process.env.THUMBNAIL_TEMPLATE_SOLO ?? '') :
+      template === 'duo'  ? (process.env.THUMBNAIL_TEMPLATE_DUO ?? '') : ''
+
     const imageUrls: string[] = template === 'custom'
       ? [...(photos ?? []), ...(referenceUrl ? [referenceUrl] : [])].filter(Boolean)
-      : [...(photos ?? [])].filter(Boolean)
+      : [...(photos ?? []), ...(templateImageUrl ? [templateImageUrl] : [])].filter(Boolean)
 
-    console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images | 4 variants...`)
+    const hasStyleRef = (template === 'solo' || template === 'duo') ? !!templateImageUrl : (template === 'custom' && !!referenceUrl)
+
+    console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images (styleRef=${hasStyleRef}) | 4 variants...`)
 
     const settled = await Promise.allSettled(
       VARIANTS.map(v =>
@@ -212,7 +221,7 @@ export async function POST(req: NextRequest) {
             emotion: v.emotion,
             template: template as Template,
             photoCount: photos?.length ?? 0,
-            hasTemplate: template === 'custom' && (!!referenceUrl),
+            hasStyleRef,
             refinement,
           }),
           imageUrls,
@@ -253,9 +262,12 @@ export async function POST(req: NextRequest) {
       const { data: video } = await supabase.from('yt_videos')
         .select('producer_output').eq('id', videoId).single()
 
-      const po = video?.producer_output
-        ? { ...video.producer_output, thumbnail_urls: urls }
-        : { thumbnail_urls: urls }
+      const prevPo = video?.producer_output ?? {}
+      const byTemplate = { ...(prevPo.thumbnail_urls_by_template ?? {}) }
+      byTemplate[template] = urls
+
+      // thumbnail_url = first url from any template (prefer just-generated)
+      const po = { ...prevPo, thumbnail_urls_by_template: byTemplate }
 
       await supabase.from('yt_videos').update({
         thumbnail_url: urls[0], producer_output: po,

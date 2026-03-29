@@ -376,7 +376,7 @@ export default function VideoDetailPage() {
                   videoId={video.id}
                   textVariants={po.thumbnail_spec?.text_overlay_variants ?? []}
                   currentThumbnail={video.current_thumbnail}
-                  generatedUrls={po.thumbnail_urls}
+                  savedUrlsByTemplate={po.thumbnail_urls_by_template}
                   savedPhotos={po.saved_photos}
                   savedReference={po.saved_reference}
                   onSelect={selectThumbnailByUrl}
