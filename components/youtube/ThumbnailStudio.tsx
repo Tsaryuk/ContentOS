@@ -153,10 +153,32 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
 
   const activeText = customText || selectedText
 
+  // Poll DB for thumbnail results
+  const pollForResults = async (tpl: Template, prevCount: number) => {
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!sbUrl || !sbKey) return false
+    try {
+      const res = await fetch(`${sbUrl}/rest/v1/yt_videos?id=eq.${videoId}&select=producer_output`, {
+        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+      })
+      const data = await res.json()
+      const saved: string[] = data?.[0]?.producer_output?.thumbnail_urls_by_template?.[tpl] ?? []
+      if (saved.length > prevCount) {
+        setResultsByTemplate(prev => ({ ...prev, [tpl]: saved.map(u => ({ url: u, model: '' })) }))
+        return true
+      }
+    } catch {}
+    return false
+  }
+
   const generate = async () => {
     if (!activeText) return
     setGenerating(true)
     setError(null)
+    const currentTemplate = template
+    const prevCount = resultsByTemplate[currentTemplate]?.length ?? 0
+
     try {
       const existingPhotoUrls = photos.filter(p => !p.file).map(p => p.preview)
       const newPhotoFiles = photos.filter(p => p.file).map(p => p.file!)
@@ -191,7 +213,8 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         }).catch(() => {})
       }
 
-      const res = await fetch(apiUrl('/api/thumbnail/generate'), {
+      // Fire and forget — start generation, then poll for results
+      const generatePromise = fetch(apiUrl('/api/thumbnail/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,43 +222,39 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           channelId,
           photos: photoUrls,
           text: activeText,
-          template,
+          template: currentTemplate,
           referenceUrl: refUrl || undefined,
           refinement: refinement || undefined,
         }),
       })
 
-      // Handle network timeout — server may have finished and saved results to DB
-      if (!res.ok && res.status === 0 || res.type === 'error') throw new Error('network')
-
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      if (data.urls?.length) {
-        const newResults = data.urls.map((url: string, i: number) => ({ url, model: data.models?.[i] ?? '' }))
-        setResultsByTemplate(prev => ({ ...prev, [template]: newResults }))
-        setRefinement('')
-      } else {
-        setError('AI не вернул результатов')
+      // Poll every 5s for up to 3 minutes
+      let found = false
+      for (let i = 0; i < 36; i++) {
+        await new Promise(r => setTimeout(r, 5000))
+        found = await pollForResults(currentTemplate, prevCount)
+        if (found) {
+          setRefinement('')
+          break
+        }
       }
-    } catch (err: any) {
-      // If network timeout — results may already be saved in DB, reload page data
-      if (err.name === 'TypeError' || err.message === 'network' || err.message === 'Load failed' || err.message === 'Failed to fetch') {
-        setError('Подождите, загружаем результаты...')
-        await new Promise(r => setTimeout(r, 3000))
-        // Reload saved URLs from DB via page refresh of producer_output
-        const poRes = await fetch(`/api/youtube/video/${videoId}/producer-output`).catch(() => null)
-        if (poRes?.ok) {
-          const poData = await poRes.json()
-          const saved = poData?.thumbnail_urls_by_template?.[template]
-          if (saved?.length) {
-            setResultsByTemplate(prev => ({ ...prev, [template]: saved.map((u: string) => ({ url: u, model: '' })) }))
-            setError(null)
-            return
+
+      // Also check the response if it completed
+      try {
+        const res = await generatePromise
+        if (res.ok && !found) {
+          const data = await res.json()
+          if (data.urls?.length) {
+            const newResults = data.urls.map((url: string, i: number) => ({ url, model: data.models?.[i] ?? '' }))
+            setResultsByTemplate(prev => ({ ...prev, [currentTemplate]: newResults }))
+            setRefinement('')
+            found = true
           }
         }
-        setError('Обновите страницу — обложки уже сгенерированы')
-        return
-      }
+      } catch {}
+
+      if (!found) setError('Таймаут генерации. Обновите страницу.')
+    } catch (err: any) {
       console.error('[ThumbnailStudio]', err)
       setError(`${err.name}: ${err.message}`)
     } finally {
@@ -262,7 +281,12 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                 selectedUrl === r.url ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'border-border hover:border-accent/30'
               }`}
             >
-              <img src={r.url} alt="" className="w-full aspect-video object-cover" />
+              <img
+                src={r.url}
+                alt=""
+                className="w-full aspect-video object-cover"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
               {r.model && <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 backdrop-blur-sm rounded text-[10px] text-muted">{r.model}</span>}
               {selectedUrl === r.url && (
                 <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
