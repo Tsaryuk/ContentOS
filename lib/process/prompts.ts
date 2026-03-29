@@ -201,6 +201,7 @@ Return ONLY valid JSON (no markdown, no \`\`\`):
 - Each label = SEO searchable keyword phrase (like article subheadings)
 - Proportionally distributed across ${durationMin} minutes
 - First always "00:00" with introductory heading
+- CRITICAL: Last timecode MUST NOT exceed ${Math.floor(durationMin / 60)}:${String(durationMin % 60).padStart(2, '0')}:00 (total video duration). Any timecode beyond this is invalid.
 
 ### Thumbnail text
 - MAX 3 words (ideal 2). Max 20 characters.

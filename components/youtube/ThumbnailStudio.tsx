@@ -292,7 +292,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, saved
               </button>
             </div>
           ))}
-          {template === 'custom' && reference && (
+          {reference && (
             <div className="relative group w-14 h-14 rounded-lg overflow-hidden border border-purple-500/40 flex-shrink-0">
               <img src={reference.preview} alt="" className="w-full h-full object-cover" />
               <span className="absolute bottom-0 inset-x-0 bg-purple-600/90 text-[7px] text-center text-white leading-tight py-px">REF</span>
@@ -307,7 +307,7 @@ export function ThumbnailStudio({ videoId, textVariants, currentThumbnail, saved
               <span className="text-[8px] leading-none">Фото</span>
             </button>
           )}
-          {template === 'custom' && !reference && (
+          {!reference && (
             <button onClick={() => refRef.current?.click()} className="w-14 h-14 rounded-lg border border-dashed border-purple-500/20 flex flex-col items-center justify-center text-purple-400/30 hover:text-purple-400/50 hover:border-purple-500/30 transition-colors flex-shrink-0 gap-0.5">
               <Plus className="w-3.5 h-3.5" />
               <span className="text-[8px] leading-none">Стиль</span>

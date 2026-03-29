@@ -1,6 +1,7 @@
 'use client'
 
-import { Star, MessageSquare } from 'lucide-react'
+import { useState } from 'react'
+import { Star, MessageSquare, Copy, Check } from 'lucide-react'
 
 interface TitleVariant {
   text: string
@@ -26,7 +27,15 @@ export function VariantSelector({
   selectedIndex: number | null
   onSelect: (index: number) => void
 }) {
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+
   if (!variants || variants.length === 0) return null
+
+  function copy(idx: number, text: string) {
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCopiedIdx(idx)
+    setTimeout(() => setCopiedIdx(null), 1500)
+  }
 
   return (
     <div className="space-y-2">
@@ -60,6 +69,16 @@ export function VariantSelector({
                       <Star className="w-3 h-3" /> Рекомендация
                     </span>
                   )}
+                  <button
+                    onClick={e => { e.stopPropagation(); copy(idx, v.text) }}
+                    className="ml-auto p-1 rounded hover:bg-white/10 transition-colors"
+                    title="Копировать заголовок"
+                  >
+                    {copiedIdx === idx
+                      ? <Check className="w-3.5 h-3.5 text-green-400" />
+                      : <Copy className="w-3.5 h-3.5 text-muted" />
+                    }
+                  </button>
                 </div>
                 <p className="text-sm text-cream font-medium leading-snug">{v.text}</p>
                 <p className="text-[11px] text-muted mt-1.5 flex items-start gap-1">

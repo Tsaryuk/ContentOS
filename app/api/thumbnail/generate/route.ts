@@ -197,13 +197,9 @@ export async function POST(req: NextRequest) {
 
     const { line1, line2 } = splitText(text)
 
-    // For solo/duo: only face photos. Style described via prompt text only.
-    // For custom: face photos + user's reference image.
-    const imageUrls: string[] = template === 'custom'
-      ? [...(photos ?? []), ...(referenceUrl ? [referenceUrl] : [])].filter(Boolean)
-      : [...(photos ?? [])].filter(Boolean)
-
-    const hasStyleRef = template === 'custom' && !!referenceUrl
+    // Face photos first, then optional style reference (for any template type).
+    const imageUrls: string[] = [...(photos ?? []), ...(referenceUrl ? [referenceUrl] : [])].filter(Boolean)
+    const hasStyleRef = !!referenceUrl
 
     console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images | 4 variants...`)
 

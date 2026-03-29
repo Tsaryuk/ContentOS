@@ -397,11 +397,20 @@ async function handleGenerate(videoId: string) {
     const result = JSON.parse(jsonMatch[0])
     if (!result.title || !result.description) throw new Error('Missing required fields')
 
+    // Filter timecodes that exceed video duration
+    const validTimecodes = (result.timecodes ?? []).filter((tc: { time: string }) => {
+      const parts = tc.time.split(':').map(Number)
+      const secs = parts.length === 3
+        ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+        : parts[0] * 60 + (parts[1] ?? 0)
+      return secs <= video.duration_seconds
+    })
+
     await supabase.from('yt_videos').update({
       generated_title: result.title,
       generated_description: result.description,
       generated_tags: result.tags ?? [],
-      generated_timecodes: result.timecodes ?? [],
+      generated_timecodes: validTimecodes,
       generated_clips: result.clips ?? [],
       ai_score: result.ai_score ?? null,
       updated_at: new Date().toISOString(),
