@@ -20,7 +20,6 @@ type VideoItem = {
   yt_video_id: string
   current_title: string
   current_thumbnail: string
-  current_description: string
   duration_seconds: number
   published_at: string
   view_count: number
