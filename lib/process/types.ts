@@ -116,6 +116,7 @@ export interface ExtendedChannelRules extends ChannelRules {
   brand_voice?: string
   guest_info_template?: string
   thumbnail_style_prompt?: string
+  channel_links?: string
 }
 
 // --- Core Types ---

@@ -57,11 +57,31 @@ export function buildProducerSystemPrompt(rules: ExtendedChannelRules, durationM
 - DESIRE: promise what the viewer wants ("How to earn $X in Y months")
 
 ### Description Rules:
-- First 150 characters = most valuable real estate (visible before "Show more")
-- Main keyword in first sentence. Value proposition. NO links in first lines.
-- Optimal body: 200-300 words. Max 5000 characters.
-- Each description MUST be unique — YouTube penalizes template copies.
-- Keywords in description must MATCH keywords in title and tags.
+Structure the description EXACTLY in this order:
+
+1. HOOK (2-3 sentences, first 150 chars visible before "Show more"):
+   - Guest name + role + core topic
+   - 2-3 key questions/promises from the episode
+   - Main keyword in first sentence. NO links here.
+
+2. GUEST LINKS (if guest has products/services/socials mentioned in transcript):
+   Format:
+   Ссылки:
+   ▶︎ [what it is] — [URL placeholder like {guest_link_1}]
+   ▶︎ промо-код [CODE] на [discount] — [where to use]
+
+3. TAKEAWAYS (5-8 bullet points, most surprising/valuable insights):
+   Выводы:
+   • [specific fact or actionable insight]
+   • ...
+
+4. TIMECODES — DO NOT generate, they will be added separately.
+
+5. CHANNEL LINKS — DO NOT generate, they will be added from channel settings.
+
+6. HASHTAGS — DO NOT generate, they will be added from channel settings.
+
+Important: Keywords in description must MATCH keywords in title and tags. Max 5000 characters total.
 
 ### Timecodes/Chapters:
 - Chapters are indexed by Google and YouTube Search separately.
@@ -93,8 +113,8 @@ ${rules.title_format}
 ### Description Template
 ${rules.description_template}
 
-### Required Links (add at end of description)
-${rules.required_links.map(l => `- ${l}`).join('\n')}
+### Fixed Channel Links (appended to description after timecodes — DO NOT include in description output)
+${(rules as any).channel_links ?? rules.required_links.map(l => `- ${l}`).join('\n')}
 
 ### Fixed Hashtags
 ${rules.hashtags_fixed.join(' ')}

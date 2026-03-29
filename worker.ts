@@ -525,8 +525,8 @@ async function handlePublish(videoId: string, overrides?: { title?: string; thum
         id: video.yt_video_id,
         snippet: {
           title: publishTitle,
-          description: video.generated_description,
-          tags: video.generated_tags ?? snippet.tags,
+          description: video.generated_description || snippet.description,
+          tags: (video.generated_tags?.length ? video.generated_tags : null) ?? snippet.tags,
           categoryId: snippet.categoryId,
         },
       }),

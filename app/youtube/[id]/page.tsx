@@ -41,6 +41,9 @@ export default function VideoDetailPage() {
   const [processing, setProcessing] = useState<string | null>(null)
   const [copiedTags, setCopiedTags] = useState(false)
   const [publishingVariant, setPublishingVariant] = useState<number | null>(null)
+  const [descEdit, setDescEdit] = useState<string | null>(null)
+  const [descSaving, setDescSaving] = useState(false)
+  const [descSaved, setDescSaved] = useState(false)
 
   const loadVideo = useCallback(async () => {
     if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
@@ -258,10 +261,33 @@ export default function VideoDetailPage() {
 
                 {/* Description */}
                 <div className="p-4 bg-surface rounded-xl border border-border">
-                  <h3 className="text-sm font-medium text-muted mb-3">Описание</h3>
-                  <div className="text-xs text-muted whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
-                    {po.description}
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-muted">Описание</h3>
+                    <div className="flex items-center gap-2">
+                      {descSaved && <span className="text-xs text-green-400 flex items-center gap-1"><Check className="w-3 h-3" /> Сохранено</span>}
+                      <button
+                        onClick={async () => {
+                          const text = descEdit ?? video.generated_description ?? po.description ?? ''
+                          setDescSaving(true)
+                          await patchVideo({ generated_description: text })
+                          setDescSaving(false)
+                          setDescSaved(true)
+                          setTimeout(() => setDescSaved(false), 2500)
+                        }}
+                        disabled={descSaving}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors disabled:opacity-50"
+                      >
+                        {descSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        Сохранить
+                      </button>
+                    </div>
                   </div>
+                  <textarea
+                    className="w-full bg-black/20 border border-border rounded-lg p-3 text-xs text-muted leading-relaxed resize-none focus:outline-none focus:border-white/20 min-h-[200px]"
+                    value={descEdit ?? video.generated_description ?? po.description ?? ''}
+                    onChange={e => setDescEdit(e.target.value)}
+                    rows={12}
+                  />
                 </div>
 
                 {/* Tags */}

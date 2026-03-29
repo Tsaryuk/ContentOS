@@ -24,6 +24,7 @@ interface ChannelRules {
   shorts_count: number; clip_max_minutes: number
   brand_voice?: string
   thumbnail_style_prompt?: string
+  channel_links?: string
   social_templates?: { telegram?: string; youtube_community?: string; instagram_stories?: string }
 }
 
@@ -511,6 +512,17 @@ export default function SettingsPage() {
                         >
                           <Plus className="w-3.5 h-3.5" /> Добавить ссылку
                         </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Фиксированные ссылки канала</label>
+                        <textarea
+                          rows={4}
+                          value={draft.channel_links ?? ''}
+                          onChange={e => updateDraft(ch.id, { channel_links: e.target.value })}
+                          placeholder={'▶︎ конспекты подкастов — https://t.me/...\n▶︎ Instagram — https://instagram.com/...\nРеклама: hi@example.com'}
+                          className="w-full px-3 py-2 rounded-lg bg-bg border border-border text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/40 resize-none font-mono text-xs"
+                        />
                       </div>
 
                       <div className="space-y-1.5">
