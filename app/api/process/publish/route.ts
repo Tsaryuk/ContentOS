@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     if (!video.is_approved) {
       return NextResponse.json({ error: 'Video must be approved' }, { status: 403 })
     }
-    if (video.status !== 'review' && video.status !== 'error') {
+    if (!['review', 'error', 'done'].includes(video.status)) {
       return NextResponse.json({ error: `Cannot publish: status "${video.status}"` }, { status: 400 })
     }
 

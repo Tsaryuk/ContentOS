@@ -44,6 +44,7 @@ export default function VideoDetailPage() {
   const [descEdit, setDescEdit] = useState<string | null>(null)
   const [descSaving, setDescSaving] = useState(false)
   const [descSaved, setDescSaved] = useState(false)
+  const [publishedVariants, setPublishedVariants] = useState<Set<number>>(new Set())
 
   const loadVideo = useCallback(async () => {
     if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
@@ -95,11 +96,14 @@ export default function VideoDetailPage() {
     setPublishingVariant(variantIndex)
     setProcessing('Публикация')
     try {
-      await fetch('/api/process/publish', {
+      const res = await fetch('/api/process/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoId, title, thumbnailUrl }),
       })
+      if (res.ok) {
+        setPublishedVariants(prev => new Set(prev).add(variantIndex))
+      }
       setTimeout(loadVideo, 3000)
     } catch {
       setProcessing(null)
@@ -173,7 +177,7 @@ export default function VideoDetailPage() {
   const sv = video.selected_variants ?? {}
   const isProcessing = ['transcribing', 'producing', 'generating', 'thumbnail', 'publishing'].includes(video.status)
   const canProduce = video.status === 'pending' || video.status === 'error' || video.status === 'review'
-  const canPublish = video.status === 'review' && video.is_approved
+  const canPublish = (video.status === 'review' || video.status === 'done') && video.is_approved
 
   return (
     <div className="min-h-screen bg-bg text-cream font-sans">
@@ -408,7 +412,7 @@ export default function VideoDetailPage() {
 
                     return (
                       <div className="mt-2 space-y-1.5">
-                        <p className="text-[10px] text-dim px-1">Публикация на YouTube</p>
+                        <p className="text-[10px] text-dim px-1">{video.is_published_back ? 'Обновить на YouTube' : 'Публикация на YouTube'}</p>
                         {slots.map((slot: any, i: number) => (
                           <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
                             <span className="text-[10px] font-bold text-dim w-3">{slot.label}</span>
@@ -416,10 +420,18 @@ export default function VideoDetailPage() {
                             <p className="flex-1 min-w-0 text-[11px] text-cream truncate">{slot.title}</p>
                             <button
                               onClick={() => publishVariant(i, slot.title, slot.thumb)}
-                              disabled={isProcessing}
-                              className="px-2 py-1 rounded text-[10px] bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-30 whitespace-nowrap flex-shrink-0"
+                              disabled={isProcessing || publishedVariants.has(i)}
+                              className={`px-2 py-1 rounded text-[10px] transition-colors whitespace-nowrap flex-shrink-0 ${
+                                publishedVariants.has(i)
+                                  ? 'bg-emerald-500/20 text-emerald-400'
+                                  : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-30'
+                              }`}
                             >
-                              {publishingVariant === i ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Загрузить'}
+                              {publishingVariant === i
+                                ? <Loader2 className="w-3 h-3 animate-spin inline" />
+                                : publishedVariants.has(i)
+                                  ? <Check className="w-3 h-3 inline" />
+                                  : video.is_published_back ? 'Обновить' : 'Загрузить'}
                             </button>
                           </div>
                         ))}
