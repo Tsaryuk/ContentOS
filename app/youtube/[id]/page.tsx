@@ -315,6 +315,7 @@ export default function VideoDetailPage() {
                           const text = descEdit ?? video.generated_description ?? po.description ?? ''
                           setDescSaving(true)
                           await patchVideo({ generated_description: text })
+                          setDescEdit(null)
                           setDescSaving(false)
                           setDescSaved(true)
                           setTimeout(() => setDescSaved(false), 2500)
