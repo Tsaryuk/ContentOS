@@ -33,14 +33,29 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 async function claudeWithRetry(
   params: Parameters<typeof anthropic.messages.create>[0],
   maxRetries = 3,
+  timeoutMs = 300000, // 5 min timeout per attempt
 ): Promise<any> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await anthropic.messages.create(params)
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), timeoutMs)
+      try {
+        const result = await anthropic.messages.create(
+          { ...params, signal: controller.signal } as any
+        )
+        return result
+      } finally {
+        clearTimeout(timer)
+      }
     } catch (err: any) {
       const status = err?.status ?? err?.error?.status
+      if (err?.name === 'AbortError' || err?.message?.includes('abort')) {
+        console.log(`[claude] Timeout after ${timeoutMs / 1000}s, attempt ${attempt}/${maxRetries}`)
+        if (attempt < maxRetries) continue
+        throw new Error(`Claude API timeout after ${maxRetries} attempts`)
+      }
       if ((status === 529 || err?.message?.includes('Overloaded')) && attempt < maxRetries) {
-        const delay = attempt * 30000 // 30s, 60s, 90s
+        const delay = attempt * 30000
         console.log(`[claude] 529 Overloaded, retry ${attempt}/${maxRetries} in ${delay / 1000}s...`)
         await new Promise(r => setTimeout(r, delay))
         continue

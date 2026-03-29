@@ -9,7 +9,8 @@ export async function POST(req: NextRequest) {
 
     const { video } = await getVideoWithChannel(videoId)
 
-    if (video.status !== 'pending' && video.status !== 'review' && video.status !== 'error') {
+    const allowedStatuses = ['pending', 'review', 'error', 'generating', 'producing', 'done']
+    if (!allowedStatuses.includes(video.status)) {
       return NextResponse.json({ error: `Cannot produce: status "${video.status}"` }, { status: 400 })
     }
 
