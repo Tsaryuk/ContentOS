@@ -759,8 +759,18 @@ const worker = new Worker(
   async (job: Job) => {
     const handler = handlers[job.name]
     if (!handler) throw new Error(`Unknown job: ${job.name}`)
-    console.log(`[worker] Processing ${job.name} for ${job.data.videoId}`)
-    await handler(job.data.videoId, job.data)
+    const videoId = job.data.videoId
+    console.log(`[worker] Processing ${job.name} for ${videoId}`)
+    try {
+      await handler(videoId, job.data)
+    } catch (err: any) {
+      // Ensure status is set to error so UI doesn't hang
+      console.error(`[worker] ${job.name} crashed for ${videoId}:`, err.message)
+      try {
+        await updateStatus(videoId, 'error', err.message?.slice(0, 500) ?? 'Unknown error')
+      } catch {}
+      throw err
+    }
   },
   {
     connection: redis,
