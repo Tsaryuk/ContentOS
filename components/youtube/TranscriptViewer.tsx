@@ -103,7 +103,7 @@ export function TranscriptViewer({
             placeholder="Поиск по транскрипту..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-surface border border-border rounded-lg text-sm text-white placeholder:text-dim focus:outline-none focus:border-purple-500/50"
+            className="w-full pl-9 pr-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-purple-500/50"
           />
         </div>
       )}
@@ -117,7 +117,7 @@ export function TranscriptViewer({
                 <span className="text-[11px] text-purple-400 font-mono shrink-0 pt-0.5 w-12">
                   {formatTime(chunk.start)}
                 </span>
-                <span className="text-[13px] text-white/70 leading-relaxed">{chunk.text}</span>
+                <span className="text-[13px] text-muted leading-relaxed">{chunk.text}</span>
               </div>
             ))}
           </div>

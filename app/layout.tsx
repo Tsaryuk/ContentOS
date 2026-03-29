@@ -14,6 +14,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className="dark">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            var t = localStorage.getItem('theme');
+            if (t === 'light') document.documentElement.classList.remove('dark');
+            else document.documentElement.classList.add('dark');
+          } catch(e) {}
+        ` }} />
+      </head>
       <body className="antialiased flex h-screen overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">

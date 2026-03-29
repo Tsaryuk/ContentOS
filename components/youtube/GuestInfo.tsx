@@ -39,20 +39,20 @@ export function GuestInfo({
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="Имя гостя"
-          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-white placeholder:text-dim focus:outline-none focus:border-purple-500/50"
+          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-purple-500/50"
         />
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Кто этот человек, чем известен"
           rows={2}
-          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-white placeholder:text-dim focus:outline-none focus:border-purple-500/50 resize-none"
+          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-purple-500/50 resize-none"
         />
         <input
           value={topics}
           onChange={e => setTopics(e.target.value)}
           placeholder="Темы через запятую"
-          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-white placeholder:text-dim focus:outline-none focus:border-purple-500/50"
+          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-purple-500/50"
         />
         <div className="flex gap-2">
           <button

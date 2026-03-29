@@ -137,7 +137,7 @@ export default function YouTubePage() {
     setLoading(true)
     const { data } = await sb
       .from('yt_videos')
-      .select('*')
+      .select('id, yt_video_id, current_title, current_thumbnail, duration_seconds, published_at, view_count, like_count, status, ai_score, is_approved, is_published_back, generated_title, privacy_status')
       .eq('channel_id', activeChannelDbId)
       .order('published_at', { ascending: false })
     setAllVideos(data || [])

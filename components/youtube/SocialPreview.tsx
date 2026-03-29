@@ -56,8 +56,8 @@ export function SocialPreview({
               onClick={() => setActiveTab(draft.platform)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 isActive
-                  ? 'bg-white/10 text-white'
-                  : 'text-muted hover:text-muted hover:bg-surface'
+                  ? 'bg-surface border border-border text-cream'
+                  : 'text-muted hover:text-cream hover:bg-surface'
               }`}
             >
               <Icon className={`w-3.5 h-3.5 ${isActive ? platform.color : ''}`} />
@@ -73,13 +73,13 @@ export function SocialPreview({
           <textarea
             value={content}
             onChange={e => handleContentChange(e.target.value)}
-            className="w-full min-h-[150px] p-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white/80 leading-relaxed resize-y focus:outline-none focus:border-purple-500/30 placeholder:text-dim"
+            className="w-full min-h-[150px] p-3 bg-surface border border-border rounded-xl text-sm text-cream leading-relaxed resize-y focus:outline-none focus:border-purple-500/30 placeholder:text-dim"
           />
           <div className="flex items-center justify-between mt-2">
             <span className="text-[10px] text-dim">{content.length} символов</span>
             <button
               onClick={() => handleCopy(activeTab)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface hover:bg-white/10 text-xs text-muted hover:text-white transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border hover:bg-white/5 text-xs text-muted hover:text-cream transition-colors"
             >
               {copied === activeTab
                 ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Скопировано</>

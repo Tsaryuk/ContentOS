@@ -288,7 +288,7 @@ export default function VideoDetailPage() {
                     </div>
                   </div>
                   <textarea
-                    className="w-full bg-black/20 border border-border rounded-lg p-3 text-xs text-muted leading-relaxed resize-none focus:outline-none focus:border-white/20 min-h-[200px]"
+                    className="w-full bg-surface border border-border rounded-lg p-3 text-xs text-cream leading-relaxed resize-none focus:outline-none focus:border-muted/40 min-h-[200px]"
                     value={descEdit ?? video.generated_description ?? po.description ?? ''}
                     onChange={e => setDescEdit(e.target.value)}
                     rows={12}
