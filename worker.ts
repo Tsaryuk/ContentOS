@@ -398,13 +398,18 @@ async function handleGenerate(videoId: string) {
     if (!result.title || !result.description) throw new Error('Missing required fields')
 
     // Filter timecodes that exceed video duration
-    const validTimecodes = (result.timecodes ?? []).filter((tc: { time: string }) => {
-      const parts = tc.time.split(':').map(Number)
-      const secs = parts.length === 3
-        ? parts[0] * 3600 + parts[1] * 60 + parts[2]
-        : parts[0] * 60 + (parts[1] ?? 0)
-      return secs <= video.duration_seconds
-    })
+    // Supports HH:MM:SS, HH:MM, MM:SS formats
+    function tcToSecs(t: string): number {
+      const parts = t.split(':').map(Number)
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+      // HH:MM or MM:SS — disambiguate: if first part > 59, treat as H:MM
+      if (parts[0] > 59) return parts[0] * 3600 + parts[1] * 60
+      return parts[0] * 60 + (parts[1] ?? 0)
+    }
+    const dur = video.duration_seconds ?? 0
+    const validTimecodes = dur > 0
+      ? (result.timecodes ?? []).filter((tc: { time: string }) => tcToSecs(tc.time) <= dur)
+      : (result.timecodes ?? [])
 
     await supabase.from('yt_videos').update({
       generated_title: result.title,
