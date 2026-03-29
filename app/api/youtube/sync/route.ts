@@ -1,11 +1,13 @@
 // app/api/youtube/sync/route.ts
 // POST /api/youtube/sync
-// Вытягивает все видео канала → сохраняет в Supabase
-// ⚠️  READ-ONLY: только читает YouTube, ничего не меняет на канале
+// Pulls all channel videos → upserts to Supabase (bulk)
+// READ-ONLY: only reads YouTube, never writes to channel
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fetchChannelVideos } from '@/lib/youtube/videos'
+
+const BATCH_SIZE = 50
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +16,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'channelId required' }, { status: 400 })
     }
 
-    // Проверяем что канал есть в нашей базе
     const { data: channel, error: chErr } = await supabaseAdmin
       .from('yt_channels')
       .select('id, yt_channel_id, title')
@@ -25,59 +26,51 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Channel not found in DB' }, { status: 404 })
     }
 
-    // Читаем видео с YouTube (только чтение)
     const ytVideos = await fetchChannelVideos(channelId)
 
-    // Сохраняем в Supabase
+    // Build rows for bulk upsert
+    const rows = ytVideos.map(v => ({
+      channel_id:          channel.id,
+      yt_video_id:         v.id,
+      current_title:       v.title,
+      current_description: v.description,
+      current_tags:        v.tags,
+      current_thumbnail:   v.thumbnail,
+      duration_seconds:    v.duration_seconds,
+      published_at:        v.published_at,
+      view_count:          v.view_count,
+      like_count:          v.like_count,
+      privacy_status:      v.privacy_status,
+    }))
+
+    // Bulk upsert in batches
     let synced = 0
-    let skipped = 0
     let errors = 0
 
-    // Detect whether privacy_status column exists (first video as probe)
-    let hasPrivacyStatus = true
-    if (ytVideos.length > 0) {
-      const probe = await supabaseAdmin.from('yt_videos').select('privacy_status').limit(1)
-      if (probe.error?.message?.includes('privacy_status')) hasPrivacyStatus = false
-    }
-
-    for (const v of ytVideos) {
-      const row: Record<string, unknown> = {
-        channel_id:          channel.id,
-        yt_video_id:         v.id,
-        current_title:       v.title,
-        current_description: v.description,
-        current_tags:        v.tags,
-        current_thumbnail:   v.thumbnail,
-        duration_seconds:    v.duration_seconds,
-        published_at:        v.published_at,
-        view_count:          v.view_count,
-        like_count:          v.like_count,
-        // status трогаем только если видео новое
-      }
-      if (hasPrivacyStatus) row.privacy_status = v.privacy_status
-
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE)
       const { error } = await supabaseAdmin
         .from('yt_videos')
-        .upsert(row, {
-          onConflict: 'yt_video_id',
-          ignoreDuplicates: false,
-        })
+        .upsert(batch, { onConflict: 'yt_video_id', ignoreDuplicates: false })
 
-      if (error) { errors++; console.error('[sync] upsert error:', error) }
-      else synced++
+      if (error) {
+        errors += batch.length
+        console.error('[sync] batch upsert error:', error.message)
+      } else {
+        synced += batch.length
+      }
     }
 
-    // Логируем джоб
     await supabaseAdmin.from('yt_jobs').insert({
       job_type: 'sync_channel',
-      status:   errors === 0 ? 'done' : 'failed',
-      result:   { synced, skipped, errors, total: ytVideos.length },
+      status: errors === 0 ? 'done' : 'failed',
+      result: { synced, errors, total: ytVideos.length },
     })
 
     return NextResponse.json({
       success: true,
       channel: channel.title,
-      total:   ytVideos.length,
+      total: ytVideos.length,
       synced,
       errors,
     })

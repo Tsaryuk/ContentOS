@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Clock, Eye, ThumbsUp, Sparkles, ExternalLink,
   Loader2, FileText, Tag, Scissors, MessageSquare, Image,
-  User, Rocket, Check, Copy
+  User, Rocket, Check, Copy, Save
 } from 'lucide-react'
 import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
@@ -37,6 +37,7 @@ export default function VideoDetailPage() {
   const videoId = params.id as string
 
   const [video, setVideo] = useState<any>(null)
+  const [channel, setChannel] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
   const [copiedTags, setCopiedTags] = useState(false)
@@ -54,7 +55,17 @@ export default function VideoDetailPage() {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
       })
       const data = await res.json()
-      if (data?.[0]) setVideo(data[0])
+      if (data?.[0]) {
+        setVideo(data[0])
+        // Load channel data (rules, channel_links, hashtags)
+        if (data[0].channel_id && !channel) {
+          const chRes = await fetch(`${SUPABASE_URL}/rest/v1/yt_channels?id=eq.${data[0].channel_id}&select=id,title,rules`, {
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+          })
+          const chData = await chRes.json()
+          if (chData?.[0]) setChannel(chData[0])
+        }
+      }
     } catch (err) {
       console.error('Load failed:', err)
     } finally {
@@ -167,6 +178,25 @@ export default function VideoDetailPage() {
     patchVideo({ selected_variants: sv })
   }
 
+  // Compose full description: AI text + timecodes + channel_links + hashtags
+  function composeDescription(): string {
+    const po = video?.producer_output
+    const rules = channel?.rules
+    const aiDesc = video?.generated_description ?? po?.description ?? ''
+    const timecodes = po?.timecodes ?? []
+    const channelLinks = rules?.channel_links ?? ''
+    const hashtags = (rules?.hashtags_fixed ?? []).join(' ')
+
+    const parts: string[] = [aiDesc]
+    if (timecodes.length > 0) {
+      const tc = timecodes.map((t: any) => `${t.time} — ${t.label}`).join('\n')
+      parts.push(`Тайм-коды:\n${tc}`)
+    }
+    if (channelLinks.trim()) parts.push(channelLinks.trim())
+    if (hashtags.trim()) parts.push(hashtags.trim())
+    return parts.join('\n\n')
+  }
+
   if (loading) {
     return <div className="min-h-screen bg-bg text-cream flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted" /></div>
   }
@@ -271,6 +301,16 @@ export default function VideoDetailPage() {
                     <div className="flex items-center gap-2">
                       {descSaved && <span className="text-xs text-green-400 flex items-center gap-1"><Check className="w-3 h-3" /> Сохранено</span>}
                       <button
+                        onClick={() => {
+                          const full = composeDescription()
+                          setDescEdit(full)
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-surface transition-colors border border-border"
+                      >
+                        <FileText className="w-3 h-3" />
+                        Собрать
+                      </button>
+                      <button
                         onClick={async () => {
                           const text = descEdit ?? video.generated_description ?? po.description ?? ''
                           setDescSaving(true)
@@ -280,19 +320,22 @@ export default function VideoDetailPage() {
                           setTimeout(() => setDescSaved(false), 2500)
                         }}
                         disabled={descSaving}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-surface transition-colors border border-border disabled:opacity-50"
                       >
-                        {descSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        {descSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                         Сохранить
                       </button>
                     </div>
                   </div>
                   <textarea
-                    className="w-full bg-surface border border-border rounded-lg p-3 text-xs text-cream leading-relaxed resize-none focus:outline-none focus:border-muted/40 min-h-[200px]"
+                    className="w-full bg-bg border border-border rounded-lg p-3 text-xs text-cream leading-relaxed resize-y focus:outline-none focus:border-muted/40 min-h-[200px]"
                     value={descEdit ?? video.generated_description ?? po.description ?? ''}
                     onChange={e => setDescEdit(e.target.value)}
                     rows={12}
                   />
+                  <div className="flex items-center justify-between mt-2 px-1">
+                    <span className="text-[10px] text-dim">{(descEdit ?? video.generated_description ?? po.description ?? '').length} / 5000 символов</span>
+                  </div>
                 </div>
 
                 {/* Tags */}
