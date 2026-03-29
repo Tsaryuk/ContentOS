@@ -69,18 +69,25 @@ function buildMasterPrompt(params: {
   emotion: string
   template: Template
   photoCount: number
+  hasTemplate: boolean
   refinement?: string
 }): string {
-  const { textLine1, textLine2, guestName, emotion, template, photoCount, refinement } = params
+  const { textLine1, textLine2, guestName, emotion, template, photoCount, hasTemplate, refinement } = params
 
   return [
     'YouTube podcast thumbnail. 1280x720, 16:9 aspect ratio.',
 
     'Dark moody background with subtle dark green gradient tones.',
     'Cinematic studio lighting, high contrast, editorial photography quality.',
-    template !== 'custom'
-      ? 'Use the reference image ONLY for color palette and visual style. Do NOT copy the face — generate a new face.'
-      : 'Match the exact layout and color palette from the reference image. Only change the face and text content.',
+
+    // Image role instructions — only when template is passed
+    hasTemplate && photoCount > 0
+      ? `IMAGE ROLES: The first ${photoCount} image(s) show the REAL PERSON whose face must be reproduced EXACTLY — same face, same features, photorealistic likeness. The LAST image is a layout/style reference ONLY — use its color palette, background tones, and composition but DO NOT copy any faces from it.`
+      : hasTemplate
+      ? 'The provided image is a layout/style reference ONLY — match its color palette, background tones, and composition.'
+      : photoCount > 0
+      ? 'Reproduce the face from the provided photo EXACTLY — same person, photorealistic likeness.'
+      : '',
 
     templateLayout(template, photoCount),
     `Facial expression: ${emotion}.`,
@@ -212,6 +219,7 @@ export async function POST(req: NextRequest) {
             emotion: v.emotion,
             template: template as Template,
             photoCount: photos?.length ?? 0,
+            hasTemplate: !!templateUrl || !!referenceUrl,
             refinement,
           }),
           imageUrls,

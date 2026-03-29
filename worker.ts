@@ -488,7 +488,11 @@ async function handlePublish(videoId: string) {
   await logJob(videoId, 'publish', 'running')
 
   try {
-    const token = await getYouTubeToken()
+    // Use channel-specific refresh token if available, else fall back to env var
+    const channel = await getChannel(video.channel_id)
+    const refreshToken = channel?.refresh_token ?? process.env.YOUTUBE_REFRESH_TOKEN!
+    const token = await getAccessToken(refreshToken)
+
     const getRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${video.yt_video_id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -496,6 +500,7 @@ async function handlePublish(videoId: string) {
     const snippet = getData.items?.[0]?.snippet
     if (!snippet) throw new Error('Video not found on YouTube')
 
+    // Update snippet (title, description, tags)
     const putRes = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet', {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -509,10 +514,39 @@ async function handlePublish(videoId: string) {
         },
       }),
     })
-    if (!putRes.ok) throw new Error(`YouTube update: ${putRes.status} ${await putRes.text()}`)
+    if (!putRes.ok) throw new Error(`YouTube snippet update: ${putRes.status} ${await putRes.text()}`)
 
     await logChange(videoId, 'title', video.current_title, video.generated_title)
     await logChange(videoId, 'description', video.current_description, video.generated_description)
+
+    // Upload thumbnail if available
+    if (video.thumbnail_url) {
+      try {
+        console.log(`[publish] Uploading thumbnail: ${video.thumbnail_url}`)
+        const imgRes = await fetch(video.thumbnail_url)
+        if (!imgRes.ok) throw new Error(`Thumbnail fetch failed: ${imgRes.status}`)
+        const imgBuf = Buffer.from(await imgRes.arrayBuffer())
+        const contentType = video.thumbnail_url.endsWith('.png') ? 'image/png' : 'image/jpeg'
+
+        const thumbRes = await fetch(
+          `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${video.yt_video_id}&uploadType=media`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
+            body: imgBuf,
+          },
+        )
+        if (!thumbRes.ok) {
+          const errText = await thumbRes.text()
+          console.error(`[publish] Thumbnail upload failed: ${thumbRes.status} ${errText}`)
+        } else {
+          console.log(`[publish] Thumbnail uploaded OK (${(imgBuf.length / 1024).toFixed(0)} KB)`)
+        }
+      } catch (thumbErr: any) {
+        // Thumbnail failure is non-fatal — continue with publish
+        console.error(`[publish] Thumbnail error (non-fatal):`, thumbErr.message)
+      }
+    }
 
     await supabase.from('yt_videos').update({ is_published_back: true, updated_at: new Date().toISOString() }).eq('id', videoId)
 
