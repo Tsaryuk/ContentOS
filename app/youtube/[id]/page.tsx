@@ -395,47 +395,33 @@ export default function VideoDetailPage() {
                     </button>
                   </div>
 
-                  {/* A/B Publish */}
-                  {canPublish && po?.title_variants?.length > 0 && (() => {
-                    const allThumbs = [
-                      ...(po.thumbnail_urls_by_template?.solo ?? []),
-                      ...(po.thumbnail_urls_by_template?.duo ?? []),
-                      ...(po.thumbnail_urls_by_template?.custom ?? []),
-                      ...(video.thumbnail_url ? [video.thumbnail_url] : []),
-                    ].filter((u: string, i: number, a: string[]) => u && a.indexOf(u) === i)
-
-                    const slots = po.title_variants.slice(0, 3).map((v: any, i: number) => ({
-                      label: String.fromCharCode(65 + i),
-                      title: v.text,
-                      thumb: allThumbs[i] ?? allThumbs[0] ?? '',
-                    }))
-
+                  {/* Publish */}
+                  {canPublish && (() => {
+                    const thumb = video.thumbnail_url ?? ''
+                    const title = video.generated_title ?? po?.title_variants?.[0]?.text ?? ''
+                    const published = publishedVariants.has(0)
                     return (
-                      <div className="mt-2 space-y-1.5">
-                        <p className="text-[10px] text-dim px-1">{video.is_published_back ? 'Обновить на YouTube' : 'Публикация на YouTube'}</p>
-                        {slots.map((slot: any, i: number) => (
-                          <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                            <span className="text-[10px] font-bold text-dim w-3">{slot.label}</span>
-                            {slot.thumb && <img src={slot.thumb} alt="" className="w-12 h-7 rounded object-cover flex-shrink-0" />}
-                            <p className="flex-1 min-w-0 text-[11px] text-cream truncate">{slot.title}</p>
-                            <button
-                              onClick={() => publishVariant(i, slot.title, slot.thumb)}
-                              disabled={isProcessing || publishedVariants.has(i)}
-                              className={`px-2 py-1 rounded text-[10px] transition-colors whitespace-nowrap flex-shrink-0 ${
-                                publishedVariants.has(i)
-                                  ? 'bg-emerald-500/20 text-emerald-400'
-                                  : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-30'
-                              }`}
-                            >
-                              {publishingVariant === i
-                                ? <Loader2 className="w-3 h-3 animate-spin inline" />
-                                : publishedVariants.has(i)
-                                  ? <Check className="w-3 h-3 inline" />
-                                  : video.is_published_back ? 'Обновить' : 'Загрузить'}
-                            </button>
-                          </div>
-                        ))}
-                        <p className="text-[10px] text-dim px-1 pt-1">Остальные варианты добавьте в YouTube Studio → Эксперименты</p>
+                      <div className="mt-2 border-t border-white/[0.06] pt-2">
+                        <p className="text-[10px] text-dim px-1 mb-1.5">{video.is_published_back ? 'Обновить на YouTube' : 'Публикация на YouTube'}</p>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                          {thumb && <img src={thumb} alt="" className="w-12 h-7 rounded object-cover flex-shrink-0" />}
+                          <p className="flex-1 min-w-0 text-[11px] text-cream truncate">{title}</p>
+                          <button
+                            onClick={() => publishVariant(0, title, thumb)}
+                            disabled={isProcessing || published}
+                            className={`px-2 py-1 rounded text-[10px] transition-colors whitespace-nowrap flex-shrink-0 ${
+                              published
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-30'
+                            }`}
+                          >
+                            {publishingVariant === 0
+                              ? <Loader2 className="w-3 h-3 animate-spin inline" />
+                              : published
+                                ? <Check className="w-3 h-3 inline" />
+                                : video.is_published_back ? 'Обновить' : 'Загрузить'}
+                          </button>
+                        </div>
                       </div>
                     )
                   })()}

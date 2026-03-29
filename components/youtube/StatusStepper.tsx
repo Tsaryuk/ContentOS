@@ -21,8 +21,8 @@ export function StatusStepper({ status }: { status: string }) {
   return (
     <div className="flex items-center gap-1 overflow-x-auto py-2">
       {STEPS.map((step, idx) => {
-        const isDone = !isError && currentIdx > idx
-        const isCurrent = !isError && currentIdx === idx
+        const isDone = !isError && (currentIdx > idx || (status === 'done' && currentIdx === idx))
+        const isCurrent = !isError && currentIdx === idx && status !== 'done'
         const isActive = isDone || isCurrent
 
         return (
