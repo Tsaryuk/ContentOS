@@ -45,6 +45,7 @@ export default function VideoDetailPage() {
   const [descSaving, setDescSaving] = useState(false)
   const [descSaved, setDescSaved] = useState(false)
   const [publishedVariants, setPublishedVariants] = useState<Set<number>>(new Set())
+  const [copiedTimecodes, setCopiedTimecodes] = useState(false)
 
   const loadVideo = useCallback(async () => {
     if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
@@ -323,7 +324,21 @@ export default function VideoDetailPage() {
                 {/* Timecodes */}
                 {po.timecodes?.length > 0 && (
                   <div className="p-4 bg-surface rounded-xl border border-border">
-                    <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-medium text-muted flex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
+                      <button
+                        onClick={() => {
+                          const text = po.timecodes.map((tc: any) => `${tc.time} — ${tc.label}`).join('\n')
+                          navigator.clipboard.writeText(text)
+                          setCopiedTimecodes(true)
+                          setTimeout(() => setCopiedTimecodes(false), 2000)
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors"
+                      >
+                        {copiedTimecodes ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedTimecodes ? 'Скопировано' : 'Копировать'}
+                      </button>
+                    </div>
                     <div className="space-y-1">
                       {po.timecodes.map((tc: any, i: number) => (
                         <div key={i} className="flex gap-3 text-xs">
