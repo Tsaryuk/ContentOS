@@ -37,19 +37,16 @@ async function claudeWithRetry(
 ): Promise<any> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), timeoutMs)
-      try {
-        const result = await anthropic.messages.create(
-          { ...params, signal: controller.signal } as any
-        )
-        return result
-      } finally {
-        clearTimeout(timer)
-      }
+      const result = await Promise.race([
+        anthropic.messages.create(params),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
+        ),
+      ])
+      return result
     } catch (err: any) {
       const status = err?.status ?? err?.error?.status
-      if (err?.name === 'AbortError' || err?.message?.includes('abort')) {
+      if (err?.message === 'TIMEOUT') {
         console.log(`[claude] Timeout after ${timeoutMs / 1000}s, attempt ${attempt}/${maxRetries}`)
         if (attempt < maxRetries) continue
         throw new Error(`Claude API timeout after ${maxRetries} attempts`)
