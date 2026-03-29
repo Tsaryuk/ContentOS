@@ -533,18 +533,27 @@ async function handlePublish(videoId: string, overrides?: { title?: string; thum
     if (!snippet) throw new Error('Video not found on YouTube')
 
     // Update snippet (title, description, tags)
+    const publishDescription = video.generated_description || snippet.description
+    const publishTags = (video.generated_tags?.length ? video.generated_tags : null) ?? snippet.tags ?? []
+
+    console.log(`[publish] title: ${publishTitle?.slice(0, 60)}`)
+    console.log(`[publish] desc: ${publishDescription?.length ?? 0} chars`)
+    console.log(`[publish] tags: ${publishTags?.length ?? 0} items: ${publishTags?.slice(0, 5).join(', ')}...`)
+
+    const updatedSnippet: Record<string, unknown> = {
+      title: publishTitle,
+      description: publishDescription,
+      tags: publishTags,
+      categoryId: snippet.categoryId,
+    }
+    // Preserve defaultLanguage/defaultAudioLanguage to avoid YouTube resetting fields
+    if (snippet.defaultLanguage) updatedSnippet.defaultLanguage = snippet.defaultLanguage
+    if (snippet.defaultAudioLanguage) updatedSnippet.defaultAudioLanguage = snippet.defaultAudioLanguage
+
     const putRes = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet', {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: video.yt_video_id,
-        snippet: {
-          title: publishTitle,
-          description: video.generated_description || snippet.description,
-          tags: (video.generated_tags?.length ? video.generated_tags : null) ?? snippet.tags,
-          categoryId: snippet.categoryId,
-        },
-      }),
+      body: JSON.stringify({ id: video.yt_video_id, snippet: updatedSnippet }),
     })
     if (!putRes.ok) throw new Error(`YouTube snippet update: ${putRes.status} ${await putRes.text()}`)
 
