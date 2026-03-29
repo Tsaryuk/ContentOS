@@ -48,7 +48,7 @@ export function ProjectSwitcher() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectId: id }),
     })
-    router.refresh()
+    window.location.reload()
   }
 
   const active = projects.find(p => p.id === activeProjectId)

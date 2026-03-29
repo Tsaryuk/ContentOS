@@ -346,6 +346,23 @@ export default function SettingsPage() {
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ background: proj.color }} />
                     <span className="text-sm font-medium">{proj.name}</span>
                     <span className="text-xs text-dim ml-auto">{projChannels.length} кан.</span>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Удалить проект "${proj.name}"? Каналы останутся без проекта.`)) return
+                        // Unassign channels first
+                        for (const ch of projChannels) {
+                          await assignToProject(ch.id, null)
+                        }
+                        await fetch(`${SUPABASE_URL}/rest/v1/projects?id=eq.${proj.id}`, {
+                          method: 'DELETE',
+                          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+                        })
+                        await loadData()
+                      }}
+                      className="text-dim hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                   {projChannels.length > 0 && (
                     <div className="border-t border-border px-5 py-2 space-y-1.5">
@@ -355,8 +372,15 @@ export default function SettingsPage() {
                             ? <img src={ch.thumbnail_url} className="w-6 h-6 rounded-full" alt="" />
                             : <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center text-[9px] text-red-400 font-bold">YT</div>
                           }
-                          <span className="text-xs text-cream">{ch.title}</span>
+                          <span className="text-xs text-cream flex-1 truncate">{ch.title}</span>
                           <span className="text-[10px] text-dim">{ch.handle}</span>
+                          <button
+                            onClick={() => assignToProject(ch.id, null)}
+                            title="Убрать из проекта"
+                            className="text-dim hover:text-red-400 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -364,6 +388,36 @@ export default function SettingsPage() {
                 </div>
               )
             })}
+
+            {/* Unassigned channels */}
+            {channels.filter(c => !c.project_id).length > 0 && (
+              <div className="bg-surface border border-border rounded-xl overflow-hidden">
+                <div className="px-5 py-3 flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full shrink-0 bg-dim/30" />
+                  <span className="text-sm font-medium text-dim">Без проекта</span>
+                  <span className="text-xs text-dim ml-auto">{channels.filter(c => !c.project_id).length} кан.</span>
+                </div>
+                <div className="border-t border-border px-5 py-2 space-y-1.5">
+                  {channels.filter(c => !c.project_id).map(ch => (
+                    <div key={ch.id} className="flex items-center gap-2 py-1">
+                      {ch.thumbnail_url
+                        ? <img src={ch.thumbnail_url} className="w-6 h-6 rounded-full" alt="" />
+                        : <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center text-[9px] text-red-400 font-bold">YT</div>
+                      }
+                      <span className="text-xs text-cream flex-1 truncate">{ch.title}</span>
+                      <select
+                        onChange={e => { if (e.target.value) assignToProject(ch.id, e.target.value) }}
+                        className="text-[10px] bg-bg border border-border rounded px-1.5 py-1 text-cream"
+                        defaultValue=""
+                      >
+                        <option value="">Добавить в...</option>
+                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

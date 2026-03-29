@@ -10,7 +10,7 @@ export async function GET() {
 
   const { data: channels } = await supabaseAdmin
     .from('yt_channels')
-    .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active')
+    .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active, subscriber_count, video_count')
     .order('title')
 
   return NextResponse.json({ projects: projects ?? [], channels: channels ?? [] })
