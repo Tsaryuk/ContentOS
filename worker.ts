@@ -479,10 +479,13 @@ async function getYouTubeToken(): Promise<string> {
   return data.access_token
 }
 
-async function handlePublish(videoId: string) {
+async function handlePublish(videoId: string, overrides?: { title?: string; thumbnailUrl?: string }) {
   const video = await getVideo(videoId)
   if (!video.is_approved) throw new Error('Not approved')
   if (!video.generated_title) throw new Error('No generated content')
+
+  const publishTitle = overrides?.title ?? video.generated_title
+  const publishThumbnail = overrides?.thumbnailUrl ?? video.thumbnail_url
 
   await updateStatus(videoId, 'publishing')
   await logJob(videoId, 'publish', 'running')
@@ -507,7 +510,7 @@ async function handlePublish(videoId: string) {
       body: JSON.stringify({
         id: video.yt_video_id,
         snippet: {
-          title: video.generated_title,
+          title: publishTitle,
           description: video.generated_description,
           tags: video.generated_tags ?? snippet.tags,
           categoryId: snippet.categoryId,
@@ -516,17 +519,17 @@ async function handlePublish(videoId: string) {
     })
     if (!putRes.ok) throw new Error(`YouTube snippet update: ${putRes.status} ${await putRes.text()}`)
 
-    await logChange(videoId, 'title', video.current_title, video.generated_title)
+    await logChange(videoId, 'title', video.current_title, publishTitle)
     await logChange(videoId, 'description', video.current_description, video.generated_description)
 
     // Upload thumbnail if available
-    if (video.thumbnail_url) {
+    if (publishThumbnail) {
       try {
-        console.log(`[publish] Uploading thumbnail: ${video.thumbnail_url}`)
-        const imgRes = await fetch(video.thumbnail_url)
+        console.log(`[publish] Uploading thumbnail: ${publishThumbnail}`)
+        const imgRes = await fetch(publishThumbnail)
         if (!imgRes.ok) throw new Error(`Thumbnail fetch failed: ${imgRes.status}`)
         const imgBuf = Buffer.from(await imgRes.arrayBuffer())
-        const contentType = video.thumbnail_url.endsWith('.png') ? 'image/png' : 'image/jpeg'
+        const contentType = publishThumbnail.endsWith('.png') ? 'image/png' : 'image/jpeg'
 
         const thumbRes = await fetch(
           `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${video.yt_video_id}&uploadType=media`,
@@ -543,7 +546,6 @@ async function handlePublish(videoId: string) {
           console.log(`[publish] Thumbnail uploaded OK (${(imgBuf.length / 1024).toFixed(0)} KB)`)
         }
       } catch (thumbErr: any) {
-        // Thumbnail failure is non-fatal — continue with publish
         console.error(`[publish] Thumbnail error (non-fatal):`, thumbErr.message)
       }
     }
@@ -551,8 +553,8 @@ async function handlePublish(videoId: string) {
     await supabase.from('yt_videos').update({ is_published_back: true, updated_at: new Date().toISOString() }).eq('id', videoId)
 
     await updateStatus(videoId, 'done')
-    await logJob(videoId, 'publish', 'done', { title: video.generated_title })
-    console.log(`[publish] OK: ${video.generated_title}`)
+    await logJob(videoId, 'publish', 'done', { title: publishTitle })
+    console.log(`[publish] OK: ${publishTitle}`)
   } catch (err: any) {
     console.error(`[publish] FAIL:`, err.message)
     await updateStatus(videoId, 'error', err.message)
@@ -702,11 +704,11 @@ async function handleProduce(videoId: string) {
 
 // --- Worker ---
 
-const handlers: Record<string, (videoId: string) => Promise<void>> = {
+const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> = {
   transcribe: handleTranscribe,
   generate: handleGenerate,
   thumbnail: handleThumbnail,
-  publish: handlePublish,
+  publish: (videoId, data) => handlePublish(videoId, data?.overrides),
   produce: handleProduce,
 }
 
@@ -716,7 +718,7 @@ const worker = new Worker(
     const handler = handlers[job.name]
     if (!handler) throw new Error(`Unknown job: ${job.name}`)
     console.log(`[worker] Processing ${job.name} for ${job.data.videoId}`)
-    await handler(job.data.videoId)
+    await handler(job.data.videoId, job.data)
   },
   {
     connection: redis,

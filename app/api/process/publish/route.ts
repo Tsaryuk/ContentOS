@@ -4,7 +4,7 @@ import { updateVideoStatus, getVideoWithChannel } from '@/lib/process/helpers'
 
 export async function POST(req: NextRequest) {
   try {
-    const { videoId } = await req.json()
+    const { videoId, title, thumbnailUrl } = await req.json()
     if (!videoId) return NextResponse.json({ error: 'videoId required' }, { status: 400 })
 
     const { video } = await getVideoWithChannel(videoId)
@@ -17,7 +17,10 @@ export async function POST(req: NextRequest) {
     }
 
     await updateVideoStatus(videoId, 'publishing')
-    await getQueue().add('publish', { videoId })
+    await getQueue().add('publish', {
+      videoId,
+      overrides: { title, thumbnailUrl },
+    })
 
     return NextResponse.json({ success: true, status: 'queued' })
   } catch (err: any) {

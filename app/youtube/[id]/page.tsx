@@ -40,6 +40,7 @@ export default function VideoDetailPage() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
   const [copiedTags, setCopiedTags] = useState(false)
+  const [publishingVariant, setPublishingVariant] = useState<number | null>(null)
 
   const loadVideo = useCallback(async () => {
     if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
@@ -85,6 +86,23 @@ export default function VideoDetailPage() {
       body: JSON.stringify({ videoId }),
     }).catch(() => {})
     setTimeout(loadVideo, 3000)
+  }
+
+  const publishVariant = async (variantIndex: number, title: string, thumbnailUrl: string) => {
+    setPublishingVariant(variantIndex)
+    setProcessing('Публикация')
+    try {
+      await fetch('/api/process/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId, title, thumbnailUrl }),
+      })
+      setTimeout(loadVideo, 3000)
+    } catch {
+      setProcessing(null)
+    } finally {
+      setPublishingVariant(null)
+    }
   }
 
   const patchVideo = async (data: Record<string, any>) => {
@@ -345,15 +363,44 @@ export default function VideoDetailPage() {
                     >
                       {video.is_approved ? <><Check className="w-4 h-4 inline mr-2" />Одобрено</> : 'Одобрить'}
                     </button>
-
-                    <button
-                      onClick={() => runProcess('publish', 'Публикация')}
-                      disabled={!canPublish || isProcessing}
-                      className="w-full mt-2 py-2.5 px-4 rounded-lg text-sm font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-30"
-                    >
-                      Опубликовать на YouTube
-                    </button>
                   </div>
+
+                  {/* A/B Publish */}
+                  {canPublish && po?.title_variants?.length > 0 && (() => {
+                    const allThumbs = [
+                      ...(po.thumbnail_urls_by_template?.solo ?? []),
+                      ...(po.thumbnail_urls_by_template?.duo ?? []),
+                      ...(po.thumbnail_urls_by_template?.custom ?? []),
+                      ...(video.thumbnail_url ? [video.thumbnail_url] : []),
+                    ].filter((u: string, i: number, a: string[]) => u && a.indexOf(u) === i)
+
+                    const slots = po.title_variants.slice(0, 3).map((v: any, i: number) => ({
+                      label: String.fromCharCode(65 + i),
+                      title: v.text,
+                      thumb: allThumbs[i] ?? allThumbs[0] ?? '',
+                    }))
+
+                    return (
+                      <div className="mt-2 space-y-1.5">
+                        <p className="text-[10px] text-dim px-1">Публикация на YouTube</p>
+                        {slots.map((slot: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                            <span className="text-[10px] font-bold text-dim w-3">{slot.label}</span>
+                            {slot.thumb && <img src={slot.thumb} alt="" className="w-12 h-7 rounded object-cover flex-shrink-0" />}
+                            <p className="flex-1 min-w-0 text-[11px] text-cream truncate">{slot.title}</p>
+                            <button
+                              onClick={() => publishVariant(i, slot.title, slot.thumb)}
+                              disabled={isProcessing}
+                              className="px-2 py-1 rounded text-[10px] bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-30 whitespace-nowrap flex-shrink-0"
+                            >
+                              {publishingVariant === i ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Загрузить'}
+                            </button>
+                          </div>
+                        ))}
+                        <p className="text-[10px] text-dim px-1 pt-1">Остальные варианты добавьте в YouTube Studio → Эксперименты</p>
+                      </div>
+                    )
+                  })()}
                 </>
               ) : (
                 <>
