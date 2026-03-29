@@ -197,19 +197,15 @@ export async function POST(req: NextRequest) {
 
     const { line1, line2 } = splitText(text)
 
-    // For solo/duo: face photos first, then the fixed style template image last.
-    // For custom: face photos + user's reference image (no fixed template).
-    const templateImageUrl =
-      template === 'solo' ? (process.env.THUMBNAIL_TEMPLATE_SOLO ?? '') :
-      template === 'duo'  ? (process.env.THUMBNAIL_TEMPLATE_DUO ?? '') : ''
-
+    // For solo/duo: only face photos. Style described via prompt text only.
+    // For custom: face photos + user's reference image.
     const imageUrls: string[] = template === 'custom'
       ? [...(photos ?? []), ...(referenceUrl ? [referenceUrl] : [])].filter(Boolean)
-      : [...(photos ?? []), ...(templateImageUrl ? [templateImageUrl] : [])].filter(Boolean)
+      : [...(photos ?? [])].filter(Boolean)
 
-    const hasStyleRef = (template === 'solo' || template === 'duo') ? !!templateImageUrl : (template === 'custom' && !!referenceUrl)
+    const hasStyleRef = template === 'custom' && !!referenceUrl
 
-    console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images (styleRef=${hasStyleRef}) | 4 variants...`)
+    console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images | 4 variants...`)
 
     const settled = await Promise.allSettled(
       VARIANTS.map(v =>
