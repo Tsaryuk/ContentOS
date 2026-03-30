@@ -79,7 +79,7 @@ Structure the description EXACTLY in this order:
 
 5. CHANNEL LINKS — DO NOT generate, they will be added from channel settings.
 
-6. HASHTAGS — DO NOT generate, they will be added from channel settings.
+6. HASHTAGS — Generate exactly 3 single-word hashtags relevant to the content. Format: #word1 #word2 #word3. Each hashtag must be ONE word in Russian (no spaces, no multi-word). Example: #грибы #микология #наука
 
 Important: Keywords in description must MATCH keywords in title and tags. Max 5000 characters total.
 
@@ -137,7 +137,8 @@ Return ONLY valid JSON (no markdown, no \`\`\`):
       "is_recommended": true/false (only ONE true — the best variant)
     }
   ],
-  "description": "Full description following channel template. With timecodes, links, hashtags. First 150 chars = hook with main keyword.",
+  "description": "Description text: hook (2-3 sentences) + takeaways (bullets). NO timecodes, NO channel links — those are added separately.",
+  "hashtags": ["#слово1", "#слово2", "#слово3"],
   "tags": ["tag1", "tag2", "...15-20 tags ordered by priority"],
   "timecodes": [
     {"time": "00:00", "label": "SEO-optimized chapter title (searchable keyword, NOT generic)"}

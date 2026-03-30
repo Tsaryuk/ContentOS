@@ -48,6 +48,8 @@ export default function VideoDetailPage() {
   const [descSaved, setDescSaved] = useState(false)
   const [publishedVariants, setPublishedVariants] = useState<Set<number>>(new Set())
   const [copiedTimecodes, setCopiedTimecodes] = useState(false)
+  const [guestLinks, setGuestLinks] = useState<string | null>(null)
+  const [guestLinksSaved, setGuestLinksSaved] = useState(false)
 
   const loadVideo = useCallback(async () => {
     if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
@@ -183,12 +185,16 @@ export default function VideoDetailPage() {
   function composeDescription(): string {
     const po = video?.producer_output
     const rules = channel?.rules
-    const aiDesc = video?.generated_description ?? po?.description ?? ''
+    // Always use po.description as base (no timecodes), never generated_description
+    const aiDesc = po?.description ?? ''
+    const guestLinks = video?.guest_links ?? po?.guest_info?.links ?? ''
     const timecodes = po?.timecodes ?? []
     const channelLinks = rules?.channel_links ?? ''
-    const hashtags = (rules?.hashtags_fixed ?? []).join(' ')
+    // Use AI-generated hashtags first, fall back to channel fixed hashtags
+    const hashtags = (po?.hashtags?.length ? po.hashtags : rules?.hashtags_fixed ?? []).join(' ')
 
     const parts: string[] = [aiDesc]
+    if (guestLinks.trim()) parts.push(`Ссылки:\n${guestLinks.trim()}`)
     if (timecodes.length > 0) {
       const tc = timecodes.map((t: any) => `${t.time} — ${t.label}`).join('\n')
       parts.push(`Тайм-коды:\n${tc}`)
@@ -283,6 +289,27 @@ export default function VideoDetailPage() {
                 <div className="p-4 bg-surface rounded-xl border border-border">
                   <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><User className="w-4 h-4" /> Гость</h3>
                   <GuestInfo guest={po.guest_info} onUpdate={(g) => patchVideo({ producer_output: { ...po, guest_info: g } })} />
+                  {/* Guest Links */}
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Ссылки на гостя</label>
+                      {guestLinksSaved && <span className="text-[10px] text-green-400">Сохранено</span>}
+                    </div>
+                    <textarea
+                      className="w-full bg-bg border border-border rounded-lg p-2 text-xs text-cream leading-relaxed resize-none focus:outline-none focus:border-muted/40"
+                      rows={3}
+                      placeholder={'— https://t.me/guest\n— https://instagram.com/guest'}
+                      value={guestLinks ?? video.guest_links ?? ''}
+                      onChange={e => setGuestLinks(e.target.value)}
+                      onBlur={async () => {
+                        const val = guestLinks ?? ''
+                        await patchVideo({ guest_links: val })
+                        setGuestLinks(null)
+                        setGuestLinksSaved(true)
+                        setTimeout(() => setGuestLinksSaved(false), 2000)
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Titles */}
