@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Clock, Eye, ThumbsUp, Sparkles, ExternalLink,
   Loader2, FileText, Tag, Scissors, MessageSquare, Image,
-  User, Rocket, Check, Copy, Save
+  User, Rocket, Check, Copy, Save, GalleryHorizontalEnd
 } from 'lucide-react'
 import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
@@ -440,6 +440,21 @@ export default function VideoDetailPage() {
                   <div className="p-4 bg-surface rounded-xl border border-border">
                     <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Анонсы</h3>
                     <SocialPreview drafts={po.social_drafts} />
+                  </div>
+                )}
+
+                {/* Create Carousel from Video */}
+                {video.transcript && (
+                  <div className="p-4 bg-surface rounded-xl border border-border">
+                    <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><GalleryHorizontalEnd className="w-4 h-4" /> Карусель</h3>
+                    <p className="text-xs text-muted mb-3">Создай Instagram-карусель из ключевых идей этого видео</p>
+                    <button
+                      onClick={() => router.push(`/carousels/new?videoId=${video.id}&topic=${encodeURIComponent(video.generated_title || video.current_title || '')}`)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-xs font-semibold text-muted hover:border-accent hover:text-accent transition-colors"
+                    >
+                      <GalleryHorizontalEnd className="w-3.5 h-3.5" />
+                      Создать карусель из видео
+                    </button>
                   </div>
                 )}
               </>

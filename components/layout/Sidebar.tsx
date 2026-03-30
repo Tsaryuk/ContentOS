@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutGrid, Mail, Globe, Settings, Scissors,
-  Play, Send, Camera
+  Play, Send, Camera, GalleryHorizontalEnd
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
@@ -80,6 +80,7 @@ export function Sidebar() {
   const isDashboard = pathname === '/'
   const isYoutube = pathname.startsWith('/youtube')
   const isClips = pathname.startsWith('/clips')
+  const isCarousels = pathname.startsWith('/carousels')
 
   // Static channels for non-YT platforms
   const staticChannelsByPlatform = (platform: Platform) =>
@@ -165,6 +166,17 @@ export function Sidebar() {
       >
         <Scissors className="w-4 h-4 shrink-0" />
         <span className="text-xs font-medium">Клипы</span>
+      </Link>
+
+      {/* Carousels */}
+      <Link
+        href="/carousels"
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
+          isCarousels ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+        }`}
+      >
+        <GalleryHorizontalEnd className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-medium">Карусели</span>
       </Link>
 
       {/* Other platforms */}
