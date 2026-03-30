@@ -51,9 +51,9 @@ async function claudeWithRetry(
         if (attempt < maxRetries) continue
         throw new Error(`Claude API timeout after ${maxRetries} attempts`)
       }
-      if ((status === 529 || err?.message?.includes('Overloaded')) && attempt < maxRetries) {
-        const delay = attempt * 30000
-        console.log(`[claude] 529 Overloaded, retry ${attempt}/${maxRetries} in ${delay / 1000}s...`)
+      if ((status === 529 || status === 429 || err?.message?.includes('Overloaded') || err?.message?.includes('rate_limit')) && attempt < maxRetries) {
+        const delay = status === 429 ? 60000 * attempt : 30000 * attempt // 429: wait 60s/120s/180s
+        console.log(`[claude] ${status} rate limit, retry ${attempt}/${maxRetries} in ${delay / 1000}s...`)
         await new Promise(r => setTimeout(r, delay))
         continue
       }
