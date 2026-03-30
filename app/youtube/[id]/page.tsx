@@ -15,6 +15,7 @@ import { ThumbnailStudio } from '@/components/youtube/ThumbnailStudio'
 import { ClipList } from '@/components/youtube/ClipList'
 import { SocialPreview } from '@/components/youtube/SocialPreview'
 import { GuestInfo } from '@/components/youtube/GuestInfo'
+import { CommentsList } from '@/components/youtube/CommentsList'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -416,6 +417,11 @@ export default function VideoDetailPage() {
                 )}
               </>
             )}
+
+            {/* Comments */}
+            <div className="p-4 bg-surface rounded-xl border border-border">
+              <CommentsList videoId={video.id} />
+            </div>
 
             {/* Transcript */}
             <div className="p-4 bg-surface rounded-xl border border-border">

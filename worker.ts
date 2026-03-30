@@ -4,7 +4,7 @@
  * Start with: npx tsx worker.ts
  */
 
-import { Worker, Job } from 'bullmq'
+import { Worker, Queue, Job } from 'bullmq'
 import IORedis from 'ioredis'
 import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
@@ -650,15 +650,15 @@ async function handleProduce(videoId: string) {
   await logJob(videoId, 'produce', 'running')
 
   try {
-    // Step 1: Transcribe if needed
+    // Step 1: If no transcript, queue transcribe + delayed re-produce
     if (!video.transcript) {
+      console.log('[produce] No transcript, queueing transcribe first...')
       await updateProgress(videoId, 'Транскрипт не найден, запускаем расшифровку...')
-      console.log('[produce] No transcript, transcribing first...')
-      await handleTranscribe(videoId)
-      // Re-fetch video after transcription
-      const updated = await getVideo(videoId)
-      if (!updated.transcript) throw new Error(updated.error_message || 'Transcription failed')
-      Object.assign(video, updated)
+      const q = new Queue('contentos', { connection: redis })
+      await q.add('transcribe', { videoId })
+      await q.add('produce', { videoId }, { delay: 120000 }) // retry produce in 2 min
+      await q.close()
+      return
     }
 
     // Step 2: Claude Producer Agent
@@ -754,6 +754,24 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   produce: handleProduce,
 }
 
+// --- Stale job cleanup ---
+async function cleanupStaleJobs() {
+  const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString() // 15 min ago
+  const { data: stale } = await supabase
+    .from('yt_videos')
+    .select('id, status, current_title')
+    .in('status', ['generating', 'producing', 'transcribing', 'publishing'])
+    .lt('updated_at', cutoff)
+
+  if (stale?.length) {
+    for (const v of stale) {
+      console.log(`[cleanup] Resetting stale ${v.status}: ${v.current_title?.slice(0, 50)}`)
+      await updateStatus(v.id, 'error', `Таймаут: зависло на "${v.status}" более 15 минут`)
+    }
+    console.log(`[cleanup] Reset ${stale.length} stale jobs`)
+  }
+}
+
 const worker = new Worker(
   'contentos',
   async (job: Job) => {
@@ -764,7 +782,6 @@ const worker = new Worker(
     try {
       await handler(videoId, job.data)
     } catch (err: any) {
-      // Ensure status is set to error so UI doesn't hang
       console.error(`[worker] ${job.name} crashed for ${videoId}:`, err.message)
       try {
         await updateStatus(videoId, 'error', err.message?.slice(0, 500) ?? 'Unknown error')
@@ -774,10 +791,9 @@ const worker = new Worker(
   },
   {
     connection: redis,
-    concurrency: 1,
-    lockDuration: 600000,       // 10 min lock (long transcriptions)
-    lockRenewTime: 30000,       // renew every 30s
-    limiter: { max: 1, duration: 1000 },
+    concurrency: 3,
+    lockDuration: 600000,
+    lockRenewTime: 30000,
   },
 )
 
@@ -789,4 +805,8 @@ worker.on('completed', (job) => {
   console.log(`[worker] Job ${job.name} completed`)
 })
 
-console.log('[worker] ContentOS worker started. Waiting for jobs...')
+// Cleanup stale jobs on start and every 5 minutes
+cleanupStaleJobs()
+setInterval(cleanupStaleJobs, 5 * 60 * 1000)
+
+console.log('[worker] ContentOS worker started (concurrency=3). Waiting for jobs...')

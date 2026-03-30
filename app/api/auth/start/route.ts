@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     'profile',
     'https://www.googleapis.com/auth/youtube',
     'https://www.googleapis.com/auth/youtube.force-ssl',
+    'https://www.googleapis.com/auth/youtube.readonly',
   ].join(' '))
   url.searchParams.set('access_type', 'offline')
   url.searchParams.set('prompt', 'consent select_account')
