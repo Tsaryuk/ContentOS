@@ -461,7 +461,7 @@ export default function VideoDetailPage() {
           <div className="space-y-4">
 
             {/* Actions */}
-            <div className="p-4 bg-surface rounded-xl border border-border space-y-2 sticky top-6">
+            <div className="p-4 bg-surface rounded-xl border border-border space-y-2 sticky top-6 z-30">
               <h3 className="text-sm font-medium text-muted mb-3">Действия</h3>
 
               {po ? (
