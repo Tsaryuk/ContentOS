@@ -753,11 +753,11 @@ async function handleAnalyzeClips(videoId: string) {
   console.log(`[clips] Analyzing ${video.current_title?.slice(0, 50)}...`)
 
   const durationMin = Math.round(video.duration_seconds / 60)
-  const maxClips = durationMin > 60 ? 25 : durationMin > 30 ? 15 : 10
+  const maxClips = durationMin > 60 ? 15 : durationMin > 30 ? 10 : 7
 
   const msg = await claudeWithRetry({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 8192,
+    max_tokens: 16384,
     system: `Ты — эксперт по созданию вирусного контента из подкастов и видео.
 
 Проанализируй транскрипт и найди ${maxClips} лучших моментов для клипов (30–90 сек).
@@ -810,20 +810,32 @@ async function handleAnalyzeClips(videoId: string) {
   const jsonMatch = text.match(/\[[\s\S]*\]/)
   if (!jsonMatch) throw new Error('No JSON array in Claude response')
 
-  // Robust JSON parsing: fix common issues (trailing commas, unescaped quotes)
+  // Robust JSON parsing: fix common issues
   let candidates: any[]
+  let rawJson = jsonMatch[0]
+
+  // If JSON was truncated (no closing bracket), try to fix
+  const openBrackets = (rawJson.match(/\[/g) || []).length
+  const closeBrackets = (rawJson.match(/\]/g) || []).length
+  if (openBrackets > closeBrackets) {
+    // Find last complete object and close the array
+    const lastComplete = rawJson.lastIndexOf('}')
+    if (lastComplete > 0) {
+      rawJson = rawJson.slice(0, lastComplete + 1) + ']'
+    }
+  }
+
   try {
-    candidates = JSON.parse(jsonMatch[0])
+    candidates = JSON.parse(rawJson)
   } catch {
-    // Try fixing common JSON issues
-    const cleaned = jsonMatch[0]
+    const cleaned = rawJson
       .replace(/,\s*([}\]])/g, '$1')          // trailing commas
       .replace(/[\x00-\x1f]/g, ' ')            // control chars
       .replace(/\\'/g, "'")                     // escaped single quotes
     try {
       candidates = JSON.parse(cleaned)
     } catch (e2: any) {
-      console.error('[clips] JSON parse failed, raw length:', text.length)
+      console.error('[clips] JSON parse failed, raw length:', text.length, 'json length:', rawJson.length)
       throw new Error(`Invalid JSON from Claude: ${e2.message}`)
     }
   }
