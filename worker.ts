@@ -810,7 +810,23 @@ async function handleAnalyzeClips(videoId: string) {
   const jsonMatch = text.match(/\[[\s\S]*\]/)
   if (!jsonMatch) throw new Error('No JSON array in Claude response')
 
-  const candidates: any[] = JSON.parse(jsonMatch[0])
+  // Robust JSON parsing: fix common issues (trailing commas, unescaped quotes)
+  let candidates: any[]
+  try {
+    candidates = JSON.parse(jsonMatch[0])
+  } catch {
+    // Try fixing common JSON issues
+    const cleaned = jsonMatch[0]
+      .replace(/,\s*([}\]])/g, '$1')          // trailing commas
+      .replace(/[\x00-\x1f]/g, ' ')            // control chars
+      .replace(/\\'/g, "'")                     // escaped single quotes
+    try {
+      candidates = JSON.parse(cleaned)
+    } catch (e2: any) {
+      console.error('[clips] JSON parse failed, raw length:', text.length)
+      throw new Error(`Invalid JSON from Claude: ${e2.message}`)
+    }
+  }
   console.log(`[clips] Found ${candidates.length} candidates`)
 
   // Save to DB
