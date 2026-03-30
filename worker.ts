@@ -878,6 +878,7 @@ async function handleProcessClip(_videoId: string, data?: any) {
   if (cErr || !candidate) throw new Error(`Candidate not found: ${candidateId}`)
 
   const ytVideoId = (candidate as any).yt_videos.yt_video_id
+  const channelId = (candidate as any).yt_videos.channel_id
   const tmpDir = '/tmp/clips'
   await mkdir(tmpDir, { recursive: true })
 
@@ -886,6 +887,19 @@ async function handleProcessClip(_videoId: string, data?: any) {
 
   try {
     console.log(`[clips] Downloading fragment ${candidate.start_time}-${candidate.end_time}s from ${ytVideoId}`)
+
+    // Get OAuth token to bypass bot detection
+    const channel = await getChannel(channelId)
+    const refreshToken = channel?.refresh_token ?? process.env.YOUTUBE_REFRESH_TOKEN
+    let authArgs = ''
+    if (refreshToken) {
+      try {
+        const token = await getAccessToken(refreshToken)
+        authArgs = `--username oauth2 --password "${token}"`
+      } catch (e: any) {
+        console.log(`[clips] OAuth token failed, trying without auth: ${e.message}`)
+      }
+    }
 
     // Step 1: Download fragment with yt-dlp
     const startSec = Math.max(0, Math.floor(candidate.start_time) - 2)
@@ -896,6 +910,7 @@ async function handleProcessClip(_videoId: string, data?: any) {
       `yt-dlp -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]" ` +
       `--download-sections "${section}" --force-keyframes-at-cuts ` +
       `-o "${rawFile}" --merge-output-format mp4 ` +
+      `${authArgs} ` +
       `${PROXY_URL ? `--proxy "${PROXY_URL}"` : ''} ` +
       `"https://youtube.com/watch?v=${ytVideoId}"`,
       { timeout: 300000 }
