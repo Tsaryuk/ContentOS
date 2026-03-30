@@ -39,10 +39,11 @@ const VARIANTS = [
 function templateLayout(template: Template, photoCount: number): string {
   if (template === 'duo') {
     return [
-      'COMPOSITION: Two people side by side filling the full frame height.',
+      'COMPOSITION: Two people side by side. EXTREME CLOSE-UP — heads and upper shoulders ONLY, filling the FULL frame height.',
+      'The top of each head should be CROPPED by the frame edge (slightly cut off at top).',
       'Left person occupies the left third, right person occupies the right third.',
       'Text block in the center third between them.',
-      'Both people from chest up, large, dominant in frame.',
+      'Faces VERY LARGE and dominant — each face takes up ~40% of frame height.',
       'BACKGROUND: Very dark near-black (#0f1a10). Soft, diffused deep green ambient light emanating from behind each person — subtle, atmospheric, NOT neon, NOT circular rings.',
       'Overall palette: near-black background, muted forest green soft glow, white and bright green (#4CAF50) text.',
     ].join(' ')
@@ -50,7 +51,8 @@ function templateLayout(template: Template, photoCount: number): string {
 
   if (template === 'solo') {
     return [
-      'COMPOSITION: One person on the RIGHT half of the frame, from chest up, large.',
+      'COMPOSITION: One person on the RIGHT half of the frame. EXTREME CLOSE-UP — head and upper shoulders ONLY.',
+      'The top of the head should be CROPPED by the frame edge (slightly cut off at top). Face VERY LARGE — takes up ~60% of frame height.',
       'Text block on the LEFT half.',
       'BACKGROUND: Very dark near-black (#0f1a10). Soft, diffused deep green ambient light from behind the person — subtle, atmospheric, NOT neon, NOT circular rings.',
       'Overall palette: near-black background, muted forest green soft glow, white and bright green (#4CAF50) text.',
@@ -58,9 +60,9 @@ function templateLayout(template: Template, photoCount: number): string {
   }
 
   // custom
-  if (photoCount <= 1) return 'One person from the reference photo, positioned right side. Text on the left.'
-  if (photoCount === 2) return 'Two people from reference photos. Guest on left. Host on right. Both looking at camera.'
-  return 'Multiple people from reference photos. Main guest prominent. All facing camera.'
+  if (photoCount <= 1) return 'One person from the reference photo, EXTREME CLOSE-UP, head and shoulders, positioned right side, face very large and dominant. Text on the left.'
+  if (photoCount === 2) return 'Two people from reference photos, EXTREME CLOSE-UP, heads filling frame. Guest on left. Host on right. Both looking at camera.'
+  return 'Multiple people from reference photos. EXTREME CLOSE-UP heads. Main guest prominent. All facing camera.'
 }
 
 function buildMasterPrompt(params: {
