@@ -888,32 +888,58 @@ async function handleProcessClip(_videoId: string, data?: any) {
   try {
     console.log(`[clips] Downloading fragment ${candidate.start_time}-${candidate.end_time}s from ${ytVideoId}`)
 
-    // Get OAuth token to bypass bot detection
-    const channel = await getChannel(channelId)
-    const refreshToken = channel?.refresh_token ?? process.env.YOUTUBE_REFRESH_TOKEN
-    let authArgs = ''
-    if (refreshToken) {
-      try {
-        const token = await getAccessToken(refreshToken)
-        authArgs = `--username oauth2 --password "${token}"`
-      } catch (e: any) {
-        console.log(`[clips] OAuth token failed, trying without auth: ${e.message}`)
+    // Step 1: Download full video once, cache it, then cut fragment with FFmpeg
+    const fullVideoFile = join(tmpDir, `${candidate.video_id}_full.mp4`)
+
+    if (!existsSync(fullVideoFile)) {
+      console.log(`[clips] Downloading full video ${ytVideoId}...`)
+
+      // Get OAuth token and export cookies for yt-dlp
+      const channel = await getChannel(channelId)
+      const refreshToken = channel?.refresh_token ?? process.env.YOUTUBE_REFRESH_TOKEN
+      let cookieArgs = ''
+
+      if (refreshToken) {
+        try {
+          const token = await getAccessToken(refreshToken)
+          // Create a Netscape cookie file for yt-dlp
+          const cookieFile = join(tmpDir, `cookies_${candidate.video_id}.txt`)
+          const cookieContent = [
+            '# Netscape HTTP Cookie File',
+            `.youtube.com\tTRUE\t/\tTRUE\t0\t__Secure-3PAPISID\t${token}`,
+            `.youtube.com\tTRUE\t/\tFALSE\t0\tSID\toauth`,
+          ].join('\n')
+          await writeFile(cookieFile, cookieContent)
+          cookieArgs = `--cookies "${cookieFile}"`
+        } catch (e: any) {
+          console.log(`[clips] Cookie auth failed, trying without: ${e.message}`)
+        }
       }
+
+      execSync(
+        `yt-dlp -f "bestvideo[height<=720]+bestaudio/best[height<=720]" ` +
+        `-o "${fullVideoFile}" --merge-output-format mp4 --no-warnings ` +
+        `${cookieArgs} ` +
+        `${PROXY_URL ? `--proxy "${PROXY_URL}"` : ''} ` +
+        `"https://youtube.com/watch?v=${ytVideoId}"`,
+        { timeout: 600000 }
+      )
+
+      if (!existsSync(fullVideoFile)) throw new Error('yt-dlp download failed')
+      console.log(`[clips] Full video: ${(statSync(fullVideoFile).size / 1024 / 1024).toFixed(0)}MB`)
+    } else {
+      console.log(`[clips] Using cached full video`)
     }
 
-    // Step 1: Download fragment with yt-dlp
-    const startSec = Math.max(0, Math.floor(candidate.start_time) - 2)
-    const endSec = Math.ceil(candidate.end_time) + 2
-    const section = `*${startSec}-${endSec}`
+    // Cut the fragment from full video
+    const startSec = Math.max(0, Math.floor(candidate.start_time) - 1)
+    const duration = Math.ceil(candidate.end_time - candidate.start_time) + 2
 
     execSync(
-      `yt-dlp -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]" ` +
-      `--download-sections "${section}" --force-keyframes-at-cuts ` +
-      `-o "${rawFile}" --merge-output-format mp4 ` +
-      `${authArgs} ` +
-      `${PROXY_URL ? `--proxy "${PROXY_URL}"` : ''} ` +
-      `"https://youtube.com/watch?v=${ytVideoId}"`,
-      { timeout: 300000 }
+      `ffmpeg -y -ss ${startSec} -i "${fullVideoFile}" -t ${duration} ` +
+      `-c:v libx264 -crf 22 -preset fast -c:a aac -b:a 128k ` +
+      `"${rawFile}"`,
+      { timeout: 120000 }
     )
 
     if (!existsSync(rawFile)) throw new Error('yt-dlp download failed')
