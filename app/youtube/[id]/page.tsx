@@ -475,6 +475,13 @@ export default function VideoDetailPage() {
                     Перегенерировать
                   </button>
 
+                  <button
+                    onClick={() => router.push(`/clips/${videoId}`)}
+                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-surface border border-border text-muted hover:text-cream hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Scissors className="w-4 h-4" /> Создать клипы
+                  </button>
+
                   <div className="border-t border-white/[0.06] pt-2 mt-2">
                     <button
                       onClick={() => patchVideo({ is_approved: !video.is_approved })}

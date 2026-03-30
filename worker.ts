@@ -744,6 +744,187 @@ async function handleProduce(videoId: string) {
   }
 }
 
+// --- ClipOS: Analyze clips ---
+
+async function handleAnalyzeClips(videoId: string) {
+  const video = await getVideo(videoId)
+  if (!video.transcript) throw new Error('No transcript for clip analysis')
+
+  console.log(`[clips] Analyzing ${video.current_title?.slice(0, 50)}...`)
+
+  const durationMin = Math.round(video.duration_seconds / 60)
+  const maxClips = durationMin > 60 ? 25 : durationMin > 30 ? 15 : 10
+
+  const msg = await claudeWithRetry({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 8192,
+    system: `Ты — эксперт по созданию вирусного контента из подкастов и видео.
+
+Проанализируй транскрипт и найди ${maxClips} лучших моментов для клипов (30–90 сек).
+
+ПРАВИЛА ОТБОРА:
+1. Клип 30–90 сек: один момент с чётким хуком в первые 3 секунды
+2. Первые слова должны цеплять без контекста
+3. Информационная плотность: факт + цифра + вывод за 30 секунд
+4. Зритель должен мочь пересказать суть одним предложением
+
+ПАТТЕРНЫ ВИРУСНОСТИ (приоритизируй):
+- counter_intuitive: «все думают X, но на самом деле Y»
+- shock_statistic: конкретная цифра, которая удивляет
+- personal_revelation: личная история, уязвимость, откровение
+- conflict_disagreement: несогласие между спикерами
+- practical_protocol: конкретный совет с шагами
+- emotional_peak: смех, слёзы, пауза перед важным словом
+- humor_unexpected: неожиданный поворот, самоирония
+
+СКОРИНГ каждого кандидата (0–100):
+- hook: есть ли хук в первые 3 сек
+- emotional_peak: эмоциональный пик
+- information_density: факт+цифра+вывод
+- standalone_value: понятно без контекста
+- virality_potential: итоговый скор
+
+Длительность видео: ${durationMin} мин. ТАЙМКОДЫ не должны превышать ${video.duration_seconds} секунд.
+
+ФОРМАТ: верни ТОЛЬКО валидный JSON массив (без markdown):
+[{
+  "start_time": 125,
+  "end_time": 185,
+  "clip_type": "short",
+  "pattern_type": "counter_intuitive",
+  "scores": { "hook": 90, "emotional_peak": 75, "information_density": 85, "standalone_value": 80, "virality_potential": 88 },
+  "hook_phrase": "Первая фраза клипа...",
+  "one_sentence_value": "Суть за одно предложение",
+  "suggested_titles": ["Заголовок 1", "Заголовок 2", "Заголовок 3"],
+  "suggested_thumbnail_text": ["2 СЛОВА", "ВАРИАНТ 2"],
+  "transcript_excerpt": "Цитата из транскрипта...",
+  "context_notes": "Почему этот момент интересен"
+}]`,
+    messages: [{
+      role: 'user',
+      content: `Видео: "${video.current_title}"\n\nТРАНСКРИПТ:\n${video.transcript.slice(0, 80000)}`,
+    }],
+  })
+
+  const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
+  const jsonMatch = text.match(/\[[\s\S]*\]/)
+  if (!jsonMatch) throw new Error('No JSON array in Claude response')
+
+  const candidates: any[] = JSON.parse(jsonMatch[0])
+  console.log(`[clips] Found ${candidates.length} candidates`)
+
+  // Save to DB
+  for (const c of candidates) {
+    await supabase.from('clip_candidates').insert({
+      video_id: videoId,
+      start_time: c.start_time,
+      end_time: c.end_time,
+      clip_type: c.clip_type ?? 'short',
+      pattern_type: c.pattern_type,
+      scores: c.scores ?? {},
+      hook_phrase: c.hook_phrase,
+      one_sentence_value: c.one_sentence_value,
+      suggested_titles: c.suggested_titles ?? [],
+      suggested_thumbnail_text: c.suggested_thumbnail_text ?? [],
+      transcript_excerpt: c.transcript_excerpt,
+      context_notes: c.context_notes,
+      status: 'candidate',
+    })
+  }
+
+  console.log(`[clips] Saved ${candidates.length} candidates for ${videoId}`)
+}
+
+// --- ClipOS: Process clip (FFmpeg) ---
+
+async function handleProcessClip(_videoId: string, data?: any) {
+  const candidateId = data?.candidateId
+  if (!candidateId) throw new Error('candidateId required')
+
+  const { data: candidate, error: cErr } = await supabase
+    .from('clip_candidates')
+    .select('*, yt_videos!inner(yt_video_id, current_title, channel_id)')
+    .eq('id', candidateId)
+    .single()
+
+  if (cErr || !candidate) throw new Error(`Candidate not found: ${candidateId}`)
+
+  const ytVideoId = (candidate as any).yt_videos.yt_video_id
+  const tmpDir = '/tmp/clips'
+  await mkdir(tmpDir, { recursive: true })
+
+  const rawFile = join(tmpDir, `${candidateId}_raw.mp4`)
+  const vertFile = join(tmpDir, `${candidateId}_vert.mp4`)
+
+  try {
+    console.log(`[clips] Downloading fragment ${candidate.start_time}-${candidate.end_time}s from ${ytVideoId}`)
+
+    // Step 1: Download fragment with yt-dlp
+    const startSec = Math.max(0, Math.floor(candidate.start_time) - 2)
+    const endSec = Math.ceil(candidate.end_time) + 2
+    const section = `*${startSec}-${endSec}`
+
+    execSync(
+      `yt-dlp -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]" ` +
+      `--download-sections "${section}" --force-keyframes-at-cuts ` +
+      `-o "${rawFile}" --merge-output-format mp4 ` +
+      `${PROXY_URL ? `--proxy "${PROXY_URL}"` : ''} ` +
+      `"https://youtube.com/watch?v=${ytVideoId}"`,
+      { timeout: 300000 }
+    )
+
+    if (!existsSync(rawFile)) throw new Error('yt-dlp download failed')
+    const rawSize = statSync(rawFile).size
+    console.log(`[clips] Downloaded: ${(rawSize / 1024 / 1024).toFixed(1)}MB`)
+
+    // Step 2: Crop to 9:16 vertical
+    console.log(`[clips] Cropping to 9:16...`)
+    execSync(
+      `ffmpeg -y -i "${rawFile}" ` +
+      `-vf "crop=ih*(9/16):ih,scale=1080:1920" ` +
+      `-c:v libx264 -crf 20 -preset fast -c:a aac -b:a 128k ` +
+      `"${vertFile}"`,
+      { timeout: 300000 }
+    )
+
+    if (!existsSync(vertFile)) throw new Error('FFmpeg crop failed')
+
+    // Step 3: Upload to Supabase Storage
+    const { readFileSync } = await import('fs')
+    const fileBuffer = readFileSync(vertFile)
+    const storagePath = `clips/${candidate.video_id}/${candidateId}.mp4`
+
+    await supabase.storage.from('thumbnails').upload(storagePath, fileBuffer, {
+      contentType: 'video/mp4',
+      upsert: true,
+    })
+
+    const { data: pub } = supabase.storage.from('thumbnails').getPublicUrl(storagePath)
+
+    // Step 4: Update candidate
+    await supabase.from('clip_candidates').update({
+      status: 'done',
+      output_url: pub.publicUrl,
+      output_path: storagePath,
+      updated_at: new Date().toISOString(),
+    }).eq('id', candidateId)
+
+    console.log(`[clips] Done: ${pub.publicUrl}`)
+  } catch (err: any) {
+    console.error(`[clips] Process failed:`, err.message)
+    await supabase.from('clip_candidates').update({
+      status: 'failed',
+      error_message: err.message?.slice(0, 500),
+      updated_at: new Date().toISOString(),
+    }).eq('id', candidateId)
+    throw err
+  } finally {
+    // Cleanup tmp files
+    try { await unlink(rawFile) } catch {}
+    try { await unlink(vertFile) } catch {}
+  }
+}
+
 // --- Worker ---
 
 const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> = {
@@ -752,6 +933,8 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   thumbnail: handleThumbnail,
   publish: (videoId, data) => handlePublish(videoId, data?.overrides),
   produce: handleProduce,
+  analyze_clips: handleAnalyzeClips,
+  process_clip: (videoId, data) => handleProcessClip(videoId, data),
 }
 
 // --- Stale job cleanup ---

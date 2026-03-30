@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  LayoutGrid, Mail, Globe, Settings,
+  LayoutGrid, Mail, Globe, Settings, Scissors,
   Play, Send, Camera
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
@@ -79,6 +79,7 @@ export function Sidebar() {
 
   const isDashboard = pathname === '/'
   const isYoutube = pathname.startsWith('/youtube')
+  const isClips = pathname.startsWith('/clips')
 
   // Static channels for non-YT platforms
   const staticChannelsByPlatform = (platform: Platform) =>
@@ -154,6 +155,17 @@ export function Sidebar() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Clips */}
+      <Link
+        href="/clips"
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
+          isClips ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+        }`}
+      >
+        <Scissors className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-medium">Клипы</span>
+      </Link>
 
       {/* Other platforms */}
       {OTHER_PLATFORMS.map(({ platform, label, icon }) => {
