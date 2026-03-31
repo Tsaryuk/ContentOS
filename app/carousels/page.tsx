@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Image, Clock, CheckCircle, AlertCircle } from 'lucide-react'
+import { Plus, Image, Clock, CheckCircle, AlertCircle, Trash2 } from 'lucide-react'
 
 interface CarouselItem {
   id: string
@@ -27,13 +27,26 @@ export default function CarouselsPage() {
   const [carousels, setCarousels] = useState<CarouselItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  function loadCarousels() {
     fetch('/api/carousel/get')
       .then(r => r.json())
       .then(data => setCarousels(data.carousels ?? []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadCarousels() }, [])
+
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation()
+    if (!confirm('Удалить карусель?')) return
+    await fetch('/api/carousel/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    setCarousels(prev => prev.filter(c => c.id !== id))
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -95,8 +108,17 @@ export default function CarouselsPage() {
                     {st.icon} {st.label}
                   </span>
                 </div>
-                <div className="text-[10px] text-muted mt-1">
-                  {new Date(c.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-[10px] text-muted">
+                    {new Date(c.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                  </span>
+                  <button
+                    onClick={(e) => handleDelete(e, c.id)}
+                    className="text-muted hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    title="Удалить"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </button>
             )

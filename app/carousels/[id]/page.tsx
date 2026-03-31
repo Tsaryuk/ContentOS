@@ -24,6 +24,7 @@ export default function CarouselEditorPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isIllustrating, setIsIllustrating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [illustPrompt, setIllustPrompt] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'caption' | 'slides' | 'export'>('caption')
   const [currentSlide, setCurrentSlide] = useState(0)
@@ -106,7 +107,10 @@ export default function CarouselEditorPage() {
       const res = await fetch('/api/carousel/illustrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ carouselId: carousel.id }),
+        body: JSON.stringify({
+          carouselId: carousel.id,
+          prompt: illustPrompt || undefined,
+        }),
       })
       const data = await res.json()
 
@@ -263,16 +267,28 @@ export default function CarouselEditorPage() {
             onSlideChange={setCurrentSlide}
           />
 
-          {/* Illustration button */}
+          {/* Illustration controls */}
           {slides.length > 0 && (
-            <button
-              onClick={handleIllustrate}
-              disabled={isIllustrating}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-xs font-semibold text-muted hover:border-gray-400 disabled:opacity-40 transition-colors"
-            >
-              {isIllustrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
-              {carousel?.illustration_url ? 'Перегенерировать иллюстрацию' : 'Сгенерировать иллюстрацию'}
-            </button>
+            <div className="flex flex-col items-center gap-2 w-full max-w-[420px]">
+              <div className="w-full bg-bg-surface border border-border rounded-lg p-3">
+                <div className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-2">Иллюстрация обложки</div>
+                <textarea
+                  value={illustPrompt}
+                  onChange={e => setIllustPrompt(e.target.value)}
+                  placeholder={carousel?.illustration_prompt || 'Промпт генерируется автоматически из темы. Можно переписать вручную (English)'}
+                  rows={2}
+                  className="w-full bg-bg rounded-md border border-border px-2.5 py-1.5 text-xs outline-none focus:border-accent resize-none mb-2"
+                />
+                <button
+                  onClick={handleIllustrate}
+                  disabled={isIllustrating}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border text-xs font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-40 transition-colors"
+                >
+                  {isIllustrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
+                  {isIllustrating ? 'Генерирую...' : carousel?.illustration_url ? 'Перегенерировать' : 'Сгенерировать иллюстрацию'}
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })
 
     const body = await req.json()
-    const { carouselId, prompt, style } = body
+    const { carouselId, prompt, style, referenceUrl } = body
 
     if (!carouselId) {
       return NextResponse.json({ error: 'carouselId is required' }, { status: 400 })
@@ -37,22 +37,36 @@ export async function POST(req: NextRequest) {
       style === 'realistic' ? 'realistic painting, detailed brushwork' : '',
     ].filter(Boolean).join(', ')
 
-    console.log(`[carousel-illust] generating for ${carouselId}...`)
+    console.log(`[carousel-illust] generating for ${carouselId}, hasRef=${!!referenceUrl}...`)
 
-    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
-      input: {
-        prompt: fullPrompt,
-        aspect_ratio: '4:5',
-        resolution: '2K',
-        num_images: 1,
-        safety_tolerance: 5,
-      } as any,
-    }) as any
+    let imageUrl: string | null = null
 
-    const imageUrl =
-      result?.data?.images?.[0]?.url ??
-      result?.images?.[0]?.url ??
-      null
+    if (referenceUrl) {
+      // img2img: use nano-banana with reference
+      const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
+        input: {
+          prompt: fullPrompt,
+          image_urls: [referenceUrl],
+          aspect_ratio: '4:5',
+          resolution: '2K',
+          num_images: 1,
+          safety_tolerance: 5,
+        } as any,
+      }) as any
+
+      imageUrl = result?.data?.images?.[0]?.url ?? result?.images?.[0]?.url ?? null
+    } else {
+      // text-to-image: use flux (no reference needed)
+      const result = await fal.subscribe('fal-ai/flux/schnell', {
+        input: {
+          prompt: fullPrompt,
+          image_size: { width: 864, height: 1080 },
+          num_images: 1,
+        } as any,
+      }) as any
+
+      imageUrl = result?.data?.images?.[0]?.url ?? result?.images?.[0]?.url ?? null
+    }
 
     if (!imageUrl) {
       throw new Error('fal-ai returned no image')
