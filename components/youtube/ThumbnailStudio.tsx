@@ -13,6 +13,7 @@ interface Props {
   savedUrlsByTemplate?: Record<string, string[]>
   savedPhotos?: string[]
   savedReference?: string
+  thumbnailGenerating?: string | null
   onSelect: (url: string) => void
 }
 
@@ -40,15 +41,12 @@ async function downloadImage(url: string, filename: string) {
   }
 }
 
-// SVG previews for template picker
 function SoloIcon() {
   return (
     <svg viewBox="0 0 64 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
       <rect width="64" height="36" rx="2" fill="#0f1a10"/>
-      {/* text lines left */}
       <rect x="4" y="10" width="22" height="3" rx="1" fill="white" opacity="0.9"/>
       <rect x="4" y="15" width="18" height="3" rx="1" fill="#4CAF50" opacity="0.9"/>
-      {/* silhouette right */}
       <ellipse cx="48" cy="12" rx="7" ry="8" fill="#2d4a2f"/>
       <path d="M34 36 Q41 20 48 20 Q55 20 62 36Z" fill="#2d4a2f"/>
     </svg>
@@ -59,13 +57,10 @@ function DuoIcon() {
   return (
     <svg viewBox="0 0 64 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
       <rect width="64" height="36" rx="2" fill="#0f1a10"/>
-      {/* silhouette left */}
       <ellipse cx="12" cy="11" rx="6" ry="7" fill="#2d4a2f"/>
       <path d="M2 36 Q7 20 12 20 Q17 20 22 36Z" fill="#2d4a2f"/>
-      {/* text center */}
       <rect x="22" y="12" width="20" height="3" rx="1" fill="white" opacity="0.9"/>
       <rect x="22" y="17" width="16" height="3" rx="1" fill="#4CAF50" opacity="0.9"/>
-      {/* silhouette right */}
       <ellipse cx="52" cy="11" rx="6" ry="7" fill="#2d4a2f"/>
       <path d="M42 36 Q47 20 52 20 Q57 20 62 36Z" fill="#2d4a2f"/>
     </svg>
@@ -90,14 +85,14 @@ const TEMPLATES: { id: Template; label: string; icon: React.ReactNode }[] = [
   { id: 'custom', label: 'Свой реф', icon: <CustomIcon /> },
 ]
 
-export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumbnail, savedUrlsByTemplate, savedPhotos, savedReference, onSelect }: Props) {
+export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumbnail, savedUrlsByTemplate, savedPhotos, savedReference, thumbnailGenerating, onSelect }: Props) {
   const [template, setTemplate] = useState<Template>('solo')
   const [photos, setPhotos] = useState<{ file?: File; preview: string }[]>([])
   const [reference, setReference] = useState<{ file?: File; preview: string } | null>(null)
   const [selectedText, setSelectedText] = useState(textVariants[0] ?? '')
   const [customText, setCustomText] = useState('')
   const [refinement, setRefinement] = useState('')
-  const [generating, setGenerating] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [resultsByTemplate, setResultsByTemplate] = useState<Record<Template, { url: string; model: string }[]>>({
     solo: [], duo: [], custom: [],
   })
@@ -107,6 +102,9 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
 
   const photoRef = useRef<HTMLInputElement>(null)
   const refRef = useRef<HTMLInputElement>(null)
+
+  // Generating state comes from DB (survives navigation)
+  const isGenerating = !!thumbnailGenerating
 
   useEffect(() => {
     if (savedPhotos?.length && photos.length === 0) {
@@ -153,33 +151,13 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
 
   const activeText = customText || selectedText
 
-  // Poll DB for thumbnail results
-  const pollForResults = async (tpl: Template, prevCount: number) => {
-    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!sbUrl || !sbKey) return false
-    try {
-      const res = await fetch(`${sbUrl}/rest/v1/yt_videos?id=eq.${videoId}&select=producer_output`, {
-        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
-      })
-      const data = await res.json()
-      const saved: string[] = data?.[0]?.producer_output?.thumbnail_urls_by_template?.[tpl] ?? []
-      if (saved.length > prevCount) {
-        setResultsByTemplate(prev => ({ ...prev, [tpl]: saved.map(u => ({ url: u, model: '' })) }))
-        return true
-      }
-    } catch {}
-    return false
-  }
-
   const generate = async () => {
-    if (!activeText) return
-    setGenerating(true)
+    if (!activeText || isGenerating || submitting) return
+    setSubmitting(true)
     setError(null)
-    const currentTemplate = template
-    const prevCount = resultsByTemplate[currentTemplate]?.length ?? 0
 
     try {
+      // Upload new files first
       const existingPhotoUrls = photos.filter(p => !p.file).map(p => p.preview)
       const newPhotoFiles = photos.filter(p => p.file).map(p => p.file!)
       const existingRefUrl = (!reference?.file && reference?.preview) ? reference.preview : ''
@@ -205,6 +183,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         }
       }
 
+      // Save assets
       if (photoUrls.length > 0 || refUrl) {
         fetch(apiUrl('/api/thumbnail/save-assets'), {
           method: 'POST',
@@ -213,8 +192,9 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         }).catch(() => {})
       }
 
-      // Fire and forget — start generation, then poll for results
-      const generatePromise = fetch(apiUrl('/api/thumbnail/generate'), {
+      // Fire-and-forget: start generation on server
+      // Server marks thumbnail_generating in DB, page polling picks it up
+      const res = await fetch(apiUrl('/api/thumbnail/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -222,43 +202,22 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           channelId,
           photos: photoUrls,
           text: activeText,
-          template: currentTemplate,
+          template,
           referenceUrl: refUrl || undefined,
           refinement: refinement || undefined,
         }),
       })
 
-      // Poll every 5s for up to 3 minutes
-      let found = false
-      for (let i = 0; i < 36; i++) {
-        await new Promise(r => setTimeout(r, 5000))
-        found = await pollForResults(currentTemplate, prevCount)
-        if (found) {
-          setRefinement('')
-          break
-        }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || `Ошибка ${res.status}`)
+      } else {
+        setRefinement('')
       }
-
-      // Also check the response if it completed
-      try {
-        const res = await generatePromise
-        if (res.ok && !found) {
-          const data = await res.json()
-          if (data.urls?.length) {
-            const newResults = data.urls.map((url: string, i: number) => ({ url, model: data.models?.[i] ?? '' }))
-            setResultsByTemplate(prev => ({ ...prev, [currentTemplate]: newResults }))
-            setRefinement('')
-            found = true
-          }
-        }
-      } catch {}
-
-      if (!found) setError('Таймаут генерации. Обновите страницу.')
     } catch (err: any) {
-      console.error('[ThumbnailStudio]', err)
-      setError(`${err.name}: ${err.message}`)
+      setError(err.message)
     } finally {
-      setGenerating(false)
+      setSubmitting(false)
     }
   }
 
@@ -268,6 +227,12 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         <h3 className="text-sm font-medium text-muted flex items-center gap-2">
           <ImageIcon className="w-4 h-4" /> Обложка
         </h3>
+        {isGenerating && (
+          <span className="flex items-center gap-1.5 text-xs text-purple-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Генерация...
+          </span>
+        )}
       </div>
 
       {/* Results */}
@@ -301,6 +266,17 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                 <Download className="w-3 h-3 text-white" />
               </button>
             </button>
+          ))}
+        </div>
+      )}
+
+      {/* Generating placeholder */}
+      {isGenerating && resultsByTemplate[template].length === 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className="aspect-video rounded-lg bg-white/5 border border-border flex items-center justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-purple-400/40" />
+            </div>
           ))}
         </div>
       )}
@@ -394,16 +370,16 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           />
           <button
             onClick={generate}
-            disabled={generating || !activeText}
+            disabled={isGenerating || submitting || !activeText}
             className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-30 text-white text-sm font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap flex-shrink-0"
           >
-            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-            {generating ? 'AI...' : 'Создать'}
+            {(isGenerating || submitting) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+            {isGenerating ? 'Генерация...' : submitting ? 'Отправка...' : 'Создать'}
           </button>
         </div>
 
         {/* Refine */}
-        {resultsByTemplate[template].length > 0 && (
+        {resultsByTemplate[template].length > 0 && !isGenerating && (
           <input
             type="text"
             value={refinement}

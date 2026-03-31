@@ -2,6 +2,9 @@ import { getIronSession, IronSession } from 'iron-session'
 import { cookies } from 'next/headers'
 
 export interface SessionData {
+  userId?: string
+  userRole?: 'admin' | 'manager'
+  userName?: string
   activeProjectId?: string
   activeChannelId?: string
 }

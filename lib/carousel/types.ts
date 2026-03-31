@@ -76,6 +76,16 @@ export const BRAND_PRESETS: Record<string, BrandPreset> = {
   },
 }
 
+export interface VoiceStyle {
+  id: string
+  project_id: string | null
+  name: string
+  examples: string[]
+  voice_prompt: string
+  summary: string | null
+  created_at: string
+}
+
 export type CarouselStatus = 'draft' | 'generating' | 'illustrating' | 'ready' | 'exported' | 'error'
 
 export interface CarouselRow {
@@ -95,6 +105,9 @@ export interface CarouselRow {
   illustration_url: string | null
   illustration_urls: Record<number, string> | null
   style: CarouselStyle | null
+  voice_id: string | null
+  source_text: string | null
+  source_type: string | null
   export_urls: string[] | null
   export_zip_url: string | null
   status: CarouselStatus

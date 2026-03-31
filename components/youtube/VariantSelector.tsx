@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Star, MessageSquare, Copy, Check } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Star, MessageSquare, Copy, Check, Pencil } from 'lucide-react'
 
 interface TitleVariant {
   text: string
@@ -21,13 +21,24 @@ const STYLE_LABELS: Record<string, { label: string; color: string }> = {
 export function VariantSelector({
   variants,
   selectedIndex,
+  editedTitle,
   onSelect,
+  onTitleEdit,
 }: {
   variants: TitleVariant[]
   selectedIndex: number | null
+  editedTitle?: string | null
   onSelect: (index: number) => void
+  onTitleEdit?: (text: string) => void
 }) {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+  const [editText, setEditText] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingIdx !== null) inputRef.current?.focus()
+  }, [editingIdx])
 
   if (!variants || variants.length === 0) return null
 
@@ -37,17 +48,32 @@ export function VariantSelector({
     setTimeout(() => setCopiedIdx(null), 1500)
   }
 
+  function startEdit(idx: number, text: string) {
+    setEditingIdx(idx)
+    setEditText(editedTitle && idx === selectedIndex ? editedTitle : text)
+  }
+
+  function commitEdit(idx: number) {
+    setEditingIdx(null)
+    if (editText.trim() && onTitleEdit) {
+      onSelect(idx)
+      onTitleEdit(editText.trim())
+    }
+  }
+
   return (
     <div className="space-y-2">
       {variants.map((v, idx) => {
         const isSelected = selectedIndex === idx
+        const isEditing = editingIdx === idx
+        const displayText = isSelected && editedTitle ? editedTitle : v.text
         const style = STYLE_LABELS[v.style] ?? { label: v.style, color: 'bg-white/10 text-muted' }
 
         return (
-          <button
+          <div
             key={idx}
-            onClick={() => onSelect(idx)}
-            className={`w-full text-left p-3 rounded-xl border transition-all ${
+            onClick={() => { if (!isEditing) onSelect(idx) }}
+            className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
               isSelected
                 ? 'border-purple-500/50 bg-purple-500/10'
                 : 'border-border bg-surface hover:border-accent/30'
@@ -69,8 +95,17 @@ export function VariantSelector({
                       <Star className="w-3 h-3" /> Рекомендация
                     </span>
                   )}
+                  {onTitleEdit && (
+                    <button
+                      onClick={e => { e.stopPropagation(); startEdit(idx, displayText) }}
+                      className="p-1 rounded hover:bg-white/10 transition-colors"
+                      title="Редактировать"
+                    >
+                      <Pencil className="w-3 h-3 text-muted" />
+                    </button>
+                  )}
                   <button
-                    onClick={e => { e.stopPropagation(); copy(idx, v.text) }}
+                    onClick={e => { e.stopPropagation(); copy(idx, displayText) }}
                     className="ml-auto p-1 rounded hover:bg-white/10 transition-colors"
                     title="Копировать заголовок"
                   >
@@ -80,14 +115,29 @@ export function VariantSelector({
                     }
                   </button>
                 </div>
-                <p className="text-sm text-cream font-medium leading-snug">{v.text}</p>
+                {isEditing ? (
+                  <input
+                    ref={inputRef}
+                    value={editText}
+                    onChange={e => setEditText(e.target.value)}
+                    onBlur={() => commitEdit(idx)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') commitEdit(idx)
+                      if (e.key === 'Escape') setEditingIdx(null)
+                    }}
+                    onClick={e => e.stopPropagation()}
+                    className="w-full bg-bg border border-accent/40 rounded-lg px-2.5 py-1.5 text-sm text-cream font-medium focus:outline-none focus:border-purple-500/60"
+                  />
+                ) : (
+                  <p className="text-sm text-cream font-medium leading-snug">{displayText}</p>
+                )}
                 <p className="text-[11px] text-muted mt-1.5 flex items-start gap-1">
                   <MessageSquare className="w-3 h-3 shrink-0 mt-0.5" />
                   {v.reasoning}
                 </p>
               </div>
             </div>
-          </button>
+          </div>
         )
       })}
     </div>

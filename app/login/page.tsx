@@ -6,10 +6,11 @@ import { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 
 function LoginForm() {
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const params = useSearchParams()
   const from = params.get('from') || '/'
@@ -22,7 +23,7 @@ function LoginForm() {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, from }),
+      body: JSON.stringify({ email, password }),
     })
 
     if (res.ok) {
@@ -33,7 +34,7 @@ function LoginForm() {
       setError(data.error || 'Ошибка')
       setPassword('')
       setLoading(false)
-      inputRef.current?.focus()
+      emailRef.current?.focus()
     }
   }
 
@@ -45,17 +46,24 @@ function LoginForm() {
             C
           </div>
           <h1 className="text-cream text-lg font-semibold">ContentOS</h1>
-          <p className="text-muted text-sm mt-1">Введите пароль для входа</p>
+          <p className="text-muted text-sm mt-1">Войдите в систему</p>
         </div>
 
         <form onSubmit={submit} className="space-y-3">
           <input
-            ref={inputRef}
+            ref={emailRef}
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Email"
+            autoFocus
+            className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-cream placeholder:text-dim focus:outline-none focus:border-accent/50 text-sm"
+          />
+          <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="Пароль"
-            autoFocus
             className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-cream placeholder:text-dim focus:outline-none focus:border-accent/50 text-sm"
           />
 
@@ -65,7 +73,7 @@ function LoginForm() {
 
           <button
             type="submit"
-            disabled={loading || !password}
+            disabled={loading || !email || !password}
             className="w-full py-3 rounded-xl bg-accent hover:opacity-90 disabled:opacity-30 text-white text-sm font-medium transition-opacity flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}

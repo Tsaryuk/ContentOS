@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/api/auth/login']
+const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/logout']
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Allow public paths and static assets
   if (
     PUBLIC_PATHS.some(p => pathname.startsWith(p)) ||
     pathname.startsWith('/_next') ||
@@ -14,7 +13,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check auth cookie
+  // Primary: check iron-session cookie (encrypted, signed)
+  const session = req.cookies.get('contentos_session')?.value
+  if (session) {
+    return NextResponse.next()
+  }
+
+  // Fallback: legacy password cookie (backward compat)
   const auth = req.cookies.get('contentos_auth')?.value
   if (auth === process.env.ADMIN_PASSWORD) {
     return NextResponse.next()

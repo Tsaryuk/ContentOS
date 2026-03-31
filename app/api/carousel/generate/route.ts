@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
       projectId,
       channelId,
       videoId,
+      voiceId,
+      sourceText,
+      carouselId,
     } = body
 
     if (!topic) {
@@ -36,25 +39,48 @@ export async function POST(req: NextRequest) {
       transcript = video?.transcript ?? undefined
     }
 
-    // Create carousel record
-    const { data: carousel, error: insertErr } = await supabaseAdmin
-      .from('carousels')
-      .insert({
-        topic,
-        audience: audience || null,
-        tone,
-        preset,
-        slide_count: slideCount,
-        project_id: projectId || null,
-        channel_id: channelId || null,
-        video_id: videoId || null,
-        status: 'generating',
-      })
-      .select('id')
-      .single()
+    // If voice style selected, fetch voice prompt
+    let voicePrompt: string | undefined
+    if (voiceId) {
+      const { data: voice } = await supabaseAdmin
+        .from('carousel_voices')
+        .select('voice_prompt')
+        .eq('id', voiceId)
+        .single()
+      voicePrompt = voice?.voice_prompt ?? undefined
+    }
 
-    if (insertErr || !carousel) {
-      throw new Error(`Failed to create carousel: ${insertErr?.message}`)
+    // Create or reuse carousel record
+    let id = carouselId
+    if (!id) {
+      const { data: carousel, error: insertErr } = await supabaseAdmin
+        .from('carousels')
+        .insert({
+          topic,
+          audience: audience || null,
+          tone,
+          preset,
+          slide_count: slideCount,
+          project_id: projectId || null,
+          channel_id: channelId || null,
+          video_id: videoId || null,
+          voice_id: voiceId || null,
+          source_text: sourceText || null,
+          source_type: videoId ? 'video' : 'text',
+          status: 'generating',
+        })
+        .select('id')
+        .single()
+
+      if (insertErr || !carousel) {
+        throw new Error(`Failed to create carousel: ${insertErr?.message}`)
+      }
+      id = carousel.id
+    } else {
+      await supabaseAdmin.from('carousels').update({
+        status: 'generating',
+        updated_at: new Date().toISOString(),
+      }).eq('id', id)
     }
 
     // Call Claude
@@ -63,10 +89,10 @@ export async function POST(req: NextRequest) {
     const message = await anthropic.messages.create({
       model: AI_MODELS.claude,
       max_tokens: 6000,
-      system: buildCarouselSystemPrompt(preset),
+      system: buildCarouselSystemPrompt(preset, voicePrompt),
       messages: [{
         role: 'user',
-        content: buildCarouselUserPrompt({ topic, audience, tone, slideCount, transcript }),
+        content: buildCarouselUserPrompt({ topic, audience, tone, slideCount, transcript, sourceText }),
       }],
     })
 
@@ -77,7 +103,6 @@ export async function POST(req: NextRequest) {
     try {
       result = JSON.parse(clean)
     } catch {
-      // Try to extract JSON from response
       const jsonMatch = clean.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('Claude returned invalid JSON')
       result = JSON.parse(jsonMatch[0])
@@ -92,11 +117,11 @@ export async function POST(req: NextRequest) {
       style: result.style ?? null,
       status: 'ready',
       updated_at: new Date().toISOString(),
-    }).eq('id', carousel.id)
+    }).eq('id', id)
 
     return NextResponse.json({
       success: true,
-      id: carousel.id,
+      id,
       slides: result.slides,
       caption: result.caption,
       hashtags: result.hashtags,

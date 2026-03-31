@@ -33,8 +33,9 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 // Retry wrapper for Claude API (handles 529 overloaded errors)
 async function claudeWithRetry(
   params: Parameters<typeof anthropic.messages.create>[0],
-  maxRetries = 3,
-  timeoutMs = 300000, // 5 min timeout per attempt
+  maxRetries = 2,
+  timeoutMs = 180000, // 3 min timeout per attempt
+  onRetry?: (attempt: number, maxRetries: number, reason: string) => void,
 ): Promise<any> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -49,12 +50,16 @@ async function claudeWithRetry(
       const status = err?.status ?? err?.error?.status
       if (err?.message === 'TIMEOUT') {
         console.log(`[claude] Timeout after ${timeoutMs / 1000}s, attempt ${attempt}/${maxRetries}`)
-        if (attempt < maxRetries) continue
+        if (attempt < maxRetries) {
+          onRetry?.(attempt + 1, maxRetries, 'timeout')
+          continue
+        }
         throw new Error(`Claude API timeout after ${maxRetries} attempts`)
       }
       if ((status === 529 || status === 429 || err?.message?.includes('Overloaded') || err?.message?.includes('rate_limit')) && attempt < maxRetries) {
-        const delay = status === 429 ? 60000 * attempt : 30000 * attempt // 429: wait 60s/120s/180s
+        const delay = status === 429 ? 60000 * attempt : 30000 * attempt
         console.log(`[claude] ${status} rate limit, retry ${attempt}/${maxRetries} in ${delay / 1000}s...`)
+        onRetry?.(attempt + 1, maxRetries, `${status} rate limit`)
         await new Promise(r => setTimeout(r, delay))
         continue
       }
@@ -667,20 +672,26 @@ async function handleProduce(videoId: string) {
     console.log('[produce] Calling Claude Producer Agent...')
     const durationMin = Math.round(video.duration_seconds / 60)
 
-    const msg = await claudeWithRetry({
-      model: AI_MODELS.claude,
-      max_tokens: 8192,
-      system: buildProducerSystemPrompt(rules, durationMin),
-      messages: [{
-        role: 'user',
-        content: buildProducerUserPrompt({
-          currentTitle: video.current_title,
-          currentDescription: video.current_description,
-          transcript: video.transcript!,
-          durationSeconds: video.duration_seconds,
-        }),
-      }],
-    })
+    const msg = await claudeWithRetry(
+      {
+        model: AI_MODELS.claude,
+        max_tokens: 8192,
+        system: buildProducerSystemPrompt(rules, durationMin),
+        messages: [{
+          role: 'user',
+          content: buildProducerUserPrompt({
+            currentTitle: video.current_title,
+            currentDescription: video.current_description,
+            transcript: video.transcript!,
+            durationSeconds: video.duration_seconds,
+          }),
+        }],
+      },
+      2, 180000,
+      (attempt, max, reason) => {
+        updateProgress(videoId, `AI анализ (попытка ${attempt}/${max}, ${reason})...`)
+      },
+    )
 
     const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
     const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -694,6 +705,7 @@ async function handleProduce(videoId: string) {
     }
 
     console.log(`[produce] Got ${output.title_variants.length} titles, ${output.clip_suggestions?.length ?? 0} clips, ${output.short_suggestions?.length ?? 0} shorts`)
+    await updateProgress(videoId, 'Сохранение результатов...')
 
     // Thumbnails: NOT auto-generated. User creates via Thumbnail Studio (fal.ai)
     // Producer only saves thumbnail_spec (prompt + text variants)
@@ -1009,7 +1021,7 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
 
 // --- Stale job cleanup ---
 async function cleanupStaleJobs() {
-  const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString() // 15 min ago
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString() // 10 min ago
   const { data: stale } = await supabase
     .from('yt_videos')
     .select('id, status, current_title')
@@ -1019,7 +1031,7 @@ async function cleanupStaleJobs() {
   if (stale?.length) {
     for (const v of stale) {
       console.log(`[cleanup] Resetting stale ${v.status}: ${v.current_title?.slice(0, 50)}`)
-      await updateStatus(v.id, 'error', `Таймаут: зависло на "${v.status}" более 15 минут`)
+      await updateStatus(v.id, 'error', `Таймаут: зависло на "${v.status}" более 10 минут`)
     }
     console.log(`[cleanup] Reset ${stale.length} stale jobs`)
   }
@@ -1045,7 +1057,7 @@ const worker = new Worker(
   {
     connection: redis,
     concurrency: 3,
-    lockDuration: 600000,
+    lockDuration: 480000,
     lockRenewTime: 30000,
   },
 )

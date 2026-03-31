@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Clock, Eye, ThumbsUp, Sparkles, ExternalLink,
@@ -50,6 +50,7 @@ export default function VideoDetailPage() {
   const [copiedTimecodes, setCopiedTimecodes] = useState(false)
   const [guestLinks, setGuestLinks] = useState<string | null>(null)
   const [guestLinksSaved, setGuestLinksSaved] = useState(false)
+  const descTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadVideo = useCallback(async () => {
     if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
@@ -78,14 +79,15 @@ export default function VideoDetailPage() {
 
   useEffect(() => { loadVideo() }, [loadVideo])
 
-  // Poll while processing
+  // Poll while processing (status or thumbnail generation)
   useEffect(() => {
     if (!video) return
-    const active = ['transcribing', 'producing', 'generating', 'thumbnail', 'publishing'].includes(video.status)
-    if (!active) { setProcessing(null); return }
+    const statusActive = ['transcribing', 'producing', 'generating', 'thumbnail', 'publishing'].includes(video.status)
+    const thumbActive = !!video.producer_output?.thumbnail_generating
+    if (!statusActive && !thumbActive) { setProcessing(null); return }
     const interval = setInterval(loadVideo, 5000)
     return () => clearInterval(interval)
-  }, [video?.status, loadVideo])
+  }, [video?.status, video?.producer_output?.thumbnail_generating, loadVideo])
 
   const runProduce = async () => {
     setProcessing('Подготовка выпуска')
@@ -204,6 +206,24 @@ export default function VideoDetailPage() {
     return parts.join('\n\n')
   }
 
+  const saveDescDebounced = useCallback((text: string) => {
+    if (descTimerRef.current) clearTimeout(descTimerRef.current)
+    descTimerRef.current = setTimeout(async () => {
+      setDescSaving(true)
+      await fetch(`${SUPABASE_URL}/rest/v1/yt_videos?id=eq.${videoId}`, {
+        method: 'PATCH',
+        headers: {
+          apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json', Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ generated_description: text }),
+      })
+      setDescSaving(false)
+      setDescSaved(true)
+      setTimeout(() => setDescSaved(false), 2000)
+    }, 1500)
+  }, [videoId])
+
   if (loading) {
     return <div className="min-h-screen bg-bg text-cream flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted" /></div>
   }
@@ -318,7 +338,11 @@ export default function VideoDetailPage() {
                   <VariantSelector
                     variants={po.title_variants}
                     selectedIndex={sv.title_index}
+                    editedTitle={video.generated_title}
                     onSelect={selectTitle}
+                    onTitleEdit={async (text) => {
+                      await patchVideo({ generated_title: text })
+                    }}
                   />
                 </div>
 
@@ -327,39 +351,28 @@ export default function VideoDetailPage() {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-muted">Описание</h3>
                     <div className="flex items-center gap-2">
+                      {descSaving && <span className="text-xs text-muted flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /></span>}
                       {descSaved && <span className="text-xs text-green-400 flex items-center gap-1"><Check className="w-3 h-3" /> Сохранено</span>}
                       <button
                         onClick={() => {
                           const full = composeDescription()
                           setDescEdit(full)
+                          saveDescDebounced(full)
                         }}
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-surface transition-colors border border-border"
                       >
                         <FileText className="w-3 h-3" />
                         Собрать
                       </button>
-                      <button
-                        onClick={async () => {
-                          const text = descEdit ?? video.generated_description ?? po.description ?? ''
-                          setDescSaving(true)
-                          await patchVideo({ generated_description: text })
-                          setDescEdit(null)
-                          setDescSaving(false)
-                          setDescSaved(true)
-                          setTimeout(() => setDescSaved(false), 2500)
-                        }}
-                        disabled={descSaving}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-surface transition-colors border border-border disabled:opacity-50"
-                      >
-                        {descSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-                        Сохранить
-                      </button>
                     </div>
                   </div>
                   <textarea
                     className="w-full bg-bg border border-border rounded-lg p-3 text-xs text-cream leading-relaxed resize-y focus:outline-none focus:border-muted/40 min-h-[200px]"
                     value={descEdit ?? video.generated_description ?? po.description ?? ''}
-                    onChange={e => setDescEdit(e.target.value)}
+                    onChange={e => {
+                      setDescEdit(e.target.value)
+                      saveDescDebounced(e.target.value)
+                    }}
                     rows={12}
                   />
                   <div className="flex items-center justify-between mt-2 px-1">
@@ -565,6 +578,7 @@ export default function VideoDetailPage() {
                   savedUrlsByTemplate={po.thumbnail_urls_by_template}
                   savedPhotos={po.saved_photos}
                   savedReference={po.saved_reference}
+                  thumbnailGenerating={po.thumbnail_generating}
                   onSelect={selectThumbnailByUrl}
                 />
               </div>

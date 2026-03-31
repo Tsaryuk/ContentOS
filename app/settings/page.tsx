@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Save, Loader2, Plus, X, ChevronDown, ChevronUp,
-  Play, FolderOpen, User, Check, LogOut, Trash2, RotateCcw
+  Play, FolderOpen, User, Users, Check, LogOut, Trash2, RotateCcw, Shield
 } from 'lucide-react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -58,7 +58,18 @@ export default function SettingsPage() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [accounts, setAccounts] = useState<GoogleAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeSection, setActiveSection] = useState<'accounts' | 'projects' | 'channels'>('accounts')
+  const [activeSection, setActiveSection] = useState<'accounts' | 'projects' | 'channels' | 'users'>('accounts')
+  const [sessionRole, setSessionRole] = useState<string | null>(null)
+
+  // Users management
+  const [usersList, setUsersList] = useState<{ id: string; email: string; name: string; role: string; is_active: boolean; created_at: string }[]>([])
+  const [newUserEmail, setNewUserEmail] = useState('')
+  const [newUserName, setNewUserName] = useState('')
+  const [newUserPassword, setNewUserPassword] = useState('')
+  const [newUserRole, setNewUserRole] = useState('manager')
+  const [creatingUser, setCreatingUser] = useState(false)
+  const [userError, setUserError] = useState('')
+  const [togglingUser, setTogglingUser] = useState<string | null>(null)
 
   // Project form
   const [newProjectName, setNewProjectName] = useState('')
@@ -78,7 +89,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    loadData()
+    fetch('/api/auth/session').then(r => r.json()).then(s => setSessionRole(s.userRole))
+  }, [])
 
   async function loadData() {
     setLoading(true)

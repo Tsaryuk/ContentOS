@@ -186,16 +186,37 @@ async function runNanoBanana(
   }
 }
 
+async function markGenerating(supabase: ReturnType<typeof getSupabase>, videoId: string, template: string | null) {
+  const { data: video } = await supabase.from('yt_videos')
+    .select('producer_output').eq('id', videoId).single()
+  const po = { ...(video?.producer_output ?? {}), thumbnail_generating: template }
+  await supabase.from('yt_videos').update({
+    producer_output: po,
+    updated_at: new Date().toISOString(),
+  }).eq('id', videoId)
+}
+
 export async function POST(req: NextRequest) {
+  const supabase = getSupabase()
+  let videoId = ''
+  let template = 'solo'
+
   try {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })
-    const supabase = getSupabase()
     const body = await req.json()
-    const { videoId, channelId, photos, text, template = 'solo', referenceUrl, refinement, guestInfo } = body
+    videoId = body.videoId
+    const { channelId, photos, text, referenceUrl, refinement, guestInfo } = body
+    template = body.template ?? 'solo'
 
     if (!videoId || !text) {
       return NextResponse.json({ error: 'videoId and text required' }, { status: 400 })
     }
+
+    // Mark generation in progress — survives page navigation
+    await markGenerating(supabase, videoId, template)
+
+    // Respond immediately — client can navigate away
+    // Generation continues server-side
 
     // Load per-channel thumbnail style prompt if channelId provided
     let channelStylePrompt: string | null = null
@@ -260,26 +281,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (urls.length > 0) {
-      const { data: video } = await supabase.from('yt_videos')
-        .select('producer_output').eq('id', videoId).single()
+    // Save results + clear generating flag
+    const { data: video } = await supabase.from('yt_videos')
+      .select('producer_output').eq('id', videoId).single()
 
-      const prevPo = video?.producer_output ?? {}
-      const byTemplate = { ...(prevPo.thumbnail_urls_by_template ?? {}) }
-      byTemplate[template] = urls
+    const prevPo = video?.producer_output ?? {}
+    const byTemplate = { ...(prevPo.thumbnail_urls_by_template ?? {}) }
+    if (urls.length > 0) byTemplate[template] = urls
 
-      // thumbnail_url = first url from any template (prefer just-generated)
-      const po = { ...prevPo, thumbnail_urls_by_template: byTemplate }
+    const po = { ...prevPo, thumbnail_urls_by_template: byTemplate, thumbnail_generating: null }
 
-      await supabase.from('yt_videos').update({
-        thumbnail_url: urls[0], producer_output: po,
-        updated_at: new Date().toISOString(),
-      }).eq('id', videoId)
-    }
+    await supabase.from('yt_videos').update({
+      ...(urls.length > 0 ? { thumbnail_url: urls[0] } : {}),
+      producer_output: po,
+      updated_at: new Date().toISOString(),
+    }).eq('id', videoId)
 
+    console.log(`[thumb] Done: ${urls.length}/4 variants saved`)
     return NextResponse.json({ success: true, urls, models: modelNames })
   } catch (err: any) {
     console.error('[thumb-gen]', err)
+    // Clear generating flag on error
+    if (videoId) {
+      await markGenerating(supabase, videoId, null).catch(() => {})
+    }
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

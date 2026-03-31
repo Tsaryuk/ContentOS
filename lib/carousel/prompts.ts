@@ -1,6 +1,24 @@
 import { BRAND_PRESETS } from './types'
 
-export function buildCarouselSystemPrompt(preset: string): string {
+export function buildVoiceTrainingPrompt(): string {
+  return `Ты эксперт по анализу стиля письма и тона коммуникации.
+
+Проанализируй предоставленные примеры текстов и извлеки уникальный стиль автора.
+
+Ответ ТОЛЬКО в JSON (без markdown):
+{
+  "voicePrompt": "Подробное описание стиля на русском, которое можно использовать как инструкцию для генерации текста в том же стиле. Включи: тон, длину предложений, использование метафор, обращение к читателю, структуру аргументации, фирменные приёмы, эмоциональный регистр, уровень формальности.",
+  "summary": "Краткое описание стиля в 1-2 предложениях для отображения в UI"
+}
+
+Правила:
+- voicePrompt должен быть достаточно детальным для воспроизведения стиля (200-400 слов)
+- Обрати внимание на: ритм текста, длину абзацев, использование вопросов, прямых обращений, метафор
+- Если автор использует специфическую лексику или конструкции — укажи их
+- summary — максимум 2 предложения, человекочитаемое описание`
+}
+
+export function buildCarouselSystemPrompt(preset: string, voicePrompt?: string): string {
   const p = BRAND_PRESETS[preset] ?? BRAND_PRESETS.tsaryuk
 
   return `Ты эксперт по созданию вирусных Instagram-каруселей с сильным визуальным стилем.
@@ -64,7 +82,10 @@ export function buildCarouselSystemPrompt(preset: string): string {
 Правила по style:
 - accentColor должен дополнять тему (тёплый для бизнеса, холодный для tech, яркий для мотивации)
 - bgTint — очень лёгкий оттенок, почти белый, для фона светлых слайдов
-- mood — 2-3 слова, передающие настроение всей карусели`
+- mood — 2-3 слова, передающие настроение всей карусели${voicePrompt ? `
+
+## СТИЛЬ ПИСЬМА (ОБЯЗАТЕЛЬНО СОБЛЮДАЙ)
+${voicePrompt}` : ''}`
 }
 
 export function buildCarouselUserPrompt(params: {
@@ -73,6 +94,7 @@ export function buildCarouselUserPrompt(params: {
   tone: string
   slideCount: number
   transcript?: string
+  sourceText?: string
 }): string {
   const parts = [
     `Тема: ${params.topic}`,
@@ -86,6 +108,13 @@ export function buildCarouselUserPrompt(params: {
       ? params.transcript.slice(0, 8000) + '\n\n[...транскрипт обрезан...]'
       : params.transcript
     parts.push(`\nКонтекст из видео (используй ключевые идеи и цитаты):\n${trimmed}`)
+  }
+
+  if (params.sourceText) {
+    const trimmed = params.sourceText.length > 8000
+      ? params.sourceText.slice(0, 8000) + '\n\n[...текст обрезан...]'
+      : params.sourceText
+    parts.push(`\nИсходный текст (используй как основу для контента карусели):\n${trimmed}`)
   }
 
   return parts.join('\n')
