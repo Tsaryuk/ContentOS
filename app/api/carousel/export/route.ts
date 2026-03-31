@@ -128,7 +128,8 @@ export async function POST(req: NextRequest) {
       })
 
       for (let i = 0; i < slides.length; i++) {
-        const html = buildFullHTML(slides[i], i, slides.length, carousel.preset, carousel.illustration_url)
+        const illustUrl = carousel.illustration_urls?.[i] ?? (i === 0 ? carousel.illustration_url : null)
+        const html = buildFullHTML(slides[i], i, slides.length, carousel.preset, illustUrl)
         await page.setContent(html, { waitUntil: 'networkidle' })
         await page.waitForTimeout(1500) // Wait for Google Fonts
 

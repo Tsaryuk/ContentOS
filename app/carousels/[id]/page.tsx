@@ -81,6 +81,8 @@ export default function CarouselEditorPage() {
         hashtags: data.hashtags,
         illustration_prompt: data.illustrationPrompt,
         illustration_url: null,
+        illustration_urls: null,
+        style: data.style ?? null,
         export_urls: null,
         export_zip_url: null,
         status: 'ready',
@@ -115,7 +117,11 @@ export default function CarouselEditorPage() {
       const data = await res.json()
 
       if (!res.ok) throw new Error(data.error || 'Illustration failed')
-      setCarousel(prev => prev ? { ...prev, illustration_url: data.url } : null)
+      setCarousel(prev => prev ? {
+        ...prev,
+        illustration_urls: data.urls,
+        illustration_url: data.urls?.[0] ?? prev.illustration_url,
+      } : null)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -263,7 +269,8 @@ export default function CarouselEditorPage() {
           <CarouselPreview
             slides={slides}
             preset={preset}
-            illustrationUrl={carousel?.illustration_url}
+            illustrationUrls={carousel?.illustration_urls}
+            style={carousel?.style}
             onSlideChange={setCurrentSlide}
           />
 
@@ -285,7 +292,7 @@ export default function CarouselEditorPage() {
                   className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border text-xs font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-40 transition-colors"
                 >
                   {isIllustrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
-                  {isIllustrating ? 'Генерирую...' : carousel?.illustration_url ? 'Перегенерировать' : 'Сгенерировать иллюстрацию'}
+                  {isIllustrating ? 'Генерирую все слайды...' : carousel?.illustration_urls ? 'Перегенерировать иллюстрации' : 'Сгенерировать иллюстрации для всех слайдов'}
                 </button>
               </div>
             </div>

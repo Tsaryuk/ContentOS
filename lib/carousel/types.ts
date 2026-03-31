@@ -10,6 +10,14 @@ export interface CarouselSlide {
   label2?: string
   col2?: string
   example?: string
+  illustrationPrompt?: string
+}
+
+export interface CarouselStyle {
+  mood: string
+  illustrationStyle: string
+  accentColor: string
+  bgTint: string
 }
 
 export interface CarouselGenerateResult {
@@ -17,6 +25,7 @@ export interface CarouselGenerateResult {
   caption: string
   hashtags: string
   illustrationPrompt: string
+  style: CarouselStyle
 }
 
 export interface BrandPreset {
@@ -62,12 +71,12 @@ export const BRAND_PRESETS: Record<string, BrandPreset> = {
     ink: '#2C1810',
     light: '#FDF6EE',
     dark: '#2C1810',
-    accent: '#C4762A',
+    accent: '#C4742A',
     avatarLetter: 'W',
   },
 }
 
-export type CarouselStatus = 'draft' | 'generating' | 'ready' | 'exported' | 'error'
+export type CarouselStatus = 'draft' | 'generating' | 'illustrating' | 'ready' | 'exported' | 'error'
 
 export interface CarouselRow {
   id: string
@@ -84,6 +93,8 @@ export interface CarouselRow {
   hashtags: string | null
   illustration_prompt: string | null
   illustration_url: string | null
+  illustration_urls: Record<number, string> | null
+  style: CarouselStyle | null
   export_urls: string[] | null
   export_zip_url: string | null
   status: CarouselStatus

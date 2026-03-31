@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     const message = await anthropic.messages.create({
       model: AI_MODELS.claude,
-      max_tokens: 4000,
+      max_tokens: 6000,
       system: buildCarouselSystemPrompt(preset),
       messages: [{
         role: 'user',
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
       caption: result.caption,
       hashtags: result.hashtags,
       illustration_prompt: result.illustrationPrompt,
+      style: result.style ?? null,
       status: 'ready',
       updated_at: new Date().toISOString(),
     }).eq('id', carousel.id)
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
       caption: result.caption,
       hashtags: result.hashtags,
       illustrationPrompt: result.illustrationPrompt,
+      style: result.style ?? null,
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
