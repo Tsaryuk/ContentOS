@@ -9,6 +9,7 @@ import IORedis from 'ioredis'
 import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
+import { AI_MODELS } from './lib/ai-models'
 import { writeFile, unlink, mkdir, rm } from 'fs/promises'
 import { createReadStream, existsSync, statSync } from 'fs'
 import { execSync } from 'child_process'
@@ -234,7 +235,7 @@ async function proofread(segments: { start: number; end: number; text: string }[
     const numbered = batch.map((s, idx) => `${idx}|${s.text}`).join('\n')
 
     const msg = await claudeWithRetry({
-      model: 'claude-sonnet-4-20250514',
+      model: AI_MODELS.claude,
       max_tokens: 8192,
       system: `Ты — корректор транскриптов подкастов на русском языке.
 
@@ -394,7 +395,7 @@ async function handleGenerate(videoId: string) {
       : video.transcript
 
     const msg = await claudeWithRetry({
-      model: 'claude-sonnet-4-20250514',
+      model: AI_MODELS.claude,
       max_tokens: 4096,
       system: buildSystemPrompt(rules),
       messages: [{
@@ -667,7 +668,7 @@ async function handleProduce(videoId: string) {
     const durationMin = Math.round(video.duration_seconds / 60)
 
     const msg = await claudeWithRetry({
-      model: 'claude-sonnet-4-20250514',
+      model: AI_MODELS.claude,
       max_tokens: 8192,
       system: buildProducerSystemPrompt(rules, durationMin),
       messages: [{
@@ -756,7 +757,7 @@ async function handleAnalyzeClips(videoId: string) {
   const maxClips = durationMin > 60 ? 15 : durationMin > 30 ? 10 : 7
 
   const msg = await claudeWithRetry({
-    model: 'claude-sonnet-4-20250514',
+    model: AI_MODELS.claude,
     max_tokens: 16384,
     system: `Ты — эксперт по созданию вирусного контента из подкастов и видео.
 

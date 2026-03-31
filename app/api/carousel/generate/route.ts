@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildCarouselSystemPrompt, buildCarouselUserPrompt } from '@/lib/carousel/prompts'
 import type { CarouselGenerateResult } from '@/lib/carousel/types'
+import { AI_MODELS } from '@/lib/ai-models'
 
 export const maxDuration = 60
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20241022',
+      model: AI_MODELS.claude,
       max_tokens: 4000,
       system: buildCarouselSystemPrompt(preset),
       messages: [{

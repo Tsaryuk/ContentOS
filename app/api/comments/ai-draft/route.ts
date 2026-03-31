@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import Anthropic from '@anthropic-ai/sdk'
+import { AI_MODELS } from '@/lib/ai-models'
 
 const anthropic = new Anthropic()
 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     const msg = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: AI_MODELS.claude,
       max_tokens: 500,
       system: `Ты — автор YouTube-канала. Пиши ответы на комментарии коротко, дружелюбно, по-русски. ${brandVoice ? `Твой стиль: ${brandVoice}` : ''} Не используй эмодзи чрезмерно. Максимум 2-3 предложения.`,
       messages: [{
