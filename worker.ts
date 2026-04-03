@@ -1079,7 +1079,7 @@ const worker = new Worker(
   },
   {
     connection: redis,
-    concurrency: 3,
+    concurrency: 4,
     lockDuration: 480000,
     lockRenewTime: 30000,
     settings: {

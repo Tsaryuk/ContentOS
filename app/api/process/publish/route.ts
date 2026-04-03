@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     await getQueue().add('publish', {
       videoId,
       overrides: { title, thumbnailUrl },
-    }, { attempts: 1 })
+    }, { attempts: 1, priority: 1 })
 
     return NextResponse.json({ success: true, status: 'queued' })
   } catch (err: any) {
