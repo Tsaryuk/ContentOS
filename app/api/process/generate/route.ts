@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
     }
 
     await updateVideoStatus(videoId, 'generating')
-    await getQueue().add('generate', { videoId })
+    await getQueue().add('generate', { videoId }, { attempts: 1 })
+
 
     return NextResponse.json({ success: true, status: 'queued' })
   } catch (err: any) {

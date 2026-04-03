@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     if (!video.transcript) return NextResponse.json({ error: 'No transcript. Run transcription first.' }, { status: 400 })
 
     // Queue the analysis job
-    await getQueue().add('analyze_clips', { videoId })
+    await getQueue().add('analyze_clips', { videoId }, { attempts: 1 })
 
     return NextResponse.json({ success: true, status: 'queued' })
   } catch (err: any) {

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       .update({ status: 'processing', updated_at: new Date().toISOString() })
       .eq('id', candidateId)
 
-    await getQueue().add('process_clip', { candidateId, videoId: candidate.video_id })
+    await getQueue().add('process_clip', { candidateId, videoId: candidate.video_id }, { attempts: 1 })
 
     return NextResponse.json({ success: true, status: 'queued' })
   } catch (err: any) {

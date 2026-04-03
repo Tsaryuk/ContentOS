@@ -532,6 +532,10 @@ async function handlePublish(videoId: string, overrides?: { title?: string; thum
       headers: { Authorization: `Bearer ${token}` },
     })
     const getData = await getRes.json()
+    if (!getRes.ok) {
+      const errMsg = getData.error?.message ?? `HTTP ${getRes.status}`
+      throw new Error(`YouTube API: ${errMsg}`)
+    }
     const snippet = getData.items?.[0]?.snippet
     if (!snippet) throw new Error('Video not found on YouTube')
 
@@ -661,8 +665,8 @@ async function handleProduce(videoId: string) {
       console.log('[produce] No transcript, queueing transcribe first...')
       await updateProgress(videoId, 'Транскрипт не найден, запускаем расшифровку...')
       const q = new Queue('contentos', { connection: redis })
-      await q.add('transcribe', { videoId })
-      await q.add('produce', { videoId }, { delay: 120000 }) // retry produce in 2 min
+      await q.add('transcribe', { videoId }, { attempts: 1 })
+      await q.add('produce', { videoId }, { delay: 120000, attempts: 1 }) // retry produce in 2 min
       await q.close()
       return
     }
@@ -1059,6 +1063,9 @@ const worker = new Worker(
     concurrency: 3,
     lockDuration: 480000,
     lockRenewTime: 30000,
+    settings: {
+      backoffStrategy: () => 0, // no auto-retry delay
+    },
   },
 )
 

@@ -4,7 +4,8 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Save, Loader2, Plus, X, ChevronDown, ChevronUp,
-  Play, FolderOpen, User, Users, Check, LogOut, Trash2, RotateCcw, Shield
+  Play, FolderOpen, User, Users, Check, LogOut, Trash2, RotateCcw, Shield,
+  Activity, CheckCircle, AlertCircle, XCircle, RefreshCw
 } from 'lucide-react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -58,7 +59,7 @@ export default function SettingsPage() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [accounts, setAccounts] = useState<GoogleAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeSection, setActiveSection] = useState<'accounts' | 'projects' | 'channels' | 'users'>('accounts')
+  const [activeSection, setActiveSection] = useState<'services' | 'accounts' | 'projects' | 'channels' | 'users'>('services')
   const [sessionRole, setSessionRole] = useState<string | null>(null)
 
   // Users management
@@ -211,7 +212,27 @@ export default function SettingsPage() {
     } finally { setSaving(null) }
   }
 
+  // Health check
+  const [healthServices, setHealthServices] = useState<{ name: string; status: string; detail?: string }[]>([])
+  const [healthLoading, setHealthLoading] = useState(false)
+  const [healthTimestamp, setHealthTimestamp] = useState<string | null>(null)
+
+  async function loadHealth() {
+    setHealthLoading(true)
+    try {
+      const res = await fetch('/api/health')
+      const data = await res.json()
+      setHealthServices(data.services ?? [])
+      setHealthTimestamp(data.timestamp)
+    } catch {
+      setHealthServices([])
+    } finally {
+      setHealthLoading(false)
+    }
+  }
+
   const SECTIONS = [
+    { id: 'services' as const, label: 'Сервисы', icon: <Activity className="w-4 h-4" /> },
     { id: 'accounts' as const, label: 'Google аккаунты', icon: <User className="w-4 h-4" /> },
     { id: 'projects' as const, label: 'Проекты', icon: <FolderOpen className="w-4 h-4" /> },
     { id: 'channels' as const, label: 'Каналы', icon: <Play className="w-4 h-4" /> },
@@ -258,6 +279,55 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
+
+        {/* ── SERVICES ── */}
+        {activeSection === 'services' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted">Статус подключённых сервисов</p>
+              <button
+                onClick={loadHealth}
+                disabled={healthLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted hover:text-cream border border-border hover:bg-surface transition-colors disabled:opacity-50"
+              >
+                {healthLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Проверить
+              </button>
+            </div>
+
+            {healthServices.length === 0 && !healthLoading && (
+              <div className="py-12 text-center text-muted text-sm">
+                <Activity className="w-8 h-8 text-dim mx-auto mb-3" />
+                <p>Нажмите «Проверить» чтобы проверить статус сервисов.</p>
+              </div>
+            )}
+
+            {healthServices.map((svc, i) => (
+              <div key={i} className="flex items-center gap-4 bg-surface border border-border rounded-xl px-5 py-4">
+                <div className="shrink-0">
+                  {svc.status === 'ok' && <CheckCircle className="w-5 h-5 text-emerald-400" />}
+                  {svc.status === 'error' && <XCircle className="w-5 h-5 text-red-400" />}
+                  {svc.status === 'missing' && <AlertCircle className="w-5 h-5 text-amber-400" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{svc.name}</div>
+                  {svc.detail && <div className="text-xs text-muted truncate">{svc.detail}</div>}
+                </div>
+                <div className="shrink-0">
+                  {svc.status === 'ok' && <span className="text-xs text-emerald-400 font-medium">OK</span>}
+                  {svc.status === 'error' && <span className="text-xs text-red-400 font-medium">Ошибка</span>}
+                  {svc.status === 'missing' && <span className="text-xs text-amber-400 font-medium">Не настроен</span>}
+                </div>
+              </div>
+            ))}
+
+            {healthTimestamp && (
+              <p className="text-[10px] text-dim text-right">
+                Проверено: {new Date(healthTimestamp).toLocaleString('ru-RU')}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ── ACCOUNTS ── */}
         {activeSection === 'accounts' && (
