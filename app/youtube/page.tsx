@@ -161,10 +161,11 @@ export default function YouTubePage() {
     }
   }
 
+  const PROCESSING_STATUSES = ['transcribing', 'producing', 'generating', 'thumbnail', 'publishing']
+
   const applyStatusFilter = (list: VideoItem[]) => {
     if (!statusFilter) return list
-    if (statusFilter === 'published') return list.filter(v => v.is_published_back)
-    if (statusFilter === 'not_published') return list.filter(v => !v.is_published_back && v.status !== 'pending')
+    if (statusFilter === 'processing') return list.filter(v => PROCESSING_STATUSES.includes(v.status))
     return list.filter(v => v.status === statusFilter)
   }
 
@@ -189,6 +190,7 @@ export default function YouTubePage() {
 
   const STATUS_FILTERS = [
     { id: null, label: 'Все' },
+    { id: 'processing', label: 'В обработке' },
     { id: 'review', label: 'На проверке' },
     { id: 'done', label: 'Готово' },
     { id: 'error', label: 'Ошибки' },
