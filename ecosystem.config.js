@@ -40,6 +40,7 @@ module.exports = {
       script: 'npx',
       args: 'tsx worker.ts',
       instances: 1,
+      exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         ...dotenv,
