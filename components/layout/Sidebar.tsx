@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutGrid, Mail, Globe, Settings, Scissors,
-  Play, Send, Camera, GalleryHorizontalEnd
+  Play, Send, Camera, GalleryHorizontalEnd, CheckSquare
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
@@ -81,6 +81,7 @@ export function Sidebar() {
   const isYoutube = pathname.startsWith('/youtube')
   const isClips = pathname.startsWith('/clips')
   const isCarousels = pathname.startsWith('/carousels')
+  const isTasks = pathname.startsWith('/tasks')
 
   // Static channels for non-YT platforms
   const staticChannelsByPlatform = (platform: Platform) =>
@@ -107,6 +108,17 @@ export function Sidebar() {
       >
         <LayoutGrid className="w-4 h-4 shrink-0" />
         <span className="text-xs font-medium">Дашборд</span>
+      </Link>
+
+      {/* Tasks */}
+      <Link
+        href="/tasks"
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
+          isTasks ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+        }`}
+      >
+        <CheckSquare className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-medium">Задачи</span>
       </Link>
 
       {/* YouTube — dynamic channels from DB */}
