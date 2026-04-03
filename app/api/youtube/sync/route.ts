@@ -61,10 +61,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Remove videos deleted from YouTube
+    let removed = 0
+    const ytVideoIds = new Set(ytVideos.map(v => v.id))
+    const { data: dbVideos } = await supabaseAdmin
+      .from('yt_videos')
+      .select('id, yt_video_id')
+      .eq('channel_id', channel.id)
+
+    if (dbVideos) {
+      const toDelete = dbVideos.filter(v => !ytVideoIds.has(v.yt_video_id))
+      if (toDelete.length > 0) {
+        const ids = toDelete.map(v => v.id)
+        // Delete related records first
+        await supabaseAdmin.from('yt_jobs').delete().in('video_id', ids)
+        await supabaseAdmin.from('yt_changes').delete().in('video_id', ids)
+        await supabaseAdmin.from('yt_social_drafts').delete().in('video_id', ids)
+        await supabaseAdmin.from('yt_videos').delete().in('id', ids)
+        removed = toDelete.length
+        console.log(`[sync] Removed ${removed} deleted videos`)
+      }
+    }
+
     await supabaseAdmin.from('yt_jobs').insert({
       job_type: 'sync_channel',
       status: errors === 0 ? 'done' : 'failed',
-      result: { synced, errors, total: ytVideos.length },
+      result: { synced, errors, removed, total: ytVideos.length },
     })
 
     return NextResponse.json({
@@ -73,6 +95,7 @@ export async function POST(req: NextRequest) {
       total: ytVideos.length,
       synced,
       errors,
+      removed,
     })
 
   } catch (err: any) {

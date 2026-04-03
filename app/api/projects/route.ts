@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getSession } from '@/lib/session'
 
-// GET /api/projects — all projects with their channels
+// GET /api/projects — all projects with their channels (filtered by active project)
 export async function GET() {
+  const session = await getSession()
+
   const { data: projects } = await supabaseAdmin
     .from('projects')
     .select('id, name, color, slug')
     .order('name')
 
-  const { data: channels } = await supabaseAdmin
+  let channelQuery = supabaseAdmin
     .from('yt_channels')
     .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active, subscriber_count, video_count')
     .order('title')
+
+  if (session.activeProjectId) {
+    channelQuery = channelQuery.eq('project_id', session.activeProjectId)
+  }
+
+  const { data: channels } = await channelQuery
 
   return NextResponse.json({ projects: projects ?? [], channels: channels ?? [] })
 }

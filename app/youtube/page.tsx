@@ -85,6 +85,7 @@ export default function YouTubePage() {
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [activeTab, setActiveTab] = useState<ContentType>('podcasts')
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
 
   useEffect(() => {
     supabaseRef.current = getSupabase()
@@ -160,6 +161,13 @@ export default function YouTubePage() {
     }
   }
 
+  const applyStatusFilter = (list: VideoItem[]) => {
+    if (!statusFilter) return list
+    if (statusFilter === 'published') return list.filter(v => v.is_published_back)
+    if (statusFilter === 'not_published') return list.filter(v => !v.is_published_back && v.status !== 'pending')
+    return list.filter(v => v.status === statusFilter)
+  }
+
   const videos = allVideos.filter(v => classifyVideo(v) === 'videos')
   const shorts = allVideos.filter(v => classifyVideo(v) === 'shorts')
   const podcasts = allVideos.filter(v => classifyVideo(v) === 'podcasts')
@@ -173,10 +181,19 @@ export default function YouTubePage() {
   ]
   const visibleTabs = tabs.filter(t => t.count > 0)
 
-  const currentVideos =
+  const currentVideosRaw =
     activeTab === 'videos'   ? videos :
     activeTab === 'shorts'   ? shorts :
     activeTab === 'queue'    ? queue  : podcasts
+  const currentVideos = applyStatusFilter(currentVideosRaw)
+
+  const STATUS_FILTERS = [
+    { id: null, label: 'Все' },
+    { id: 'review', label: 'На проверке' },
+    { id: 'done', label: 'Готово' },
+    { id: 'error', label: 'Ошибки' },
+    { id: 'pending', label: 'Ожидает' },
+  ]
 
   const stats = {
     total: allVideos.length,
@@ -278,6 +295,26 @@ export default function YouTubePage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Status filter */}
+        <div className="flex gap-1.5 mb-4 flex-wrap">
+          {STATUS_FILTERS.map(f => {
+            const isActive = statusFilter === f.id
+            return (
+              <button
+                key={f.id ?? 'all'}
+                onClick={() => setStatusFilter(f.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-accent/15 text-accent border border-accent/30'
+                    : 'bg-surface text-muted border border-border hover:text-cream'
+                }`}
+              >
+                {f.label}
+              </button>
+            )
+          })}
         </div>
 
         {/* Content */}

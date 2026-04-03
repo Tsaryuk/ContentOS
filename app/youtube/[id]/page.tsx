@@ -265,8 +265,19 @@ export default function VideoDetailPage() {
         {/* Status */}
         <div className="mb-6 p-3 bg-surface rounded-xl border border-border">
           <StatusStepper status={video.status} />
-          {video.error_message && !video.error_message.startsWith('progress:') && (
-            <p className="text-xs text-red-400 mt-2 px-2">{video.error_message}</p>
+          {video.status === 'error' && video.error_message && !video.error_message.startsWith('progress:') && (
+            <div className="flex items-center justify-between mt-2 px-2">
+              <p className="text-xs text-red-400">{video.error_message}</p>
+              <button
+                onClick={() => patchVideo({
+                  status: po ? 'review' : 'pending',
+                  error_message: null,
+                })}
+                className="shrink-0 ml-3 px-3 py-1 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+              >
+                Сбросить
+              </button>
+            </div>
           )}
           {isProcessing && (
             <div className="flex items-center gap-2 mt-2 px-2 text-xs text-purple-400">
