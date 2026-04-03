@@ -1039,6 +1039,25 @@ async function cleanupStaleJobs() {
     }
     console.log(`[cleanup] Reset ${stale.length} stale jobs`)
   }
+
+  // Clear stuck thumbnail_generating flags (>5 min old)
+  const thumbCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+  const { data: thumbStale } = await supabase
+    .from('yt_videos')
+    .select('id, producer_output, current_title')
+    .not('producer_output->thumbnail_generating', 'is', null)
+    .lt('updated_at', thumbCutoff)
+
+  if (thumbStale?.length) {
+    for (const v of thumbStale) {
+      const po = { ...(v.producer_output ?? {}), thumbnail_generating: null }
+      await supabase.from('yt_videos').update({
+        producer_output: po,
+        updated_at: new Date().toISOString(),
+      }).eq('id', v.id)
+      console.log(`[cleanup] Cleared stuck thumbnail_generating: ${v.current_title?.slice(0, 50)}`)
+    }
+  }
 }
 
 const worker = new Worker(
