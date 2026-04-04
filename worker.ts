@@ -15,6 +15,27 @@ import { createReadStream, existsSync, statSync } from 'fs'
 import { execSync } from 'child_process'
 import { join } from 'path'
 
+// --- Graceful shutdown & unhandled errors ---
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[worker] Unhandled rejection:', reason)
+})
+
+process.on('uncaughtException', (err) => {
+  console.error('[worker] Uncaught exception:', err.message)
+  process.exit(1)
+})
+
+process.on('SIGTERM', async () => {
+  console.log('[worker] SIGTERM received, shutting down gracefully...')
+  process.exit(0)
+})
+
+process.on('SIGINT', async () => {
+  console.log('[worker] SIGINT received, shutting down gracefully...')
+  process.exit(0)
+})
+
 // --- Config ---
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'
@@ -1123,4 +1144,4 @@ worker.on('completed', (job) => {
 cleanupStaleJobs()
 setInterval(cleanupStaleJobs, 5 * 60 * 1000)
 
-console.log('[worker] ContentOS worker started (concurrency=3). Waiting for jobs...')
+console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')

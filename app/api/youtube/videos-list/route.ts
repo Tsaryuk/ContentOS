@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('yt_videos')
-    .select('id, title')
+    .select('id, current_title')
     .order('created_at', { ascending: false })
     .limit(100)
 

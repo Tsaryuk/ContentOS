@@ -9,10 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger deploy webhook
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
         run: |
-          curl -s -X POST http://178.128.197.227:9000/deploy \
+          curl -s -X POST "${DEPLOY_HOST}/deploy" \
             -H "Content-Type: application/json" \
-            -H "X-Hub-Signature-256: sha256=$(echo -n '{}' | openssl dgst -sha256 -hmac 'contentos-deploy-2026' | awk '{print $2}')" \
+            -H "X-Hub-Signature-256: sha256=$(echo -n '{}' | openssl dgst -sha256 -hmac "${DEPLOY_WEBHOOK_SECRET}" | awk '{print $2}')" \
             -d '{}' \
             --max-time 180 \
             -w "\nHTTP Status: %{http_code}\n"

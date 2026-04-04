@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase'
 import { TelegramClient } from 'telegram'
 import { StringSession } from 'telegram/sessions'
 import { Api } from 'telegram'
@@ -8,10 +8,7 @@ import type { TgPostRow } from './types'
 const API_ID = Number(process.env.TELEGRAM_API_ID ?? '0')
 const API_HASH = process.env.TELEGRAM_API_HASH ?? ''
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!,
-)
+const supabase = supabaseAdmin
 
 /**
  * Send a Telegram post to its channel.
