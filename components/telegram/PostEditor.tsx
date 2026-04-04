@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Clock, Image, X, Loader2, Sparkles } from 'lucide-react'
+import { Send, Clock, Image, Link, X, Loader2, Sparkles, Eye, Code } from 'lucide-react'
 import type { TgChannelRow } from '@/lib/telegram/types'
 
 interface PostEditorProps {
@@ -26,11 +26,14 @@ export function PostEditor({
   const [channelId, setChannelId] = useState(initialChannelId ?? channels[0]?.id ?? '')
   const [content, setContent] = useState(initialContent ?? '')
   const [mediaUrls, setMediaUrls] = useState<string[]>([])
+  const [mediaInput, setMediaInput] = useState('')
+  const [showMediaInput, setShowMediaInput] = useState(false)
   const [scheduledAt, setScheduledAt] = useState('')
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
+  const [preview, setPreview] = useState(false)
 
   async function handleSave(schedule: boolean) {
     if (!channelId || !content.trim()) return
@@ -70,7 +73,6 @@ export function PostEditor({
 
   async function handleSendNow() {
     if (!postId) {
-      // Save first, then send
       await handleSave(false)
       return
     }
@@ -112,11 +114,30 @@ export function PostEditor({
     }
   }
 
-  function addMediaUrl() {
-    const url = prompt('URL изображения или видео:')
-    if (url?.trim()) {
-      setMediaUrls(prev => [...prev, url.trim()])
-    }
+  function addMedia() {
+    const url = mediaInput.trim()
+    if (!url) return
+    setMediaUrls(prev => [...prev, url])
+    setMediaInput('')
+    setShowMediaInput(false)
+  }
+
+  // Convert Telegram HTML to safe preview HTML
+  function renderPreview(html: string): string {
+    return html
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      // Restore allowed Telegram tags
+      .replace(/&lt;b&gt;(.*?)&lt;\/b&gt;/gs, '<strong>$1</strong>')
+      .replace(/&lt;i&gt;(.*?)&lt;\/i&gt;/gs, '<em>$1</em>')
+      .replace(/&lt;code&gt;(.*?)&lt;\/code&gt;/gs, '<code class="bg-white/10 px-1 rounded text-xs">$1</code>')
+      .replace(/&lt;pre&gt;(.*?)&lt;\/pre&gt;/gs, '<pre class="bg-white/10 p-2 rounded text-xs overflow-x-auto">$1</pre>')
+      .replace(/&lt;a href=&quot;(.*?)&quot;&gt;(.*?)&lt;\/a&gt;/gs, '<a href="$1" class="text-accent underline" target="_blank" rel="noopener">$2</a>')
+      .replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/gs, '<u>$1</u>')
+      .replace(/&lt;s&gt;(.*?)&lt;\/s&gt;/gs, '<s>$1</s>')
+      // Newlines to <br>
+      .replace(/\n/g, '<br/>')
   }
 
   return (
@@ -153,10 +174,21 @@ export function PostEditor({
           </select>
         </div>
 
-        {/* Content */}
+        {/* Content with preview toggle */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs text-muted">Текст поста</label>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted">Текст поста</label>
+              <button
+                onClick={() => setPreview(!preview)}
+                className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+                  preview ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'
+                }`}
+              >
+                {preview ? <Eye className="w-3 h-3" /> : <Code className="w-3 h-3" />}
+                {preview ? 'Preview' : 'HTML'}
+              </button>
+            </div>
             <button
               onClick={handleAiGenerate}
               disabled={generating}
@@ -166,13 +198,21 @@ export function PostEditor({
               AI-генерация
             </button>
           </div>
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="Текст поста для Telegram-канала..."
-            rows={10}
-            className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent resize-none"
-          />
+
+          {preview ? (
+            <div
+              className="w-full min-h-[200px] px-3 py-2 bg-bg-input border border-border rounded-lg text-sm text-cream leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: renderPreview(content) }}
+            />
+          ) : (
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="Текст поста для Telegram-канала...&#10;&#10;Поддерживается HTML: <b>жирный</b>, <i>курсив</i>, <code>код</code>"
+              rows={10}
+              className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent resize-none font-mono text-[13px] leading-relaxed"
+            />
+          )}
           <div className="text-[10px] text-dim mt-1 text-right">
             {content.length} символов
           </div>
@@ -183,23 +223,61 @@ export function PostEditor({
           <label className="block text-xs text-muted mb-1.5">Медиа</label>
           <div className="space-y-2">
             {mediaUrls.map((url, i) => (
-              <div key={i} className="flex items-center gap-2 bg-bg-input rounded-lg p-2">
+              <div key={i} className="flex items-center gap-2 bg-bg-input rounded-lg p-2 group">
+                {/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url) ? (
+                  <img src={url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded bg-white/5 flex items-center justify-center shrink-0">
+                    <Link className="w-4 h-4 text-dim" />
+                  </div>
+                )}
                 <span className="flex-1 text-xs text-muted truncate">{url}</span>
                 <button
                   onClick={() => setMediaUrls(prev => prev.filter((_, idx) => idx !== i))}
-                  className="text-dim hover:text-red-400"
+                  className="text-dim hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
-            <button
-              onClick={addMediaUrl}
-              className="flex items-center gap-1.5 text-xs text-muted hover:text-cream transition-colors"
-            >
-              <Image className="w-3.5 h-3.5" />
-              Добавить медиа
-            </button>
+
+            {showMediaInput ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={mediaInput}
+                  onChange={e => setMediaInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') addMedia()
+                    if (e.key === 'Escape') { setShowMediaInput(false); setMediaInput('') }
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                  className="flex-1 px-3 py-2 bg-bg-input border border-border rounded-lg text-xs text-cream placeholder:text-dim focus:outline-none focus:border-accent"
+                  autoFocus
+                />
+                <button
+                  onClick={addMedia}
+                  disabled={!mediaInput.trim()}
+                  className="px-3 py-2 bg-accent text-white text-xs rounded-lg hover:bg-accent/90 disabled:opacity-50"
+                >
+                  Добавить
+                </button>
+                <button
+                  onClick={() => { setShowMediaInput(false); setMediaInput('') }}
+                  className="text-dim hover:text-muted"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowMediaInput(true)}
+                className="flex items-center gap-1.5 text-xs text-muted hover:text-cream transition-colors py-1"
+              >
+                <Image className="w-3.5 h-3.5" />
+                Добавить изображение или видео
+              </button>
+            )}
           </div>
         </div>
 
