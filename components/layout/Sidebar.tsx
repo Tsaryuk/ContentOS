@@ -35,7 +35,6 @@ interface YtChannel {
 
 // Non-YouTube platforms use static config
 const OTHER_PLATFORMS: { platform: Platform; label: string; icon: React.ReactNode }[] = [
-  { platform: 'telegram',  label: 'Telegram',  icon: <Send className="w-4 h-4" /> },
   { platform: 'instagram', label: 'Instagram', icon: <Camera className="w-4 h-4" /> },
   { platform: 'tiktok',   label: 'TikTok',    icon: <TikTokIcon /> },
   { platform: 'threads',  label: 'Threads',   icon: <ThreadsIcon /> },
@@ -82,6 +81,7 @@ export function Sidebar() {
   const isClips = pathname.startsWith('/clips')
   const isCarousels = pathname.startsWith('/carousels')
   const isTasks = pathname.startsWith('/tasks')
+  const isTelegram = pathname.startsWith('/telegram')
 
   // Static channels for non-YT platforms
   const staticChannelsByPlatform = (platform: Platform) =>
@@ -189,6 +189,17 @@ export function Sidebar() {
       >
         <GalleryHorizontalEnd className="w-4 h-4 shrink-0" />
         <span className="text-xs font-medium">Карусели</span>
+      </Link>
+
+      {/* Telegram */}
+      <Link
+        href="/telegram"
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
+          isTelegram ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+        }`}
+      >
+        <Send className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-medium">Telegram</span>
       </Link>
 
       {/* Other platforms */}
