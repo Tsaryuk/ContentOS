@@ -16,156 +16,209 @@ export function CarouselSlide({ slide, index, total, preset, illustrationUrl, st
   const p = BRAND_PRESETS[preset] ?? BRAND_PRESETS.tsaryuk
   const isFirst = index === 0
   const isLast = index === total - 1
-  const isDark = !isFirst && !isLast && index % 2 === 0
 
-  const accentColor = style?.accentColor ?? p.accent
-  const bgTint = style?.bgTint ?? p.light
+  const accentColor = style?.accentColor ?? '#1C1A17'
+  const bg = '#FFFFFF'
+  const ink = '#111111'
+  const muted = '#6B6B6B'
+  const align = slide.align ?? 'left'
+  const textAlign = align as 'left' | 'center' | 'right'
 
-  const bg = isDark ? p.dark : bgTint
-  const fg = isDark ? bgTint : p.ink
-  const fgMuted = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)'
-  const divColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'
-  const progressTrack = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)'
-  const progressFill = accentColor
   const pct = Math.round(((index + 1) / total) * 100)
 
-  // Cover slide
+  // ── COVER SLIDE ──────────────────────────────────────────────────────────
   if (isFirst) {
     return (
-      <div className="relative flex flex-col overflow-hidden" style={{ width: 420, height: 525, background: bg, fontFamily: `'${p.bodyFont}', sans-serif` }}>
-        {illustrationUrl && (
-          <div className="absolute inset-0">
-            <img src={illustrationUrl} className="w-full h-full object-cover" style={{ opacity: 0.2 }} alt="" />
-            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${bg}00 0%, ${bg}cc 70%, ${bg} 100%)` }} />
-          </div>
-        )}
-        <div className="flex-1 flex flex-col justify-end px-8 pb-12 relative z-10">
+      <div
+        className="relative flex flex-col overflow-hidden"
+        style={{ width: 420, height: 525, background: bg, fontFamily: `'${p.bodyFont}', sans-serif` }}
+      >
+        {/* Text area — top */}
+        <div className="px-8 pt-8 flex-shrink-0" style={{ textAlign }}>
           {slide.tag && (
-            <div className="mb-3" style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: accentColor }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: accentColor, marginBottom: 8 }}>
               {slide.tag}
             </div>
           )}
-          <div className="mb-3" style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 30, fontWeight: 900, lineHeight: 0.95, letterSpacing: -1, color: fg }}>
+          <div style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 28, fontWeight: 900, lineHeight: 1.05, letterSpacing: -0.5, color: ink, marginBottom: 10 }}>
             {slide.title}
           </div>
           {slide.subtitle && (
-            <div className="mb-3" style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 13, fontWeight: 300, color: fgMuted }}>
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: muted, fontWeight: 400 }}>
               {slide.subtitle}
             </div>
           )}
-          {slide.body && (
-            <div style={{ fontSize: 12, lineHeight: 1.55, color: fgMuted, maxWidth: 300 }}>
-              {slide.body}
+          {slide.lead && (
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: muted, marginTop: 4 }}>
+              {slide.lead}
             </div>
           )}
-          <div className="mt-4 flex items-center gap-2">
-            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: p.ink, color: bgTint, fontFamily: `'${p.headFont}', sans-serif` }}>
+          {/* Handle */}
+          <div className="flex items-center gap-1.5 mt-4" style={{ justifyContent: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
+            <div
+              className="rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
+              style={{ width: 18, height: 18, background: ink, color: bg, fontFamily: `'${p.headFont}', sans-serif` }}
+            >
               {p.avatarLetter}
             </div>
-            <span style={{ fontSize: 9, fontWeight: 600, color: fgMuted, letterSpacing: 0.5 }}>{p.handle}</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: muted, letterSpacing: 0.3 }}>{p.handle}</span>
           </div>
         </div>
+
+        {/* Illustration — bottom fills remaining space */}
+        <div className="flex-1 relative mt-4 overflow-hidden">
+          {illustrationUrl ? (
+            <img src={illustrationUrl} alt="" className="w-full h-full object-cover object-top" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center" style={{ background: '#F5F4F0' }}>
+              <span style={{ fontSize: 48 }}>✦</span>
+            </div>
+          )}
+        </div>
+
+        <ProgressBar pct={pct} label={`${index + 1}/${total}`} accent={accentColor} />
       </div>
     )
   }
 
-  // CTA slide
+  // ── CTA SLIDE ─────────────────────────────────────────────────────────────
   if (isLast) {
     return (
-      <div className="relative flex flex-col items-center justify-center" style={{ width: 420, height: 525, background: bg, fontFamily: `'${p.bodyFont}', sans-serif` }}>
-        <div className="flex items-center justify-center rounded-full mb-4" style={{ width: 56, height: 56, background: accentColor, fontFamily: `'${p.headFont}', sans-serif`, fontSize: 20, fontWeight: 700, color: bg }}>
-          {p.avatarLetter}
+      <div
+        className="relative flex flex-col items-center justify-center"
+        style={{ width: 420, height: 525, background: bg, fontFamily: `'${p.bodyFont}', sans-serif`, padding: '0 48px' }}
+      >
+        {/* Author photo or letter avatar */}
+        <div
+          className="rounded-full flex items-center justify-center overflow-hidden mb-5 shrink-0"
+          style={{ width: 72, height: 72, background: ink, border: `2px solid ${ink}` }}
+        >
+          {p.photoUrl ? (
+            <img src={p.photoUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span style={{ fontSize: 22, fontWeight: 700, color: bg, fontFamily: `'${p.headFont}', sans-serif` }}>
+              {p.avatarLetter}
+            </span>
+          )}
         </div>
-        <div className="mb-2" style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 22, fontWeight: 900, color: fg }}>
+
+        {/* CTA text */}
+        <div style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', color: muted, textAlign: 'center', marginBottom: 10 }}>
+          ПОНРАВИЛСЯ ПОСТ?
+        </div>
+
+        <div style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 22, fontWeight: 900, lineHeight: 1.1, color: ink, textAlign: 'center', marginBottom: 8 }}>
           {slide.title}
         </div>
-        <div className="mb-5" style={{ fontSize: 13, color: fgMuted }}>
-          {slide.body || 'Сохрани \u00B7 Поделись \u00B7 Подпишись'}
+
+        <div style={{ fontSize: 14, color: muted, textAlign: 'center', marginBottom: 16 }}>
+          {slide.body || 'Сохрани · Поделись'}
         </div>
-        <div style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 10, fontWeight: 600, color: accentColor, letterSpacing: 1 }}>
+
+        {/* Divider */}
+        <div style={{ width: 32, height: 1, background: '#E5E5E5', marginBottom: 14 }} />
+
+        <div style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 11, fontWeight: 700, color: ink, letterSpacing: 0.5 }}>
           {p.handle}
         </div>
-        <ProgressBar track={progressTrack} fill={progressFill} pct={100} label={`${total}/${total}`} muted={fgMuted} />
+
+        <ProgressBar pct={100} label={`${total}/${total}`} accent={accentColor} />
       </div>
     )
   }
 
-  // Content slide — with illustration
-  return (
-    <div className="relative flex flex-col overflow-hidden" style={{ width: 420, height: 525, background: bg, fontFamily: `'${p.bodyFont}', sans-serif` }}>
-      {/* Illustration area */}
-      {illustrationUrl && (
-        <div className="relative shrink-0" style={{ height: 160 }}>
-          <img src={illustrationUrl} className="w-full h-full object-cover" alt="" />
-          <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 40%, ${bg} 100%)` }} />
-        </div>
-      )}
+  // ── CONTENT SLIDE ─────────────────────────────────────────────────────────
+  const ILLUST_H = 265
 
-      <div className="flex-1 flex flex-col" style={{ padding: illustrationUrl ? '0 28px 40px' : '28px 28px 40px' }}>
-        <div className="flex items-center gap-2 mb-2">
+  return (
+    <div
+      className="relative flex flex-col overflow-hidden"
+      style={{ width: 420, height: 525, background: bg, fontFamily: `'${p.bodyFont}', sans-serif` }}
+    >
+      {/* Illustration — top 50% */}
+      <div className="relative shrink-0 overflow-hidden" style={{ height: ILLUST_H }}>
+        {illustrationUrl ? (
+          <img src={illustrationUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center" style={{ background: '#F5F4F0' }} />
+        )}
+      </div>
+
+      {/* Text area — bottom */}
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ padding: '14px 28px 40px', textAlign }}>
+
+        {/* Slide number + tag */}
+        <div className="flex items-center gap-2 mb-2" style={{ justifyContent: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
           {slide.tag && (
             <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: accentColor }}>
               {slide.tag}
             </span>
           )}
-          <span style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 9, fontWeight: 300, color: fgMuted }}>
-            {index}.
+          <span style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 9, fontWeight: 400, color: '#BDBDBD' }}>
+            {index}/{total - 1}
           </span>
         </div>
 
-        <div className="mb-2.5" style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: illustrationUrl ? 22 : 26, fontWeight: 900, lineHeight: 0.95, letterSpacing: -0.5, color: fg }}>
+        {/* Title */}
+        <div style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 20, fontWeight: 900, lineHeight: 1.05, letterSpacing: -0.3, color: ink, marginBottom: 8 }}>
           {slide.title}
         </div>
 
+        {/* Lead / body */}
         {slide.lead && (
-          <div className="mb-1" style={{ fontSize: 12, lineHeight: 1.5, color: fgMuted }}>
+          <div style={{ fontSize: 12, lineHeight: 1.55, color: muted }}>
             {slide.lead}
           </div>
         )}
         {slide.bold && (
-          <div className="mb-2" style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.5, color: fg }}>
+          <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.5, color: ink, marginTop: 4 }}>
             {slide.bold}
           </div>
         )}
+        {slide.body && !slide.lead && (
+          <div style={{ fontSize: 12, lineHeight: 1.55, color: muted }}>
+            {slide.body}
+          </div>
+        )}
 
-        <div style={{ height: 1, background: divColor, margin: '8px 0' }} />
-
-        <div className="flex gap-4 mb-2">
-          {slide.label1 && (
-            <div className="flex-1">
-              <div className="mb-1" style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 8, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: accentColor }}>{slide.label1}</div>
-              <div style={{ fontSize: 11, lineHeight: 1.45, color: fg }}>{slide.col1}</div>
-            </div>
-          )}
-          {slide.label2 && (
-            <div className="flex-1">
-              <div className="mb-1" style={{ fontFamily: `'${p.headFont}', sans-serif`, fontSize: 8, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: accentColor }}>{slide.label2}</div>
-              <div style={{ fontSize: 11, lineHeight: 1.45, color: fg }}>{slide.col2}</div>
-            </div>
-          )}
-        </div>
+        {/* Two-column labels */}
+        {(slide.label1 || slide.label2) && (
+          <div className="flex gap-4 mt-2">
+            {slide.label1 && (
+              <div className="flex-1">
+                <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: accentColor, marginBottom: 2 }}>{slide.label1}</div>
+                <div style={{ fontSize: 11, lineHeight: 1.4, color: ink }}>{slide.col1}</div>
+              </div>
+            )}
+            {slide.label2 && (
+              <div className="flex-1">
+                <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: accentColor, marginBottom: 2 }}>{slide.label2}</div>
+                <div style={{ fontSize: 11, lineHeight: 1.4, color: ink }}>{slide.col2}</div>
+              </div>
+            )}
+          </div>
+        )}
 
         {slide.example && (
-          <>
-            <div style={{ height: 1, background: divColor, margin: '4px 0 8px' }} />
-            <div className="mb-1" style={{ fontSize: 8, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: accentColor }}>ПРИМЕР</div>
-            <div style={{ fontSize: 11, lineHeight: 1.45, color: fg, fontStyle: 'italic' }}>{slide.example}</div>
-          </>
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #F0EFEB' }}>
+            <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: accentColor, marginBottom: 2 }}>ПРИМЕР</div>
+            <div style={{ fontSize: 11, lineHeight: 1.45, color: muted, fontStyle: 'italic' }}>{slide.example}</div>
+          </div>
         )}
       </div>
 
-      <ProgressBar track={progressTrack} fill={progressFill} pct={pct} label={`${index + 1}/${total}`} muted={fgMuted} />
+      <ProgressBar pct={pct} label={`${index}/${total - 1}`} accent={accentColor} />
     </div>
   )
 }
 
-function ProgressBar({ track, fill, pct, label, muted }: { track: string; fill: string; pct: number; label: string; muted: string }) {
+function ProgressBar({ pct, label, accent }: { pct: number; label: string; accent: string }) {
   return (
-    <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2" style={{ padding: '12px 26px 14px' }}>
-      <div className="flex-1 rounded-sm overflow-hidden" style={{ height: 2, background: track }}>
-        <div className="rounded-sm" style={{ height: '100%', width: `${pct}%`, background: fill }} />
+    <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2" style={{ padding: '10px 24px 12px' }}>
+      <div className="flex-1 rounded-full overflow-hidden" style={{ height: 2, background: '#EBEBEB' }}>
+        <div className="rounded-full" style={{ height: '100%', width: `${pct}%`, background: accent }} />
       </div>
-      <span style={{ fontSize: 10, fontWeight: 500, color: muted }}>{label}</span>
+      <span style={{ fontSize: 9, fontWeight: 600, color: '#BDBDBD' }}>{label}</span>
     </div>
   )
 }

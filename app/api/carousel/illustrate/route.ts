@@ -20,11 +20,14 @@ async function generateImage(prompt: string, referenceUrl?: string): Promise<str
     return result?.data?.images?.[0]?.url ?? result?.images?.[0]?.url ?? null
   }
 
-  const result = await fal.subscribe('fal-ai/flux/schnell', {
+  // Text-to-image via nano-banana-2
+  const result = await fal.subscribe('fal-ai/nano-banana-2', {
     input: {
       prompt,
-      image_size: { width: 864, height: 1080 },
+      aspect_ratio: '4:5',
+      resolution: '2K',
       num_images: 1,
+      safety_tolerance: 5,
     } as any,
   }) as any
   return result?.data?.images?.[0]?.url ?? result?.images?.[0]?.url ?? null

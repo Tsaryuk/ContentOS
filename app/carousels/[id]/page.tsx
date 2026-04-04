@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Copy, Check, Download, Image, Loader2, RefreshCw, Save } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Download, Image, Loader2, RefreshCw, Save, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import { CarouselPreview } from '@/components/carousel/CarouselPreview'
 import type { CarouselRow, CarouselSlide } from '@/lib/carousel/types'
 
@@ -14,12 +14,14 @@ export default function CarouselEditorPage() {
   const [carousel, setCarousel] = useState<CarouselRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [isIllustrating, setIsIllustrating] = useState(false)
+  const [illustratingSlide, setIllustratingSlide] = useState<number | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'slides' | 'caption' | 'export'>('slides')
   const [currentSlide, setCurrentSlide] = useState(0)
   const [illustPrompt, setIllustPrompt] = useState('')
+  const [slideIllustPrompts, setSlideIllustPrompts] = useState<Record<number, string>>({})
   const [error, setError] = useState<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -33,7 +35,6 @@ export default function CarouselEditorPage() {
 
   const slides: CarouselSlide[] = carousel?.slides ?? []
 
-  // Auto-save slides on change (debounced)
   const saveSlides = useCallback(async (updatedSlides: CarouselSlide[]) => {
     if (!carousel?.id) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -60,6 +61,7 @@ export default function CarouselEditorPage() {
     })
   }, [saveSlides])
 
+  // Batch illustrate
   const handleIllustrate = useCallback(async () => {
     if (!carousel?.id) return
     setIsIllustrating(true)
@@ -88,6 +90,42 @@ export default function CarouselEditorPage() {
       setIsIllustrating(false)
     }
   }, [carousel?.id, illustPrompt])
+
+  // Per-slide illustrate
+  const handleIllustrateSlide = useCallback(async (slideIndex: number) => {
+    if (!carousel?.id) return
+    setIllustratingSlide(slideIndex)
+    setError(null)
+
+    try {
+      const customPrompt = slideIllustPrompts[slideIndex]
+      const res = await fetch('/api/carousel/illustrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          carouselId: carousel.id,
+          slideIndex,
+          prompt: customPrompt || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      setCarousel(prev => {
+        if (!prev) return null
+        const prevUrls = (prev.illustration_urls as Record<number, string>) ?? {}
+        return {
+          ...prev,
+          illustration_urls: { ...prevUrls, ...data.urls },
+          illustration_url: data.urls?.[0] ?? prev.illustration_url,
+        }
+      })
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error')
+    } finally {
+      setIllustratingSlide(null)
+    }
+  }, [carousel?.id, slideIllustPrompts])
 
   const handleExport = useCallback(async () => {
     if (!carousel?.id) return
@@ -135,15 +173,17 @@ export default function CarouselEditorPage() {
       </div>
 
       {/* 3-panel workspace */}
-      <div className="flex-1 grid grid-cols-[280px_1fr_300px] overflow-hidden">
+      <div className="flex-1 grid grid-cols-[300px_1fr_300px] overflow-hidden">
 
-        {/* LEFT — Slide list with inline editing */}
+        {/* LEFT — Slide list */}
         <div className="bg-bg-surface border-r border-border overflow-y-auto p-3 space-y-2">
           <div className="text-[9px] font-semibold tracking-widest uppercase text-muted mb-2">Слайды ({slides.length})</div>
           {slides.map((slide, i) => {
             const isFirst = i === 0
             const isLast = i === slides.length - 1
             const isActive = currentSlide === i
+            const isIllustSlide = illustratingSlide === i
+            const illUrl = (carousel.illustration_urls as Record<number, string> | null)?.[i]
 
             return (
               <div
@@ -159,20 +199,74 @@ export default function CarouselEditorPage() {
                   </span>
                   {slide.tag && <span className="text-[9px] text-accent">{slide.tag}</span>}
                 </div>
+
+                {/* Title input */}
                 <input
                   value={slide.title}
                   onChange={e => updateSlide(i, 'title', e.target.value)}
                   className="w-full text-xs font-bold bg-transparent outline-none mb-1"
                   onClick={e => e.stopPropagation()}
                 />
+
+                {/* Body / lead textarea */}
                 {!isLast && (
                   <textarea
                     value={slide.body || slide.lead || ''}
-                    onChange={e => updateSlide(i, slide.body ? 'body' : 'lead', e.target.value)}
+                    onChange={e => updateSlide(i, slide.body !== undefined ? 'body' : 'lead', e.target.value)}
                     rows={2}
                     className="w-full text-[11px] text-muted bg-transparent outline-none resize-none"
                     onClick={e => e.stopPropagation()}
                   />
+                )}
+
+                {/* Alignment + per-slide illustrate controls */}
+                <div className="flex items-center gap-1 mt-2" onClick={e => e.stopPropagation()}>
+                  {/* Align buttons */}
+                  {(['left', 'center', 'right'] as const).map(a => {
+                    const Icon = a === 'left' ? AlignLeft : a === 'center' ? AlignCenter : AlignRight
+                    return (
+                      <button
+                        key={a}
+                        onClick={() => updateSlide(i, 'align', a)}
+                        className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
+                          (slide.align ?? 'left') === a ? 'bg-accent text-white' : 'text-muted hover:text-accent'
+                        }`}
+                        title={a === 'left' ? 'По левому' : a === 'center' ? 'По центру' : 'По правому'}
+                      >
+                        <Icon className="w-3 h-3" />
+                      </button>
+                    )
+                  })}
+
+                  {/* Per-slide illustrate */}
+                  {!isLast && (
+                    <div className="flex items-center gap-1 ml-auto">
+                      <input
+                        value={slideIllustPrompts[i] ?? ''}
+                        onChange={e => setSlideIllustPrompts(prev => ({ ...prev, [i]: e.target.value }))}
+                        placeholder="промпт..."
+                        className="text-[10px] bg-bg rounded px-1.5 py-0.5 border border-border outline-none focus:border-accent w-[90px]"
+                        onClick={e => e.stopPropagation()}
+                      />
+                      <button
+                        onClick={() => handleIllustrateSlide(i)}
+                        disabled={isIllustSlide || isIllustrating}
+                        className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
+                          illUrl ? 'text-accent hover:text-accent/80' : 'text-muted hover:text-accent'
+                        } disabled:opacity-30`}
+                        title={illUrl ? 'Перегенерировать иллюстрацию' : 'Сгенерировать иллюстрацию'}
+                      >
+                        {isIllustSlide ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Thumbnail of existing illustration */}
+                {illUrl && !isLast && (
+                  <div className="mt-2 rounded overflow-hidden" style={{ height: 48 }}>
+                    <img src={illUrl} alt="" className="w-full h-full object-cover" />
+                  </div>
                 )}
               </div>
             )
@@ -189,26 +283,24 @@ export default function CarouselEditorPage() {
             onSlideChange={setCurrentSlide}
           />
 
-          {/* Illustration controls */}
-          <div className="flex flex-col items-center gap-2 w-full max-w-[420px]">
-            <div className="w-full bg-bg-surface border border-border rounded-lg p-3">
-              <div className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-2">Иллюстрации</div>
-              <textarea
-                value={illustPrompt}
-                onChange={e => setIllustPrompt(e.target.value)}
-                placeholder={carousel.illustration_prompt || 'Промпт для иллюстраций (English)'}
-                rows={2}
-                className="w-full bg-bg rounded-md border border-border px-2.5 py-1.5 text-xs outline-none focus:border-accent resize-none mb-2"
-              />
-              <button
-                onClick={handleIllustrate}
-                disabled={isIllustrating}
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border text-xs font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-40 transition-colors"
-              >
-                {isIllustrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
-                {isIllustrating ? 'Генерирую...' : carousel.illustration_urls ? 'Перегенерировать' : 'Сгенерировать иллюстрации'}
-              </button>
-            </div>
+          {/* Batch illustration controls */}
+          <div className="w-full max-w-[420px] bg-bg-surface border border-border rounded-lg p-3">
+            <div className="text-[10px] font-semibold tracking-widest uppercase text-muted mb-2">Иллюстрации (все слайды)</div>
+            <textarea
+              value={illustPrompt}
+              onChange={e => setIllustPrompt(e.target.value)}
+              placeholder={carousel.illustration_prompt || 'Промпт для иллюстраций (English)'}
+              rows={2}
+              className="w-full bg-bg rounded-md border border-border px-2.5 py-1.5 text-xs outline-none focus:border-accent resize-none mb-2"
+            />
+            <button
+              onClick={handleIllustrate}
+              disabled={isIllustrating}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border text-xs font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-40 transition-colors"
+            >
+              {isIllustrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              {isIllustrating ? 'Генерирую...' : carousel.illustration_urls ? 'Перегенерировать все' : 'Сгенерировать все'}
+            </button>
           </div>
 
           {error && <div className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 rounded-lg p-2 max-w-[420px]">{error}</div>}
@@ -238,7 +330,7 @@ export default function CarouselEditorPage() {
                   {currentSlide === 0 ? 'Обложка' : currentSlide === slides.length - 1 ? 'CTA' : `Слайд ${currentSlide}`}
                 </div>
                 {Object.entries(slides[currentSlide])
-                  .filter(([k, v]) => v && k !== 'illustrationPrompt')
+                  .filter(([k, v]) => v && k !== 'illustrationPrompt' && k !== 'align')
                   .map(([key, val]) => (
                     <div key={key}>
                       <label className="text-[10px] font-semibold text-muted mb-0.5 block uppercase">{key}</label>
@@ -250,6 +342,26 @@ export default function CarouselEditorPage() {
                       />
                     </div>
                   ))}
+
+                {/* Illustration prompt for current slide */}
+                <div>
+                  <label className="text-[10px] font-semibold text-muted mb-0.5 block uppercase">Промпт иллюстрации</label>
+                  <textarea
+                    value={slideIllustPrompts[currentSlide] ?? slides[currentSlide].illustrationPrompt ?? ''}
+                    onChange={e => setSlideIllustPrompts(prev => ({ ...prev, [currentSlide]: e.target.value }))}
+                    rows={2}
+                    placeholder="Оставь пустым — будет авто"
+                    className="w-full bg-bg rounded-md border border-border px-2.5 py-1.5 text-xs outline-none focus:border-accent resize-none"
+                  />
+                  <button
+                    onClick={() => handleIllustrateSlide(currentSlide)}
+                    disabled={illustratingSlide === currentSlide || isIllustrating}
+                    className="mt-1.5 w-full flex items-center justify-center gap-2 py-1.5 rounded-lg border border-border text-[11px] font-semibold text-muted hover:border-accent hover:text-accent disabled:opacity-40 transition-colors"
+                  >
+                    {illustratingSlide === currentSlide ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+                    {illustratingSlide === currentSlide ? 'Генерирую...' : 'Перегенерировать этот слайд'}
+                  </button>
+                </div>
               </div>
             )}
 

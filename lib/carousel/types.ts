@@ -11,6 +11,7 @@ export interface CarouselSlide {
   col2?: string
   example?: string
   illustrationPrompt?: string
+  align?: 'left' | 'center' | 'right'
 }
 
 export interface CarouselStyle {
@@ -38,6 +39,7 @@ export interface BrandPreset {
   dark: string
   accent: string
   avatarLetter: string
+  photoUrl?: string
 }
 
 export const BRAND_PRESETS: Record<string, BrandPreset> = {
