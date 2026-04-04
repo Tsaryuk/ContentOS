@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const client = createAuthClient()
     await client.connect()
 
-    const result = await client.invoke(
+    const result: any = await client.invoke(
       new Api.auth.SendCode({
         phoneNumber: phone,
         apiId: Number(process.env.TELEGRAM_API_ID),
