@@ -166,6 +166,10 @@ async function fetchYouTubeCaptions(
     { headers: { Authorization: `Bearer ${accessToken}` } },
   )
   const listData = await listRes.json()
+  if (listRes.status === 403) {
+    console.log(`[captions] Quota exceeded or forbidden, skipping captions API`)
+    return null
+  }
   if (!listRes.ok || !listData.items?.length) {
     console.log(`[captions] No captions found for ${ytVideoId}`)
     return null
@@ -296,13 +300,21 @@ async function cleanup(ytVideoId: string) {
 async function handleTranscribe(videoId: string) {
   const video = await getVideo(videoId)
   const channel = await getChannel(video.channel_id)
+
+  // Skip if transcript already exists (re-queued by produce flow)
+  if (video.transcript) {
+    console.log(`[transcribe] Transcript already exists for ${video.yt_video_id}, skipping`)
+    await updateStatus(videoId, 'generating')
+    return
+  }
+
   await updateStatus(videoId, 'transcribing')
   await logJob(videoId, 'transcribe', 'running')
 
   try {
     let allSegs: { start: number; end: number; text: string }[] = []
 
-    // Step 1: Try YouTube Captions API (fast, free, no yt-dlp needed)
+    // Step 1: Try YouTube Captions API (costs ~250 quota units)
     if (channel.refresh_token) {
       await updateProgress(videoId, 'Получение субтитров через YouTube API...')
       try {

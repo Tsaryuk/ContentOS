@@ -90,40 +90,9 @@ export async function fetchChannelVideos(channelId: string): Promise<YTVideo[]> 
     pageToken = data.nextPageToken || ''
   } while (pageToken)
 
-  // ─── Шаг 2: search.list forMine=true — ловим unlisted, которых нет в плейлисте ───
-  const searchIds: string[] = []
-  let searchPageToken = ''
+  // playlistItems.list already includes unlisted videos — no need for search.list
+  // search.list costs 100 units per call vs 1 unit for playlistItems
 
-  try {
-    do {
-      const url = new URL('https://www.googleapis.com/youtube/v3/search')
-      url.searchParams.set('part',       'id')
-      url.searchParams.set('forMine',    'true')
-      url.searchParams.set('type',       'video')
-      url.searchParams.set('maxResults', '50')
-      if (searchPageToken) url.searchParams.set('pageToken', searchPageToken)
-
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const data = await res.json()
-      // search.list might fail if wrong account — silently skip
-      if (data.error) break
-
-      searchIds.push(...(data.items || []).map((i: any) => i.id.videoId))
-      searchPageToken = data.nextPageToken || ''
-    } while (searchPageToken)
-  } catch {
-    // search.list is optional — continue without it
-  }
-
-  // Merge: union of both sources, dedup
-  const seen = new Set<string>()
-  const allIds: string[] = []
-  for (const id of [...playlistIds, ...searchIds]) {
-    if (!seen.has(id)) { seen.add(id); allIds.push(id) }
-  }
-
-  // ─── Шаг 3: детали пачками по 50 ───
-  return fetchVideoDetails(allIds, token)
+  // ─── Шаг 2: детали пачками по 50 ───
+  return fetchVideoDetails(playlistIds, token)
 }
