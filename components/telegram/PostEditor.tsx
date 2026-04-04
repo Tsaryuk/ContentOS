@@ -163,7 +163,7 @@ export function PostEditor({
           <select
             value={channelId}
             onChange={e => setChannelId(e.target.value)}
-            className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-sm text-cream focus:outline-none focus:border-accent"
+            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream focus:outline-none focus:border-accent"
           >
             {channels.map(ch => (
               <option key={ch.id} value={ch.id}>
@@ -200,7 +200,7 @@ export function PostEditor({
 
           {preview ? (
             <div
-              className="w-full min-h-[200px] px-3 py-2 bg-bg-input border border-border rounded-lg text-sm text-cream leading-relaxed"
+              className="w-full min-h-[200px] px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream leading-relaxed"
               dangerouslySetInnerHTML={{ __html: renderPreview(content) }}
             />
           ) : (
@@ -209,7 +209,7 @@ export function PostEditor({
               onChange={e => setContent(e.target.value)}
               placeholder="Текст поста для Telegram-канала...&#10;&#10;Поддерживается HTML: <b>жирный</b>, <i>курсив</i>, <code>код</code>"
               rows={10}
-              className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent resize-none font-mono text-[13px] leading-relaxed"
+              className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent resize-none font-mono text-[13px] leading-relaxed"
             />
           )}
           <div className="text-[10px] text-dim mt-1 text-right">
@@ -222,7 +222,7 @@ export function PostEditor({
           <label className="block text-xs text-muted mb-1.5">Медиа</label>
           <div className="space-y-2">
             {mediaUrls.map((url, i) => (
-              <div key={i} className="flex items-center gap-2 bg-bg-input rounded-lg p-2 group">
+              <div key={i} className="flex items-center gap-2 bg-surface rounded-lg p-2 group">
                 {/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url) ? (
                   <img src={url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
                 ) : (
@@ -251,7 +251,7 @@ export function PostEditor({
                     if (e.key === 'Escape') { setShowMediaInput(false); setMediaInput('') }
                   }}
                   placeholder="https://example.com/image.jpg"
-                  className="flex-1 px-3 py-2 bg-bg-input border border-border rounded-lg text-xs text-cream placeholder:text-dim focus:outline-none focus:border-accent"
+                  className="flex-1 px-3 py-2 bg-surface border border-border rounded-lg text-xs text-cream placeholder:text-dim focus:outline-none focus:border-accent"
                   autoFocus
                 />
                 <button
@@ -290,7 +290,7 @@ export function PostEditor({
             type="datetime-local"
             value={scheduledAt}
             onChange={e => setScheduledAt(e.target.value)}
-            className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-sm text-cream focus:outline-none focus:border-accent"
+            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream focus:outline-none focus:border-accent"
           />
         </div>
       </div>

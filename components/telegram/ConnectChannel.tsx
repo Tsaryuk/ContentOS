@@ -72,7 +72,7 @@ export function ConnectChannel({ onConnected, onClose }: ConnectChannelProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-bg-card border border-border rounded-2xl w-full max-w-md p-6">
+      <div className="bg-bg border border-border rounded-2xl w-full max-w-md p-6">
         <h2 className="text-lg font-semibold text-cream mb-4">
           Подключить Telegram
         </h2>
@@ -97,7 +97,7 @@ export function ConnectChannel({ onConnected, onClose }: ConnectChannelProps) {
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSendCode()}
-                className="w-full pl-10 pr-4 py-2.5 bg-bg-input border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent"
+                className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent"
                 autoFocus
               />
             </div>
@@ -134,7 +134,7 @@ export function ConnectChannel({ onConnected, onClose }: ConnectChannelProps) {
                 value={code}
                 onChange={e => setCode(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleVerify()}
-                className="w-full pl-10 pr-4 py-2.5 bg-bg-input border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent"
+                className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent"
                 autoFocus
               />
             </div>
@@ -169,7 +169,7 @@ export function ConnectChannel({ onConnected, onClose }: ConnectChannelProps) {
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleVerify(password)}
-              className="w-full px-4 py-2.5 bg-bg-input border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent"
+              className="w-full px-4 py-2.5 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent"
               autoFocus
             />
             <div className="flex gap-2 justify-end">

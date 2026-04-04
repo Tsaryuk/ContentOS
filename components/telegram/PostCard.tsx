@@ -28,7 +28,7 @@ export function PostCard({ post, onEdit, onSend, onDelete }: PostCardProps) {
   }
 
   return (
-    <div className="bg-bg-card border border-border rounded-xl p-4 hover:border-border-hover transition-colors">
+    <div className="bg-surface border border-border rounded-xl p-4 hover:border-accent/20 transition-colors">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">

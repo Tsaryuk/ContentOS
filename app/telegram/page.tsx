@@ -144,7 +144,7 @@ export default function TelegramPage() {
           <select
             value={selectedChannel}
             onChange={e => setSelectedChannel(e.target.value)}
-            className="ml-auto px-3 py-1.5 bg-bg-input border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent"
+            className="ml-auto px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent"
           >
             <option value="">Все каналы</option>
             {channels.map(ch => (

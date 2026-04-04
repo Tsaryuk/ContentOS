@@ -52,7 +52,7 @@ export function AiSuggestions({ channelId }: AiSuggestionsProps) {
   }
 
   return (
-    <div className="bg-bg-card border border-border rounded-xl p-4">
+    <div className="bg-surface border border-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-cream flex items-center gap-1.5">
           <Sparkles className="w-4 h-4 text-accent" />
