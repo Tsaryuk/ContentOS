@@ -37,7 +37,9 @@ export async function POST(req: NextRequest) {
       ok: true,
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     })
-  } catch {
-    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[LOGIN ERROR]', msg, err)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
