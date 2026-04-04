@@ -83,8 +83,8 @@ export async function POST(req: NextRequest) {
     })
 
     const text = msg.content
-      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-      .map(b => b.text)
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
       .join('')
 
     // Parse JSON response
