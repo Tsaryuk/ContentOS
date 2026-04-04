@@ -17,6 +17,11 @@ interface DrawerProject {
   name: string
 }
 
+interface Video {
+  id: string
+  title: string
+}
+
 interface TaskDrawerProps {
   task: TaskWithRelations | null
   open: boolean
@@ -24,6 +29,7 @@ interface TaskDrawerProps {
   projects: DrawerProject[]
   currentUserId: string
   currentUserRole: string
+  defaultProjectId: string | null
   onClose: () => void
   onSave: (data: TaskFormData) => void
   onDelete: (taskId: string) => void
@@ -55,11 +61,21 @@ const EMPTY_FORM: TaskFormData = {
 
 export function TaskDrawer({
   task, open, users, projects,
-  currentUserId, currentUserRole,
+  currentUserId, currentUserRole, defaultProjectId,
   onClose, onSave, onDelete,
 }: TaskDrawerProps) {
   const [form, setForm] = useState<TaskFormData>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [videos, setVideos] = useState<Video[]>([])
+
+  useEffect(() => {
+    if (open) {
+      fetch('/api/youtube/videos-list')
+        .then(r => r.ok ? r.json() : { videos: [] })
+        .then(d => setVideos(d.videos ?? []))
+        .catch(() => setVideos([]))
+    }
+  }, [open])
 
   useEffect(() => {
     if (task) {
@@ -75,9 +91,9 @@ export function TaskDrawer({
         related_id: task.related_id,
       })
     } else {
-      setForm(EMPTY_FORM)
+      setForm({ ...EMPTY_FORM, project_id: defaultProjectId })
     }
-  }, [task, open])
+  }, [task, open, defaultProjectId])
 
   function updateField<K extends keyof TaskFormData>(key: K, value: TaskFormData[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -198,6 +214,46 @@ export function TaskDrawer({
               onChange={e => updateField('due_date', e.target.value || null)}
               className={inputClass}
             />
+          </div>
+
+          <div>
+            <label className={labelClass}>Привязка к материалу</label>
+            <div className="flex gap-2">
+              <select
+                value={form.related_type ?? ''}
+                onChange={e => {
+                  updateField('related_type', e.target.value || null)
+                  if (!e.target.value) updateField('related_id', null)
+                }}
+                className={`${inputClass} w-[120px] shrink-0`}
+              >
+                <option value="">Нет</option>
+                <option value="video">Видео</option>
+                <option value="clip">Клип</option>
+                <option value="carousel">Карусель</option>
+              </select>
+              {form.related_type === 'video' && (
+                <select
+                  value={form.related_id ?? ''}
+                  onChange={e => updateField('related_id', e.target.value || null)}
+                  className={inputClass}
+                >
+                  <option value="">Выберите видео</option>
+                  {videos.map(v => (
+                    <option key={v.id} value={v.id}>{v.title}</option>
+                  ))}
+                </select>
+              )}
+              {form.related_type && form.related_type !== 'video' && (
+                <input
+                  type="text"
+                  value={form.related_id ?? ''}
+                  onChange={e => updateField('related_id', e.target.value || null)}
+                  className={inputClass}
+                  placeholder="ID материала"
+                />
+              )}
+            </div>
           </div>
 
           <div className="mt-auto pt-4 flex items-center gap-2">

@@ -36,6 +36,7 @@ export default function TasksPage() {
 
   const [currentUserId, setCurrentUserId] = useState('')
   const [currentUserRole, setCurrentUserRole] = useState('manager')
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
 
   const fetchTasks = useCallback(async () => {
     const params = new URLSearchParams()
@@ -60,6 +61,9 @@ export default function TasksPage() {
       setProjects(projectsRes.projects ?? [])
       setCurrentUserId(sessionRes.userId ?? '')
       setCurrentUserRole(sessionRes.userRole ?? 'manager')
+      const projId = sessionRes.activeProjectId ?? null
+      setActiveProjectId(projId)
+      if (projId) setFilterProject(projId)
       setLoading(false)
     }
     init()
@@ -202,6 +206,7 @@ export default function TasksPage() {
         projects={projects}
         currentUserId={currentUserId}
         currentUserRole={currentUserRole}
+        defaultProjectId={activeProjectId}
         onClose={() => { setDrawerOpen(false); setEditingTask(null) }}
         onSave={handleSave}
         onDelete={handleDelete}
