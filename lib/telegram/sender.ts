@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { TelegramClient } from 'telegram'
 import { StringSession } from 'telegram/sessions'
 import { Api } from 'telegram'
+import bigInt from 'big-integer'
 import type { TgPostRow } from './types'
 
 const API_ID = Number(process.env.TELEGRAM_API_ID ?? '0')
@@ -50,8 +51,9 @@ export async function sendTelegramPost(postId: string): Promise<void> {
   await client.connect()
 
   try {
-    // 3. Resolve channel entity
-    const entity = await client.getEntity(channel.tg_channel_id)
+    // 3. Resolve channel entity using PeerChannel
+    const peer = new Api.PeerChannel({ channelId: bigInt(channel.tg_channel_id) })
+    const entity = await client.getEntity(peer)
 
     // 4. Send message
     let messageId: number | undefined
