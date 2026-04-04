@@ -8,18 +8,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script: |
-            set -e
-            cd ${{ secrets.VPS_APP_PATH }}
-            git pull origin main
-            npm ci --prefer-offline
-            nohup npm run build > /tmp/build.log 2>&1
-            pm2 restart contentos-app || pm2 restart all
-            echo "Deploy complete"
+      - name: Trigger deploy webhook
+        run: |
+          curl -s -X POST http://178.128.197.227:9000/deploy \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: sha256=$(echo -n '{}' | openssl dgst -sha256 -hmac 'contentos-deploy-2026' | awk '{print $2}')" \
+            -d '{}' \
+            --max-time 180 \
+            -w "\nHTTP Status: %{http_code}\n"
