@@ -1032,6 +1032,13 @@ async function handleTelegramSend(postId: string) {
 
 // --- Worker ---
 
+// --- Telegram send ---
+
+async function handleTelegramSend(postId: string) {
+  const { sendTelegramPost } = await import('./lib/telegram/sender')
+  await sendTelegramPost(postId)
+}
+
 const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> = {
   transcribe: handleTranscribe,
   generate: handleGenerate,
