@@ -1023,6 +1023,13 @@ async function handleProcessClip(_videoId: string, data?: any) {
   }
 }
 
+// --- Telegram send ---
+
+async function handleTelegramSend(postId: string) {
+  const { sendTelegramPost } = await import('./lib/telegram/sender')
+  await sendTelegramPost(postId)
+}
+
 // --- Worker ---
 
 const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> = {
@@ -1033,6 +1040,7 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   produce: handleProduce,
   analyze_clips: handleAnalyzeClips,
   process_clip: (videoId, data) => handleProcessClip(videoId, data),
+  telegram_send: (_videoId, data) => handleTelegramSend(data?.postId),
 }
 
 // --- Stale job cleanup ---
@@ -1078,14 +1086,17 @@ const worker = new Worker(
     const handler = handlers[job.name]
     if (!handler) throw new Error(`Unknown job: ${job.name}`)
     const videoId = job.data.videoId
-    console.log(`[worker] Processing ${job.name} for ${videoId}`)
+    const jobId = videoId ?? job.data.postId ?? 'unknown'
+    console.log(`[worker] Processing ${job.name} for ${jobId}`)
     try {
       await handler(videoId, job.data)
     } catch (err: any) {
-      console.error(`[worker] ${job.name} crashed for ${videoId}:`, err.message)
-      try {
-        await updateStatus(videoId, 'error', err.message?.slice(0, 500) ?? 'Unknown error')
-      } catch {}
+      console.error(`[worker] ${job.name} crashed for ${jobId}:`, err.message)
+      if (videoId) {
+        try {
+          await updateStatus(videoId, 'error', err.message?.slice(0, 500) ?? 'Unknown error')
+        } catch {}
+      }
       throw err
     }
   },
