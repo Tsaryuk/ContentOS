@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { Api } from 'telegram'
+import { computeCheck } from 'telegram/Password'
 import { getPendingAuth, removePendingAuth } from '@/lib/telegram/auth-store'
 
 export async function POST(req: NextRequest) {
@@ -45,11 +46,8 @@ export async function POST(req: NextRequest) {
         }
 
         const passwordResult = await client.invoke(new Api.account.GetPassword())
-        await client.invoke(
-          new Api.auth.CheckPassword({
-            password: await (client as any)._computeCheck(passwordResult, password),
-          })
-        )
+        const inputPassword = await computeCheck(passwordResult, password)
+        await client.invoke(new Api.auth.CheckPassword({ password: inputPassword }))
       } else {
         throw err
       }
