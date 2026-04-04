@@ -129,14 +129,13 @@ export function PostEditor({
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       // Restore allowed Telegram tags
-      .replace(/&lt;b&gt;(.*?)&lt;\/b&gt;/gs, '<strong>$1</strong>')
-      .replace(/&lt;i&gt;(.*?)&lt;\/i&gt;/gs, '<em>$1</em>')
-      .replace(/&lt;code&gt;(.*?)&lt;\/code&gt;/gs, '<code class="bg-white/10 px-1 rounded text-xs">$1</code>')
-      .replace(/&lt;pre&gt;(.*?)&lt;\/pre&gt;/gs, '<pre class="bg-white/10 p-2 rounded text-xs overflow-x-auto">$1</pre>')
-      .replace(/&lt;a href=&quot;(.*?)&quot;&gt;(.*?)&lt;\/a&gt;/gs, '<a href="$1" class="text-accent underline" target="_blank" rel="noopener">$2</a>')
-      .replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/gs, '<u>$1</u>')
-      .replace(/&lt;s&gt;(.*?)&lt;\/s&gt;/gs, '<s>$1</s>')
-      // Newlines to <br>
+      .replace(/&lt;b&gt;([\s\S]*?)&lt;\/b&gt;/g, '<strong>$1</strong>')
+      .replace(/&lt;i&gt;([\s\S]*?)&lt;\/i&gt;/g, '<em>$1</em>')
+      .replace(/&lt;code&gt;([\s\S]*?)&lt;\/code&gt;/g, '<code class="bg-white/10 px-1 rounded text-xs">$1</code>')
+      .replace(/&lt;pre&gt;([\s\S]*?)&lt;\/pre&gt;/g, '<pre class="bg-white/10 p-2 rounded text-xs overflow-x-auto">$1</pre>')
+      .replace(/&lt;a href=&quot;([\s\S]*?)&quot;&gt;([\s\S]*?)&lt;\/a&gt;/g, '<a href="$1" class="text-accent underline" target="_blank" rel="noopener">$2</a>')
+      .replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g, '<u>$1</u>')
+      .replace(/&lt;s&gt;([\s\S]*?)&lt;\/s&gt;/g, '<s>$1</s>')
       .replace(/\n/g, '<br/>')
   }
 
