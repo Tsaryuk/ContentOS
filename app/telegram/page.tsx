@@ -18,8 +18,11 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'failed', label: 'Ошибки' },
 ]
 
+interface ProjectInfo { id: string; name: string; color: string }
+
 export default function TelegramPage() {
   const [channels, setChannels] = useState<TgChannelRow[]>([])
+  const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [posts, setPosts] = useState<TgPostWithChannel[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('all')
@@ -44,14 +47,20 @@ export default function TelegramPage() {
     if (data.posts) setPosts(data.posts)
   }, [tab, selectedChannel])
 
+  const fetchProjects = useCallback(async () => {
+    const res = await fetch('/api/projects')
+    const data = await res.json()
+    if (data.projects) setProjects(data.projects)
+  }, [])
+
   useEffect(() => {
     async function init() {
-      await fetchChannels()
+      await Promise.all([fetchChannels(), fetchProjects()])
       await fetchPosts()
       setLoading(false)
     }
     init()
-  }, [fetchChannels, fetchPosts])
+  }, [fetchChannels, fetchProjects, fetchPosts])
 
   useEffect(() => {
     fetchPosts()
@@ -147,11 +156,32 @@ export default function TelegramPage() {
             className="ml-auto px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent"
           >
             <option value="">Все каналы</option>
-            {channels.map(ch => (
-              <option key={ch.id} value={ch.id}>
-                {ch.title} {ch.username ? `(@${ch.username})` : ''}
-              </option>
-            ))}
+            {projects.map(proj => {
+              const projChannels = channels.filter(c => c.project_id === proj.id)
+              if (projChannels.length === 0) return null
+              return (
+                <optgroup key={proj.id} label={proj.name}>
+                  {projChannels.map(ch => (
+                    <option key={ch.id} value={ch.id}>
+                      {ch.title} {ch.username ? `(@${ch.username})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            })}
+            {(() => {
+              const noProject = channels.filter(c => !c.project_id)
+              if (noProject.length === 0) return null
+              return (
+                <optgroup label="Без проекта">
+                  {noProject.map(ch => (
+                    <option key={ch.id} value={ch.id}>
+                      {ch.title} {ch.username ? `(@${ch.username})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            })()}
           </select>
         )}
       </div>

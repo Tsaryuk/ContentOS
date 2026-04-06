@@ -1,28 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getSession } from '@/lib/session'
 
-// GET /api/projects — all projects with their channels (filtered by active project)
+// GET /api/projects — all projects with their channels (unfiltered for settings)
 export async function GET() {
-  const session = await getSession()
+  const [{ data: projects }, { data: channels }, { data: tgChannels }] = await Promise.all([
+    supabaseAdmin
+      .from('projects')
+      .select('id, name, color, slug')
+      .order('name'),
+    supabaseAdmin
+      .from('yt_channels')
+      .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active, subscriber_count, video_count')
+      .order('title'),
+    supabaseAdmin
+      .from('tg_channels')
+      .select('id, title, username, project_id, is_active')
+      .eq('is_active', true)
+      .order('title'),
+  ])
 
-  const { data: projects } = await supabaseAdmin
-    .from('projects')
-    .select('id, name, color, slug')
-    .order('name')
-
-  let channelQuery = supabaseAdmin
-    .from('yt_channels')
-    .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active, subscriber_count, video_count')
-    .order('title')
-
-  if (session.activeProjectId) {
-    channelQuery = channelQuery.eq('project_id', session.activeProjectId)
-  }
-
-  const { data: channels } = await channelQuery
-
-  return NextResponse.json({ projects: projects ?? [], channels: channels ?? [] })
+  return NextResponse.json({
+    projects: projects ?? [],
+    channels: channels ?? [],
+    tgChannels: tgChannels ?? [],
+  })
 }
 
 // POST /api/projects — create new project

@@ -7,15 +7,17 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
 
-  const { channelId, projectId } = await req.json()
+  const { channelId, projectId, type = 'yt' } = await req.json()
 
-  if (!channelId || !projectId) {
-    return NextResponse.json({ error: 'channelId and projectId are required' }, { status: 400 })
+  if (!channelId) {
+    return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
   }
 
+  const table = type === 'tg' ? 'tg_channels' : 'yt_channels'
+
   const { error } = await supabaseAdmin
-    .from('yt_channels')
-    .update({ project_id: projectId })
+    .from(table)
+    .update({ project_id: projectId ?? null })
     .eq('id', channelId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

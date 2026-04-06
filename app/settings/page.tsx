@@ -18,6 +18,7 @@ interface Channel {
   yt_channel_id: string; google_account_id: string | null
   rules?: ChannelRules
 }
+interface TgChannel { id: string; title: string; username: string | null; project_id: string | null }
 interface GoogleAccount { id: string; email: string; name: string; picture: string | null }
 interface ChannelRules {
   title_format: string; description_template: string
@@ -57,6 +58,7 @@ function OAuthBanner() {
 export default function SettingsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [channels, setChannels] = useState<Channel[]>([])
+  const [tgChannels, setTgChannels] = useState<TgChannel[]>([])
   const [accounts, setAccounts] = useState<GoogleAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<'services' | 'accounts' | 'projects' | 'channels' | 'users'>('services')
@@ -104,9 +106,10 @@ export default function SettingsPage() {
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         }) : Promise.resolve(null),
       ])
-      const { projects: p, channels: c } = await projRes.json()
+      const { projects: p, channels: c, tgChannels: tg } = await projRes.json()
       setProjects(p ?? [])
       setChannels(c ?? [])
+      setTgChannels(tg ?? [])
       const initial: Record<string, ChannelRules> = {}
       for (const ch of (c ?? [])) initial[ch.id] = { ...DEFAULT_RULES, ...(ch.rules ?? {}) }
       setDrafts(initial)
@@ -182,13 +185,17 @@ export default function SettingsPage() {
     setRefreshingChannel(null)
   }
 
-  async function assignToProject(channelId: string, projectId: string | null) {
+  async function assignToProject(channelId: string, projectId: string | null, type: 'yt' | 'tg' = 'yt') {
     await fetch('/api/projects/assign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelId, projectId }),
+      body: JSON.stringify({ channelId, projectId, type }),
     })
-    setChannels(prev => prev.map(c => c.id === channelId ? { ...c, project_id: projectId } : c))
+    if (type === 'tg') {
+      setTgChannels(prev => prev.map(c => c.id === channelId ? { ...c, project_id: projectId } : c))
+    } else {
+      setChannels(prev => prev.map(c => c.id === channelId ? { ...c, project_id: projectId } : c))
+    }
   }
 
   function updateDraft(channelId: string, patch: Partial<ChannelRules>) {
@@ -435,19 +442,23 @@ export default function SettingsPage() {
 
             {/* Project list */}
             {projects.map(proj => {
-              const projChannels = channels.filter(c => c.project_id === proj.id)
+              const projYtChannels = channels.filter(c => c.project_id === proj.id)
+              const projTgChannels = tgChannels.filter(c => c.project_id === proj.id)
+              const totalChannels = projYtChannels.length + projTgChannels.length
               return (
                 <div key={proj.id} className="bg-surface border border-border rounded-xl overflow-hidden">
                   <div className="px-5 py-3 flex items-center gap-3">
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ background: proj.color }} />
                     <span className="text-sm font-medium">{proj.name}</span>
-                    <span className="text-xs text-dim ml-auto">{projChannels.length} кан.</span>
+                    <span className="text-xs text-dim ml-auto">{totalChannels} кан.</span>
                     <button
                       onClick={async () => {
                         if (!confirm(`Удалить проект "${proj.name}"? Каналы останутся без проекта.`)) return
-                        // Unassign channels first
-                        for (const ch of projChannels) {
-                          await assignToProject(ch.id, null)
+                        for (const ch of projYtChannels) {
+                          await assignToProject(ch.id, null, 'yt')
+                        }
+                        for (const ch of projTgChannels) {
+                          await assignToProject(ch.id, null, 'tg')
                         }
                         await fetch(`${SUPABASE_URL}/rest/v1/projects?id=eq.${proj.id}`, {
                           method: 'DELETE',
@@ -460,9 +471,9 @@ export default function SettingsPage() {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  {projChannels.length > 0 && (
+                  {totalChannels > 0 && (
                     <div className="border-t border-border px-5 py-2 space-y-1.5">
-                      {projChannels.map(ch => (
+                      {projYtChannels.map(ch => (
                         <div key={ch.id} className="flex items-center gap-2 py-1">
                           {ch.thumbnail_url
                             ? <img src={ch.thumbnail_url} className="w-6 h-6 rounded-full" alt="" />
@@ -471,7 +482,21 @@ export default function SettingsPage() {
                           <span className="text-xs text-cream flex-1 truncate">{ch.title}</span>
                           <span className="text-[10px] text-dim">{ch.handle}</span>
                           <button
-                            onClick={() => assignToProject(ch.id, null)}
+                            onClick={() => assignToProject(ch.id, null, 'yt')}
+                            title="Убрать из проекта"
+                            className="text-dim hover:text-red-400 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {projTgChannels.map(ch => (
+                        <div key={ch.id} className="flex items-center gap-2 py-1">
+                          <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[9px] text-blue-400 font-bold">TG</div>
+                          <span className="text-xs text-cream flex-1 truncate">{ch.title}</span>
+                          <span className="text-[10px] text-dim">{ch.username ? `@${ch.username}` : ''}</span>
+                          <button
+                            onClick={() => assignToProject(ch.id, null, 'tg')}
                             title="Убрать из проекта"
                             className="text-dim hover:text-red-400 transition-colors"
                           >
@@ -486,34 +511,54 @@ export default function SettingsPage() {
             })}
 
             {/* Unassigned channels */}
-            {channels.filter(c => !c.project_id).length > 0 && (
-              <div className="bg-surface border border-border rounded-xl overflow-hidden">
-                <div className="px-5 py-3 flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full shrink-0 bg-dim/30" />
-                  <span className="text-sm font-medium text-dim">Без проекта</span>
-                  <span className="text-xs text-dim ml-auto">{channels.filter(c => !c.project_id).length} кан.</span>
+            {(() => {
+              const unassignedYt = channels.filter(c => !c.project_id)
+              const unassignedTg = tgChannels.filter(c => !c.project_id)
+              const totalUnassigned = unassignedYt.length + unassignedTg.length
+              if (totalUnassigned === 0) return null
+              return (
+                <div className="bg-surface border border-border rounded-xl overflow-hidden">
+                  <div className="px-5 py-3 flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full shrink-0 bg-dim/30" />
+                    <span className="text-sm font-medium text-dim">Без проекта</span>
+                    <span className="text-xs text-dim ml-auto">{totalUnassigned} кан.</span>
+                  </div>
+                  <div className="border-t border-border px-5 py-2 space-y-1.5">
+                    {unassignedYt.map(ch => (
+                      <div key={ch.id} className="flex items-center gap-2 py-1">
+                        {ch.thumbnail_url
+                          ? <img src={ch.thumbnail_url} className="w-6 h-6 rounded-full" alt="" />
+                          : <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center text-[9px] text-red-400 font-bold">YT</div>
+                        }
+                        <span className="text-xs text-cream flex-1 truncate">{ch.title}</span>
+                        <select
+                          onChange={e => { if (e.target.value) assignToProject(ch.id, e.target.value, 'yt') }}
+                          className="text-[10px] bg-bg border border-border rounded px-1.5 py-1 text-cream"
+                          defaultValue=""
+                        >
+                          <option value="">Добавить в...</option>
+                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                    {unassignedTg.map(ch => (
+                      <div key={ch.id} className="flex items-center gap-2 py-1">
+                        <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[9px] text-blue-400 font-bold">TG</div>
+                        <span className="text-xs text-cream flex-1 truncate">{ch.title}</span>
+                        <select
+                          onChange={e => { if (e.target.value) assignToProject(ch.id, e.target.value, 'tg') }}
+                          className="text-[10px] bg-bg border border-border rounded px-1.5 py-1 text-cream"
+                          defaultValue=""
+                        >
+                          <option value="">Добавить в...</option>
+                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="border-t border-border px-5 py-2 space-y-1.5">
-                  {channels.filter(c => !c.project_id).map(ch => (
-                    <div key={ch.id} className="flex items-center gap-2 py-1">
-                      {ch.thumbnail_url
-                        ? <img src={ch.thumbnail_url} className="w-6 h-6 rounded-full" alt="" />
-                        : <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center text-[9px] text-red-400 font-bold">YT</div>
-                      }
-                      <span className="text-xs text-cream flex-1 truncate">{ch.title}</span>
-                      <select
-                        onChange={e => { if (e.target.value) assignToProject(ch.id, e.target.value) }}
-                        className="text-[10px] bg-bg border border-border rounded px-1.5 py-1 text-cream"
-                        defaultValue=""
-                      >
-                        <option value="">Добавить в...</option>
-                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
         )}
 
