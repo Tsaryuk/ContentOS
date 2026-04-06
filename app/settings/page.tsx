@@ -101,7 +101,7 @@ export default function SettingsPage() {
     setLoading(true)
     try {
       const [projRes, accRes] = await Promise.all([
-        fetch('/api/projects'),
+        fetch('/api/projects?all=true'),
         SUPABASE_URL ? fetch(`${SUPABASE_URL}/rest/v1/google_accounts?select=*`, {
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         }) : Promise.resolve(null),

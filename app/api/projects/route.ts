@@ -1,23 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getSession } from '@/lib/session'
 
-// GET /api/projects — all projects with their channels (unfiltered for settings)
-export async function GET() {
-  const [{ data: projects }, { data: channels }, { data: tgChannels }] = await Promise.all([
-    supabaseAdmin
-      .from('projects')
-      .select('id, name, color, slug')
-      .order('name'),
-    supabaseAdmin
-      .from('yt_channels')
-      .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active, subscriber_count, video_count')
-      .order('title'),
-    supabaseAdmin
-      .from('tg_channels')
-      .select('id, title, username, project_id, is_active')
-      .eq('is_active', true)
-      .order('title'),
-  ])
+// GET /api/projects — projects with channels
+// ?all=true returns all channels (for settings), otherwise filters by active project
+export async function GET(req: NextRequest) {
+  const showAll = req.nextUrl.searchParams.get('all') === 'true'
+  const session = await getSession()
+
+  const { data: projects } = await supabaseAdmin
+    .from('projects')
+    .select('id, name, color, slug')
+    .order('name')
+
+  let ytQuery = supabaseAdmin
+    .from('yt_channels')
+    .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active, subscriber_count, video_count')
+    .order('title')
+
+  let tgQuery = supabaseAdmin
+    .from('tg_channels')
+    .select('id, title, username, project_id, is_active')
+    .eq('is_active', true)
+    .order('title')
+
+  if (!showAll && session.activeProjectId) {
+    ytQuery = ytQuery.eq('project_id', session.activeProjectId)
+    tgQuery = tgQuery.eq('project_id', session.activeProjectId)
+  }
+
+  const [{ data: channels }, { data: tgChannels }] = await Promise.all([ytQuery, tgQuery])
 
   return NextResponse.json({
     projects: projects ?? [],
