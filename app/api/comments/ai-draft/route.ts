@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from '@/lib/ai-models'
 
@@ -7,6 +8,9 @@ const anthropic = new Anthropic()
 
 // POST /api/comments/ai-draft — generate AI reply draft
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   try {
     const { commentId, videoId } = await req.json()
     if (!commentId || !videoId) {

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 import { getQueue } from '@/lib/queue'
 
 // POST /api/clips/process — start FFmpeg processing for approved clip
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   try {
     const { candidateId } = await req.json()
     if (!candidateId) return NextResponse.json({ error: 'candidateId required' }, { status: 400 })

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 
 async function getAccessToken(refreshToken: string): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -18,6 +19,9 @@ async function getAccessToken(refreshToken: string): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   try {
     const { videoId } = await req.json()
     if (!videoId) return NextResponse.json({ error: 'videoId required' }, { status: 400 })

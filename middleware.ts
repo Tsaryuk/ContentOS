@@ -13,15 +13,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Primary: check iron-session cookie (encrypted, signed)
+  // Check iron-session cookie (encrypted, signed)
   const session = req.cookies.get('contentos_session')?.value
   if (session) {
-    return NextResponse.next()
-  }
-
-  // Fallback: legacy password cookie (backward compat)
-  const auth = req.cookies.get('contentos_auth')?.value
-  if (auth === process.env.ADMIN_PASSWORD) {
     return NextResponse.next()
   }
 

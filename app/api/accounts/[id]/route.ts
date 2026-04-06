@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 
 // DELETE /api/accounts/[id] — disconnect Google account
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   const { id } = params
 
   // Null out google_account_id on channels (keep channels, just unlink)

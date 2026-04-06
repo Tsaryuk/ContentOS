@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 
 // POST /api/channels/add — add YouTube channel by ID
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   const { ytChannelId, projectId } = await req.json()
   if (!ytChannelId) return NextResponse.json({ error: 'ytChannelId required' }, { status: 400 })
 

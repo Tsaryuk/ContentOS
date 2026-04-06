@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import IORedis from 'ioredis'
+import { requireAuth } from '@/lib/auth'
 
 interface ServiceCheck {
   name: string
@@ -87,7 +88,7 @@ async function checkFal(): Promise<ServiceCheck> {
     if (res.status === 401 || res.status === 403) {
       return { name: 'fal.ai (Thumbnails)', status: 'error', detail: 'Invalid API key' }
     }
-    return { name: 'fal.ai (Thumbnails)', status: 'ok', detail: `Key: ${key.slice(0, 8)}...` }
+    return { name: 'fal.ai (Thumbnails)', status: 'ok', detail: 'API key valid' }
   } catch (e: any) {
     return { name: 'fal.ai (Thumbnails)', status: 'error', detail: e.message }
   }
@@ -104,10 +105,13 @@ function checkYouTubeOAuth(): ServiceCheck {
   const clientId = process.env.YOUTUBE_CLIENT_ID
   const clientSecret = process.env.YOUTUBE_CLIENT_SECRET
   if (!clientId || !clientSecret) return { name: 'YouTube OAuth', status: 'missing', detail: 'Client ID/Secret not set' }
-  return { name: 'YouTube OAuth', status: 'ok', detail: `Client: ${clientId.slice(0, 12)}...` }
+  return { name: 'YouTube OAuth', status: 'ok', detail: 'Configured' }
 }
 
 export async function GET() {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   const checks = await Promise.all([
     checkSupabase(),
     checkRedis(),

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildCarouselSystemPrompt, buildCarouselUserPrompt } from '@/lib/carousel/prompts'
@@ -8,6 +9,9 @@ import { AI_MODELS } from '@/lib/ai-models'
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   try {
     const body = await req.json()
     const {

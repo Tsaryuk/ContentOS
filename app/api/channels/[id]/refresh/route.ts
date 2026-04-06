@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 
 // POST /api/channels/[id]/refresh — re-fetch title/thumbnail from YouTube API
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   const { id } = params
 
   const { data: channel, error: chErr } = await supabaseAdmin

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AI_MODELS } from '@/lib/ai-models'
@@ -7,6 +8,9 @@ import { buildVoiceTrainingPrompt } from '@/lib/carousel/prompts'
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   try {
     const body = await req.json()
     const { examples, name, projectId } = body
@@ -68,6 +72,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   const projectId = req.nextUrl.searchParams.get('projectId')
 
   let query = supabaseAdmin

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { BRAND_PRESETS } from '@/lib/carousel/types'
 import type { CarouselSlide } from '@/lib/carousel/types'
@@ -84,6 +85,9 @@ function buildFullHTML(slide: CarouselSlide, index: number, total: number, prese
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   try {
     const body = await req.json()
     const { carouselId } = body
