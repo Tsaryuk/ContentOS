@@ -141,20 +141,65 @@ async function ensureTmpDir() {
   if (!existsSync(TMP_DIR)) await mkdir(TMP_DIR, { recursive: true })
 }
 
-async function getAccessToken(refreshToken: string): Promise<string> {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: process.env.YOUTUBE_CLIENT_ID!,
-      client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    }),
-  })
-  const data = await res.json()
-  if (!data.access_token) throw new Error(`Token refresh failed: ${JSON.stringify(data)}`)
-  return data.access_token
+/**
+ * Refresh YouTube OAuth token with needs_reauth detection.
+ * On invalid_grant: marks channel needs_reauth=true, throws.
+ * On success: clears needs_reauth if it was set.
+ */
+async function getAccessToken(refreshToken: string, channelUuid?: string): Promise<string> {
+  let res: Response
+  try {
+    res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.YOUTUBE_CLIENT_ID!,
+        client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    })
+  } catch (err) {
+    throw new Error(`Network error refreshing token: ${err}`)
+  }
+
+  const data = await res.json().catch(() => ({}))
+
+  if (data.access_token) {
+    // Clear needs_reauth on success
+    if (channelUuid) {
+      supabase.from('yt_channels').update({ needs_reauth: false })
+        .eq('id', channelUuid).eq('needs_reauth', true).then(() => null, () => null)
+    }
+    return data.access_token
+  }
+
+  const error = data.error ?? ''
+  const isPermanent = error === 'invalid_grant' || error === 'unauthorized_client' || error === 'invalid_client'
+
+  if (isPermanent && channelUuid) {
+    console.log(`[auth] Marking channel ${channelUuid} as needs_reauth (${error})`)
+    await supabase.from('yt_channels').update({ needs_reauth: true }).eq('id', channelUuid)
+  }
+
+  throw new Error(`Token refresh failed (${error}): ${JSON.stringify(data)}`)
+}
+
+/**
+ * Get access token for a channel by internal UUID.
+ * Checks channel refresh_token first, then falls back to env var.
+ */
+async function getChannelAccessToken(channelUuid: string): Promise<string> {
+  const { data: ch } = await supabase.from('yt_channels')
+    .select('refresh_token').eq('id', channelUuid).single()
+
+  if (ch?.refresh_token) {
+    return getAccessToken(ch.refresh_token, channelUuid)
+  }
+
+  const envToken = process.env.YOUTUBE_REFRESH_TOKEN
+  if (!envToken) throw new Error('No refresh token available')
+  return getAccessToken(envToken)
 }
 
 function parseTtml(ttml: string): { start: number; end: number; text: string }[] {
@@ -225,11 +270,24 @@ async function downloadAudio(ytVideoId: string): Promise<string> {
   const url = `https://www.youtube.com/watch?v=${ytVideoId}`
   const proxyArg = PROXY_URL ? `--proxy "${PROXY_URL}"` : ''
   const cmd = `yt-dlp ${proxyArg} -x --audio-format mp3 --postprocessor-args "ffmpeg:-ac 1 -ab 48k" -o "${outPath}" "${url}"`
-  console.log(`[download] yt-dlp${PROXY_URL ? ' +proxy' : ''} for ${ytVideoId}`)
-  execSync(cmd, { timeout: 600000, stdio: 'pipe' })
-  if (!existsSync(outPath)) throw new Error(`Audio file not created: ${outPath}`)
-  console.log(`[download] OK: ${(statSync(outPath).size / 1024 / 1024).toFixed(1)}MB`)
-  return outPath
+
+  const MAX_RETRIES = 3
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`[download] yt-dlp${PROXY_URL ? ' +proxy' : ''} for ${ytVideoId}${attempt > 1 ? ` (attempt ${attempt}/${MAX_RETRIES})` : ''}`)
+      execSync(cmd, { timeout: 600000, stdio: 'pipe' })
+      if (!existsSync(outPath)) throw new Error(`Audio file not created: ${outPath}`)
+      console.log(`[download] OK: ${(statSync(outPath).size / 1024 / 1024).toFixed(1)}MB`)
+      return outPath
+    } catch (err: any) {
+      console.error(`[download] Attempt ${attempt}/${MAX_RETRIES} failed: ${err.message?.slice(0, 200)}`)
+      if (attempt === MAX_RETRIES) throw new Error(`yt-dlp failed after ${MAX_RETRIES} attempts: ${err.message?.slice(0, 300)}`)
+      const delay = attempt * 10000 // 10s, 20s
+      console.log(`[download] Retrying in ${delay / 1000}s...`)
+      await new Promise(r => setTimeout(r, delay))
+    }
+  }
+  throw new Error('downloadAudio: unreachable')
 }
 
 function splitAudio(audioPath: string, ytVideoId: string): string[] {
@@ -244,16 +302,29 @@ function splitAudio(audioPath: string, ytVideoId: string): string[] {
 }
 
 async function transcribeChunk(chunkPath: string, offset: number) {
-  const res = await openai.audio.transcriptions.create({
-    file: createReadStream(chunkPath),
-    model: 'whisper-1',
-    response_format: 'verbose_json',
-    timestamp_granularities: ['segment'],
-    language: 'ru',
-  })
-  return ((res as any).segments ?? [])
-    .map((s: any) => ({ start: Math.round(s.start + offset), end: Math.round(s.end + offset), text: s.text.trim() }))
-    .filter((s: any) => s.text.length > 0)
+  const MAX_RETRIES = 2
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await openai.audio.transcriptions.create({
+        file: createReadStream(chunkPath),
+        model: 'whisper-1',
+        response_format: 'verbose_json',
+        timestamp_granularities: ['segment'],
+        language: 'ru',
+      })
+      return ((res as any).segments ?? [])
+        .map((s: any) => ({ start: Math.round(s.start + offset), end: Math.round(s.end + offset), text: s.text.trim() }))
+        .filter((s: any) => s.text.length > 0)
+    } catch (err: any) {
+      const status = err?.status ?? err?.error?.status
+      console.error(`[whisper] Attempt ${attempt}/${MAX_RETRIES} failed: ${err.message?.slice(0, 200)}`)
+      if (attempt === MAX_RETRIES) throw err
+      const delay = status === 429 ? 30000 : 5000
+      console.log(`[whisper] Retrying in ${delay / 1000}s...`)
+      await new Promise(r => setTimeout(r, delay))
+    }
+  }
+  throw new Error('transcribeChunk: unreachable')
 }
 
 async function proofread(segments: { start: number; end: number; text: string }[], title: string) {
@@ -335,11 +406,11 @@ async function handleTranscribe(videoId: string) {
   try {
     let allSegs: { start: number; end: number; text: string }[] = []
 
-    // Step 1: Try YouTube Captions API (costs ~250 quota units)
-    if (channel.refresh_token) {
+    // Step 1: Try YouTube Captions API — skip if channel needs_reauth (saves quota)
+    if (channel.refresh_token && !channel.needs_reauth) {
       await updateProgress(videoId, 'Получение субтитров через YouTube API...')
       try {
-        const accessToken = await getAccessToken(channel.refresh_token)
+        const accessToken = await getChannelAccessToken(video.channel_id)
         const captionSegs = await fetchYouTubeCaptions(video.yt_video_id, accessToken)
         if (captionSegs && captionSegs.length > 0) {
           allSegs = captionSegs
@@ -348,6 +419,8 @@ async function handleTranscribe(videoId: string) {
       } catch (captionErr: any) {
         console.log(`[transcribe] Captions API error: ${captionErr.message}, falling back to Whisper`)
       }
+    } else if (channel.needs_reauth) {
+      console.log(`[transcribe] Skipping captions API — channel needs reauth, using Whisper`)
     }
 
     // Step 2: Fallback to Whisper via yt-dlp
@@ -528,22 +601,6 @@ async function handleThumbnail(videoId: string) {
 
 // --- Publish ---
 
-async function getYouTubeToken(): Promise<string> {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: process.env.YOUTUBE_CLIENT_ID!,
-      client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
-      refresh_token: process.env.YOUTUBE_REFRESH_TOKEN!,
-      grant_type: 'refresh_token',
-    }),
-  })
-  const data = await res.json()
-  if (!data.access_token) throw new Error(`YouTube OAuth failed: ${JSON.stringify(data)}`)
-  return data.access_token
-}
-
 async function handlePublish(videoId: string, overrides?: { title?: string; thumbnailUrl?: string }) {
   const video = await getVideo(videoId)
   if (!video.is_approved) throw new Error('Not approved')
@@ -556,10 +613,7 @@ async function handlePublish(videoId: string, overrides?: { title?: string; thum
   await logJob(videoId, 'publish', 'running')
 
   try {
-    // Use channel-specific refresh token if available, else fall back to env var
-    const channel = await getChannel(video.channel_id)
-    const refreshToken = channel?.refresh_token ?? process.env.YOUTUBE_REFRESH_TOKEN!
-    const token = await getAccessToken(refreshToken)
+    const token = await getChannelAccessToken(video.channel_id)
 
     const getRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${video.yt_video_id}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -944,32 +998,10 @@ async function handleProcessClip(_videoId: string, data?: any) {
     if (!existsSync(fullVideoFile)) {
       console.log(`[clips] Downloading full video ${ytVideoId}...`)
 
-      // Get OAuth token and export cookies for yt-dlp
-      const channel = await getChannel(channelId)
-      const refreshToken = channel?.refresh_token ?? process.env.YOUTUBE_REFRESH_TOKEN
-      let cookieArgs = ''
-
-      if (refreshToken) {
-        try {
-          const token = await getAccessToken(refreshToken)
-          // Create a Netscape cookie file for yt-dlp
-          const cookieFile = join(tmpDir, `cookies_${candidate.video_id}.txt`)
-          const cookieContent = [
-            '# Netscape HTTP Cookie File',
-            `.youtube.com\tTRUE\t/\tTRUE\t0\t__Secure-3PAPISID\t${token}`,
-            `.youtube.com\tTRUE\t/\tFALSE\t0\tSID\toauth`,
-          ].join('\n')
-          await writeFile(cookieFile, cookieContent)
-          cookieArgs = `--cookies "${cookieFile}"`
-        } catch (e: any) {
-          console.log(`[clips] Cookie auth failed, trying without: ${e.message}`)
-        }
-      }
-
+      // yt-dlp downloads public videos without auth; proxy handles geo-blocks
       execSync(
         `yt-dlp -f "bestvideo[height<=720]+bestaudio/best[height<=720]" ` +
         `-o "${fullVideoFile}" --merge-output-format mp4 --no-warnings ` +
-        `${cookieArgs} ` +
         `${PROXY_URL ? `--proxy "${PROXY_URL}"` : ''} ` +
         `"https://youtube.com/watch?v=${ytVideoId}"`,
         { timeout: 600000 }
@@ -1065,20 +1097,31 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
 }
 
 // --- Stale job cleanup ---
-async function cleanupStaleJobs() {
-  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString() // 10 min ago
-  const { data: stale } = await supabase
-    .from('yt_videos')
-    .select('id, status, current_title')
-    .in('status', ['generating', 'producing', 'transcribing', 'publishing'])
-    .lt('updated_at', cutoff)
+// Transcribing can take 15+ min for long podcasts (Whisper chunks), so use 30 min timeout.
+// Other statuses use 15 min.
+const STALE_TIMEOUT: Record<string, number> = {
+  transcribing: 30 * 60 * 1000,
+  generating: 15 * 60 * 1000,
+  producing: 15 * 60 * 1000,
+  publishing: 10 * 60 * 1000,
+}
 
-  if (stale?.length) {
-    for (const v of stale) {
-      console.log(`[cleanup] Resetting stale ${v.status}: ${v.current_title?.slice(0, 50)}`)
-      await updateStatus(v.id, 'error', `Таймаут: зависло на "${v.status}" более 10 минут`)
+async function cleanupStaleJobs() {
+  for (const [status, timeout] of Object.entries(STALE_TIMEOUT)) {
+    const cutoff = new Date(Date.now() - timeout).toISOString()
+    const { data: stale } = await supabase
+      .from('yt_videos')
+      .select('id, status, current_title')
+      .eq('status', status)
+      .lt('updated_at', cutoff)
+
+    if (stale?.length) {
+      for (const v of stale) {
+        const mins = Math.round(timeout / 60000)
+        console.log(`[cleanup] Resetting stale ${v.status} (>${mins}min): ${v.current_title?.slice(0, 50)}`)
+        await updateStatus(v.id, 'error', `Таймаут: зависло на "${v.status}" более ${mins} минут`)
+      }
     }
-    console.log(`[cleanup] Reset ${stale.length} stale jobs`)
   }
 
   // Clear stuck thumbnail_generating flags (>5 min old)
