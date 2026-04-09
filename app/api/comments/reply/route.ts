@@ -1,22 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
-
-async function getAccessToken(refreshToken: string): Promise<string> {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: process.env.YOUTUBE_CLIENT_ID!,
-      client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    }),
-  })
-  const data = await res.json()
-  if (!data.access_token) throw new Error('Failed to refresh token')
-  return data.access_token
-}
+import { getYouTubeToken } from '@/lib/youtube/auth'
+import { youtubeErrorResponse } from '@/lib/youtube/errors'
 
 // POST /api/comments/reply — reply to a YouTube comment
 export async function POST(req: NextRequest) {
@@ -29,7 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'commentId, text, videoId required' }, { status: 400 })
     }
 
-    // Get channel refresh token
+    // Get channel id from video
     const { data: video } = await supabaseAdmin
       .from('yt_videos')
       .select('channel_id')
@@ -38,16 +24,7 @@ export async function POST(req: NextRequest) {
 
     if (!video) return NextResponse.json({ error: 'Video not found' }, { status: 404 })
 
-    const { data: channel } = await supabaseAdmin
-      .from('yt_channels')
-      .select('refresh_token, yt_channel_id')
-      .eq('id', video.channel_id)
-      .single()
-
-    const refreshToken = channel?.refresh_token ?? process.env.YOUTUBE_REFRESH_TOKEN
-    if (!refreshToken) return NextResponse.json({ error: 'No refresh token' }, { status: 400 })
-
-    const token = await getAccessToken(refreshToken)
+    const token = await getYouTubeToken({ id: video.channel_id })
 
     // Post reply via YouTube API
     const res = await fetch('https://www.googleapis.com/youtube/v3/comments?part=snippet', {
@@ -94,8 +71,8 @@ export async function POST(req: NextRequest) {
       .eq('yt_comment_id', commentId)
 
     return NextResponse.json({ success: true, replyId: reply.id })
-  } catch (err: any) {
-    console.error('[comments/reply]', err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    console.error('[comments/reply]', err instanceof Error ? err.message : err)
+    return youtubeErrorResponse(err)
   }
 }

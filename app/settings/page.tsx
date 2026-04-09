@@ -16,6 +16,7 @@ interface Channel {
   id: string; title: string; handle: string | null
   thumbnail_url: string | null; project_id: string | null
   yt_channel_id: string; google_account_id: string | null
+  needs_reauth?: boolean
   rules?: ChannelRules
 }
 interface TgChannel { id: string; title: string; username: string | null; project_id: string | null }
@@ -283,6 +284,22 @@ export default function SettingsPage() {
 
       <div className="max-w-3xl mx-auto px-6 py-6">
         <Suspense fallback={null}><OAuthBanner /></Suspense>
+
+        {/* Reauth warning */}
+        {channels.some(c => c.needs_reauth) && (
+          <div className="mb-4 px-4 py-3 rounded-xl border bg-amber-500/10 border-amber-500/20 text-amber-300 text-sm flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>
+              {channels.filter(c => c.needs_reauth).map(c => c.title).join(', ')} — токен истёк. Переподключите Google-аккаунт.
+            </span>
+            <a
+              href="/api/auth/start"
+              className="ml-auto shrink-0 px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-medium transition-colors"
+            >
+              Переподключить
+            </a>
+          </div>
+        )}
 
         {/* Section tabs */}
         <div className="flex gap-1 mb-6 bg-surface rounded-lg p-1 border border-border w-fit">
@@ -614,7 +631,14 @@ export default function SettingsPage() {
                       : <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-xs text-red-400 font-bold">YT</div>
                     }
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">{ch.title}</div>
+                      <div className="text-sm font-medium flex items-center gap-2">
+                        {ch.title}
+                        {ch.needs_reauth && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-300">
+                            Переподключить
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-dim">{ch.handle}</div>
                     </div>
 

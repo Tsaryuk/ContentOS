@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fetchChannelVideos } from '@/lib/youtube/videos'
+import { youtubeErrorResponse } from '@/lib/youtube/errors'
 
 const BATCH_SIZE = 50
 
@@ -98,8 +99,8 @@ export async function POST(req: NextRequest) {
       removed,
     })
 
-  } catch (err: any) {
-    console.error('[sync]', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    console.error('[sync]', err instanceof Error ? err.message : err)
+    return youtubeErrorResponse(err)
   }
 }

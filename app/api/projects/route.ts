@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   let ytQuery = supabaseAdmin
     .from('yt_channels')
-    .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active, subscriber_count, video_count')
+    .select('id, yt_channel_id, title, handle, thumbnail_url, project_id, google_account_id, is_active, subscriber_count, video_count, needs_reauth')
     .order('title')
 
   let tgQuery = supabaseAdmin

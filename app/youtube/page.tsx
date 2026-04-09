@@ -154,7 +154,12 @@ export default function YouTubePage() {
         body: JSON.stringify({ channelId: activeYtChannelId }),
       })
       const data = await res.json()
-      if (data.success) loadVideos()
+      if (data.success) { loadVideos() }
+      else if (data.needs_reauth) {
+        if (confirm(data.error + '\n\nОткрыть настройки?')) {
+          window.location.href = '/settings'
+        }
+      }
       else alert('Ошибка: ' + data.error)
     } finally {
       setSyncing(false)

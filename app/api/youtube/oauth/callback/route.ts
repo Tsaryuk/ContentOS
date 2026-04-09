@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   const chData = await chRes.json()
   const channel = chData.items?.[0]
 
-  // Save refresh token to yt_channels if we can match it
+  // Save refresh token to yt_channels if we can match it, clear needs_reauth
   if (channel?.id) {
     await supabaseAdmin
       .from('yt_channels')
@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
         yt_channel_id:  channel.id,
         title:          channel.snippet?.title ?? channel.id,
         refresh_token:  tokens.refresh_token,
+        needs_reauth:   false,
         updated_at:     new Date().toISOString(),
       }, { onConflict: 'yt_channel_id' })
   }
