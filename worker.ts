@@ -601,6 +601,34 @@ async function handleThumbnail(videoId: string) {
 
 // --- Publish ---
 
+const YOUTUBE_ERROR_MAP: Record<string, string> = {
+  'UPDATE_TITLE_NOT_ALLOWED_DURING_TEST_AND_COMPARE': 'Видео участвует в A/B тесте заголовков. Завершите тест в YouTube Studio, затем повторите публикацию.',
+  'VIDEO_NOT_FOUND': 'Видео не найдено на YouTube. Возможно, оно удалено.',
+  'FORBIDDEN': 'Нет прав на редактирование этого видео. Проверьте, что аккаунт подключён.',
+  'quotaExceeded': 'Лимит YouTube API исчерпан. Попробуйте завтра.',
+  'rateLimitExceeded': 'Слишком много запросов к YouTube. Подождите пару минут.',
+  'invalidMetadata': 'Некорректные метаданные (заголовок/описание/теги). Проверьте длину и символы.',
+  'processingFailure': 'YouTube не смог обработать запрос. Попробуйте позже.',
+  'notVerified': 'Аккаунт не верифицирован. Загрузка обложек требует верификации канала.',
+}
+
+function humanizeYouTubeError(status: number, body: string): string {
+  try {
+    const parsed = JSON.parse(body)
+    const errors = parsed?.error?.errors ?? []
+    for (const e of errors) {
+      const reason = e.reason ?? ''
+      if (YOUTUBE_ERROR_MAP[reason]) return YOUTUBE_ERROR_MAP[reason]
+    }
+    const message = parsed?.error?.message ?? ''
+    for (const [key, human] of Object.entries(YOUTUBE_ERROR_MAP)) {
+      if (message.includes(key)) return human
+    }
+    if (message) return `YouTube: ${message}`
+  } catch {}
+  return `YouTube API ошибка ${status}: ${body.slice(0, 200)}`
+}
+
 async function handlePublish(videoId: string, overrides?: { title?: string; thumbnailUrl?: string }) {
   const video = await getVideo(videoId)
   if (!video.is_approved) throw new Error('Not approved')
@@ -649,7 +677,10 @@ async function handlePublish(videoId: string, overrides?: { title?: string; thum
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: video.yt_video_id, snippet: updatedSnippet }),
     })
-    if (!putRes.ok) throw new Error(`YouTube snippet update: ${putRes.status} ${await putRes.text()}`)
+    if (!putRes.ok) {
+      const errBody = await putRes.text()
+      throw new Error(humanizeYouTubeError(putRes.status, errBody))
+    }
 
     await logChange(videoId, 'title', video.current_title, publishTitle)
     await logChange(videoId, 'description', video.current_description, video.generated_description)
