@@ -247,10 +247,18 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
               }`}
             >
               <img
-                src={r.url}
+                src={r.url + (r.url.includes('?') ? '&' : '?') + 'v=1'}
                 alt=""
                 className="w-full aspect-video object-cover"
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                loading="eager"
+                onError={e => {
+                  const img = e.target as HTMLImageElement
+                  // Retry once after 2s (CDN cache might not be warm yet)
+                  if (!img.dataset.retried) {
+                    img.dataset.retried = '1'
+                    setTimeout(() => { img.src = r.url + (r.url.includes('?') ? '&' : '?') + 'v=' + Date.now() }, 2000)
+                  }
+                }}
               />
               {r.model && <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 backdrop-blur-sm rounded text-[10px] text-muted">{r.model}</span>}
               {selectedUrl === r.url && (

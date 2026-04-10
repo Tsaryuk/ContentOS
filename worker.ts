@@ -108,6 +108,17 @@ async function updateProgress(videoId: string, message: string) {
   console.log(`[progress] ${message}`)
 }
 
+/** Periodically touch updated_at so cleanup cron doesn't kill long-running tasks */
+function startHeartbeat(videoId: string, intervalMs = 60000): () => void {
+  const timer = setInterval(() => {
+    supabase.from('yt_videos')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', videoId)
+      .then(() => null, () => null)
+  }, intervalMs)
+  return () => clearInterval(timer)
+}
+
 async function logJob(videoId: string, jobType: string, status: string, result?: any, error?: string) {
   const row: Record<string, unknown> = { video_id: videoId, job_type: jobType, status }
   if (result) row.result = result
@@ -402,6 +413,7 @@ async function handleTranscribe(videoId: string) {
 
   await updateStatus(videoId, 'transcribing')
   await logJob(videoId, 'transcribe', 'running')
+  const stopHeartbeat = startHeartbeat(videoId)
 
   try {
     let allSegs: { start: number; end: number; text: string }[] = []
@@ -454,6 +466,7 @@ async function handleTranscribe(videoId: string) {
     await updateStatus(videoId, 'error', err.message)
     await logJob(videoId, 'transcribe', 'failed', undefined, err.message)
   } finally {
+    stopHeartbeat()
     await cleanup(video.yt_video_id)
   }
 }
@@ -498,6 +511,7 @@ async function handleGenerate(videoId: string) {
 
   await updateStatus(videoId, 'generating')
   await logJob(videoId, 'generate', 'running')
+  const stopHeartbeat = startHeartbeat(videoId)
 
   try {
     const durationMin = Math.round(video.duration_seconds / 60)
@@ -555,6 +569,8 @@ async function handleGenerate(videoId: string) {
     console.error(`[generate] FAIL:`, err.message)
     await updateStatus(videoId, 'error', err.message)
     await logJob(videoId, 'generate', 'failed', undefined, err.message)
+  } finally {
+    stopHeartbeat()
   }
 }
 
@@ -776,6 +792,7 @@ async function handleProduce(videoId: string) {
 
   await updateStatus(videoId, 'producing')
   await logJob(videoId, 'produce', 'running')
+  const stopHeartbeat = startHeartbeat(videoId)
 
   try {
     // Step 1: If no transcript, queue transcribe + delayed re-produce
@@ -876,6 +893,8 @@ async function handleProduce(videoId: string) {
     console.error(`[produce] FAIL:`, err.message)
     await updateStatus(videoId, 'error', err.message)
     await logJob(videoId, 'produce', 'failed', undefined, err.message)
+  } finally {
+    stopHeartbeat()
   }
 }
 
