@@ -137,7 +137,7 @@ export default function YouTubePage() {
     setLoading(true)
     const { data } = await sb
       .from('yt_videos')
-      .select('id, yt_video_id, current_title, current_thumbnail, duration_seconds, published_at, view_count, like_count, status, ai_score, is_approved, is_published_back, generated_title, privacy_status')
+      .select('id, yt_video_id, current_title, current_thumbnail, current_description, duration_seconds, published_at, view_count, like_count, status, ai_score, is_approved, is_published_back, generated_title, generated_description, privacy_status, guest_name, guest_title, parent_video_id, shorts_status')
       .eq('channel_id', activeChannelDbId)
       .order('published_at', { ascending: false })
     setAllVideos(data || [])
@@ -191,7 +191,7 @@ export default function YouTubePage() {
     activeTab === 'videos'   ? videos :
     activeTab === 'shorts'   ? shorts :
     activeTab === 'queue'    ? queue  : podcasts
-  const currentVideos = applyStatusFilter(currentVideosRaw)
+  const currentVideos = activeTab === 'shorts' ? currentVideosRaw : applyStatusFilter(currentVideosRaw)
 
   const STATUS_FILTERS = [
     { id: null, label: 'Все' },
@@ -304,8 +304,8 @@ export default function YouTubePage() {
           </div>
         </div>
 
-        {/* Status filter */}
-        <div className="flex gap-1.5 mb-4 flex-wrap">
+        {/* Status filter (hidden for shorts — ShortsEditor has own filters) */}
+        {activeTab !== 'shorts' && <div className="flex gap-1.5 mb-4 flex-wrap">
           {STATUS_FILTERS.map(f => {
             const isActive = statusFilter === f.id
             return (
@@ -322,7 +322,7 @@ export default function YouTubePage() {
               </button>
             )
           })}
-        </div>
+        </div>}
 
         {/* Content */}
         <motion.div
@@ -340,7 +340,7 @@ export default function YouTubePage() {
                 : 'Подключите Supabase для начала работы.'}
             </div>
           ) : activeTab === 'shorts' ? (
-            <ShortsGrid videos={currentVideos} />
+            <ShortsEditor videos={currentVideos as ShortItem[]} channelId={activeYtChannelId} channelDbId={activeChannelDbId} onReload={loadVideos} />
           ) : (
             <VideoGrid videos={currentVideos} />
           )}
@@ -403,41 +403,351 @@ function VideoGrid({ videos }: { videos: VideoItem[] }) {
   )
 }
 
-function ShortsGrid({ videos }: { videos: VideoItem[] }) {
+type ShortItem = VideoItem & {
+  generated_description?: string | null
+  guest_name?: string | null
+  guest_title?: string | null
+  parent_video_id?: string | null
+  shorts_status?: string | null
+  current_description?: string | null
+}
+
+type PodcastOption = { id: string; yt_video_id: string; current_title: string }
+
+function ShortsEditor({
+  videos, channelId, channelDbId, onReload,
+}: {
+  videos: ShortItem[]
+  channelId: string | null
+  channelDbId: string | null
+  onReload: () => void
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [edits, setEdits] = useState<Record<string, Partial<ShortItem>>>({})
+  const [saving, setSaving] = useState(false)
+  const [linking, setLinking] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [statusFilter, setShortsStatusFilter] = useState<string | null>(null)
+  const [podcasts, setPodcasts] = useState<PodcastOption[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    if (!channelDbId) return
+    const sb = getSupabase()
+    if (!sb) return
+    sb.from('yt_videos')
+      .select('id, yt_video_id, current_title')
+      .eq('channel_id', channelDbId)
+      .gt('duration_seconds', 180)
+      .order('published_at', { ascending: false })
+      .then(({ data }) => setPodcasts(data ?? []))
+  }, [channelDbId])
+
+  const filteredVideos = statusFilter
+    ? videos.filter(v => (v.shorts_status ?? 'pending') === statusFilter)
+    : videos
+
+  const searchFiltered = searchTerm
+    ? filteredVideos.filter(v =>
+        (v.current_title ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (v.generated_title ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (v.guest_name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : filteredVideos
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (selected.size === searchFiltered.length) setSelected(new Set())
+    else setSelected(new Set(searchFiltered.map(v => v.id)))
+  }
+
+  const setEdit = (id: string, field: string, value: string | null) => {
+    setEdits(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
+  }
+
+  async function handleAutoLink() {
+    if (!channelDbId) return
+    setLinking(true)
+    try {
+      const res = await fetch('/api/shorts/auto-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: channelDbId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`Привязано: ${data.linked}, уже было: ${data.already}, без связи: ${data.unmatched}`)
+        onReload()
+      } else alert('Ошибка: ' + data.error)
+    } finally { setLinking(false) }
+  }
+
+  async function handleBatchGenerate() {
+    if (!channelDbId) return
+    const ids = selected.size > 0 ? Array.from(selected) : undefined
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/shorts/batch-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: channelDbId, videoIds: ids }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`В очереди: ${data.queued} шортсов`)
+      } else alert('Ошибка: ' + data.error)
+    } finally { setGenerating(false) }
+  }
+
+  async function handleSaveEdits() {
+    const updates = Object.entries(edits).map(([id, fields]) => ({ id, ...fields }))
+    if (!updates.length) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/shorts/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setEdits({})
+        onReload()
+      } else alert('Ошибка: ' + data.error)
+    } finally { setSaving(false) }
+  }
+
+  async function handleBatchPublish() {
+    const ids = Array.from(selected)
+    if (!ids.length) { alert('Выберите шортсы для публикации'); return }
+    if (!confirm(`Опубликовать ${ids.length} шортсов на YouTube?`)) return
+    setPublishing(true)
+    try {
+      const res = await fetch('/api/shorts/batch-publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoIds: ids }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`В очереди на публикацию: ${data.queued}`)
+        setSelected(new Set())
+        onReload()
+      } else alert('Ошибка: ' + data.error)
+    } finally { setPublishing(false) }
+  }
+
+  async function handleBatchApprove() {
+    const ids = Array.from(selected)
+    if (!ids.length) return
+    const updates = ids.map(id => ({ id, shorts_status: 'approved', is_approved: true }))
+    setSaving(true)
+    try {
+      await fetch('/api/shorts/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      })
+      setSelected(new Set())
+      onReload()
+    } finally { setSaving(false) }
+  }
+
+  const counts = {
+    pending: videos.filter(v => (v.shorts_status ?? 'pending') === 'pending').length,
+    generated: videos.filter(v => v.shorts_status === 'generated').length,
+    approved: videos.filter(v => v.shorts_status === 'approved').length,
+    published: videos.filter(v => v.shorts_status === 'published').length,
+    linked: videos.filter(v => v.parent_video_id).length,
+  }
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-      {videos.map(v => (
-        <Link key={v.id} href={`/youtube/${v.id}`}>
-        <Card className="group cursor-pointer hover:border-accent/30 transition-colors">
-          <div className="aspect-[9/16] bg-surface relative overflow-hidden">
-            {v.current_thumbnail ? (
-              <img src={v.current_thumbnail} className="w-full h-full object-cover" alt="" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Film className="w-8 h-8 text-dim" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-            {v.privacy_status === 'unlisted' && (
-              <div className="absolute top-1.5 left-1.5">
-                <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/70 text-amber-400 text-[9px] font-medium">
-                  <EyeOff className="w-2.5 h-2.5" />
-                </span>
-              </div>
-            )}
-            <div className="absolute bottom-2 left-2 right-2">
-              <div className="text-white text-[11px] font-medium line-clamp-2 leading-snug">
-                {v.current_title}
-              </div>
-              <div className="text-white/50 text-[10px] mt-1 flex items-center gap-2">
-                <span>{fmtViews(v.view_count)}</span>
-                <span>{fmtDuration(v.duration_seconds)}</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-        </Link>
-      ))}
+    <div className="space-y-4">
+      {/* Stats bar */}
+      <div className="flex items-center gap-4 text-xs text-muted">
+        <span>{videos.length} шортсов</span>
+        <span className="text-dim">|</span>
+        <span className="text-blue-400">{counts.linked} привязано</span>
+        <span className="text-dim">|</span>
+        <span className="text-purple">{counts.generated} сгенерировано</span>
+        <span className="text-dim">|</span>
+        <span className="text-warn">{counts.approved} одобрено</span>
+        <span className="text-dim">|</span>
+        <span className="text-green">{counts.published} опубликовано</span>
+      </div>
+
+      {/* Actions bar */}
+      <div className="flex flex-wrap gap-2">
+        <button onClick={handleAutoLink} disabled={linking}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 disabled:opacity-50 transition-colors">
+          {linking ? 'Привязка...' : 'Привязать к подкастам'}
+        </button>
+        <button onClick={handleBatchGenerate} disabled={generating}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-purple/10 text-purple border border-purple/20 hover:bg-purple/20 disabled:opacity-50 transition-colors">
+          {generating ? 'В очереди...' : selected.size > 0 ? `Сгенерировать (${selected.size})` : 'Сгенерировать все'}
+        </button>
+        {selected.size > 0 && (
+          <>
+            <button onClick={handleBatchApprove} disabled={saving}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-warn/10 text-warn border border-warn/20 hover:bg-warn/20 disabled:opacity-50 transition-colors">
+              Одобрить ({selected.size})
+            </button>
+            <button onClick={handleBatchPublish} disabled={publishing}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green/10 text-green border border-green/20 hover:bg-green/20 disabled:opacity-50 transition-colors">
+              {publishing ? 'Публикация...' : `Опубликовать (${selected.size})`}
+            </button>
+          </>
+        )}
+        {Object.keys(edits).length > 0 && (
+          <button onClick={handleSaveEdits} disabled={saving}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 disabled:opacity-50 transition-colors">
+            {saving ? 'Сохранение...' : `Сохранить изменения (${Object.keys(edits).length})`}
+          </button>
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1.5">
+          {[
+            { id: null, label: 'Все', count: videos.length },
+            { id: 'pending', label: 'Ожидает', count: counts.pending },
+            { id: 'generated', label: 'Сгенерировано', count: counts.generated },
+            { id: 'approved', label: 'Одобрено', count: counts.approved },
+            { id: 'published', label: 'Опубликовано', count: counts.published },
+          ].map(f => (
+            <button key={f.id ?? 'all'} onClick={() => setShortsStatusFilter(f.id)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                statusFilter === f.id
+                  ? 'bg-accent/15 text-accent border border-accent/30'
+                  : 'bg-surface text-muted border border-border hover:text-cream'
+              }`}>
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+        <div className="flex-1" />
+        <input
+          type="text"
+          placeholder="Поиск по заголовку, гостю..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          className="px-3 py-1.5 rounded-lg text-xs bg-surface border border-border text-cream placeholder:text-dim focus:outline-none focus:border-accent/50 w-64"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="border border-border rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-surface border-b border-border text-muted">
+              <th className="w-8 px-2 py-2">
+                <input type="checkbox" checked={selected.size === searchFiltered.length && searchFiltered.length > 0}
+                  onChange={toggleAll} className="rounded border-border accent-accent" />
+              </th>
+              <th className="px-3 py-2 text-left font-medium">Текущий заголовок</th>
+              <th className="px-3 py-2 text-left font-medium w-[300px]">Новый заголовок</th>
+              <th className="px-3 py-2 text-left font-medium w-[140px]">Гость</th>
+              <th className="px-3 py-2 text-left font-medium w-[180px]">Подкаст</th>
+              <th className="px-3 py-2 text-center font-medium w-16">Просм.</th>
+              <th className="px-3 py-2 text-center font-medium w-20">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {searchFiltered.map(v => {
+              const edited = edits[v.id] ?? {}
+              const shortsStatus = (edited.shorts_status as string) ?? v.shorts_status ?? 'pending'
+              const statusColors: Record<string, string> = {
+                pending: 'bg-surface text-muted',
+                generated: 'bg-purple/10 text-purple',
+                approved: 'bg-warn/10 text-warn',
+                published: 'bg-green/10 text-green',
+              }
+              const parentPodcast = podcasts.find(p => p.id === (edited.parent_video_id as string ?? v.parent_video_id))
+
+              return (
+                <tr key={v.id} className="border-b border-border/50 hover:bg-surface/50 transition-colors">
+                  <td className="px-2 py-2 text-center">
+                    <input type="checkbox" checked={selected.has(v.id)}
+                      onChange={() => toggleSelect(v.id)} className="rounded border-border accent-accent" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <a href={`https://youtube.com/shorts/${v.yt_video_id}`} target="_blank" rel="noopener"
+                      className="text-cream hover:text-accent transition-colors line-clamp-2 leading-snug">
+                      {v.current_title}
+                    </a>
+                    <div className="text-dim mt-0.5">{fmtDuration(v.duration_seconds)}</div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="text"
+                      value={(edited.generated_title as string) ?? v.generated_title ?? ''}
+                      onChange={e => setEdit(v.id, 'generated_title', e.target.value)}
+                      placeholder="AI сгенерирует..."
+                      className="w-full px-2 py-1 rounded text-xs bg-bg border border-border text-cream placeholder:text-dim focus:outline-none focus:border-accent/50"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="text"
+                      value={(edited.guest_name as string) ?? v.guest_name ?? ''}
+                      onChange={e => setEdit(v.id, 'guest_name', e.target.value)}
+                      placeholder="Имя гостя"
+                      className="w-full px-2 py-1 rounded text-[11px] bg-bg border border-border text-cream placeholder:text-dim focus:outline-none focus:border-accent/50 mb-0.5"
+                    />
+                    <input
+                      type="text"
+                      value={(edited.guest_title as string) ?? v.guest_title ?? ''}
+                      onChange={e => setEdit(v.id, 'guest_title', e.target.value)}
+                      placeholder="регалия"
+                      className="w-full px-2 py-1 rounded text-[11px] bg-bg border border-border text-dim placeholder:text-dim focus:outline-none focus:border-accent/50"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select
+                      value={(edited.parent_video_id as string) ?? v.parent_video_id ?? ''}
+                      onChange={e => setEdit(v.id, 'parent_video_id', e.target.value || null)}
+                      className="w-full px-2 py-1 rounded text-[11px] bg-bg border border-border text-cream focus:outline-none focus:border-accent/50"
+                    >
+                      <option value="">— нет —</option>
+                      {podcasts.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {(p.current_title ?? '').slice(0, 50)}
+                        </option>
+                      ))}
+                    </select>
+                    {parentPodcast && (
+                      <a href={`https://youtube.com/watch?v=${parentPodcast.yt_video_id}`} target="_blank" rel="noopener"
+                        className="text-[10px] text-dim hover:text-accent mt-0.5 block truncate">
+                        {parentPodcast.current_title?.slice(0, 40)}
+                      </a>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center text-muted">{fmtViews(v.view_count)}</td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColors[shortsStatus] ?? statusColors.pending}`}>
+                      {shortsStatus === 'pending' ? 'ожидает' :
+                       shortsStatus === 'generated' ? 'готово' :
+                       shortsStatus === 'approved' ? 'одобрено' : 'опубл.'}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {searchFiltered.length === 0 && (
+        <div className="text-center text-muted text-sm py-8">Нет шортсов для отображения</div>
+      )}
     </div>
   )
 }

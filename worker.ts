@@ -1219,6 +1219,112 @@ async function handleNewsletterStats() {
   }
 }
 
+// --- Generate Short Title ---
+
+async function handleGenerateShortTitle(videoId: string) {
+  const video = await getVideo(videoId)
+  const channel = await getChannel(video.channel_id)
+
+  // Step 1: Get transcript if missing — use YouTube Captions API
+  let transcript = video.transcript
+  if (!transcript) {
+    try {
+      if (channel.refresh_token && !channel.needs_reauth) {
+        const accessToken = await getChannelAccessToken(video.channel_id)
+        const segs = await fetchYouTubeCaptions(video.yt_video_id, accessToken)
+        if (segs?.length) {
+          transcript = segs.map(s => s.text).join(' ')
+          await supabase.from('yt_videos').update({
+            transcript,
+            transcript_chunks: segs,
+          }).eq('id', videoId)
+        }
+      }
+    } catch (err: any) {
+      console.log(`[short_title] Captions error for ${video.yt_video_id}: ${err.message}`)
+    }
+  }
+
+  // Step 2: Get parent video info for guest name / link
+  let parentTitle = ''
+  let parentYtId = ''
+  if (video.parent_video_id) {
+    try {
+      const parent = await getVideo(video.parent_video_id)
+      parentTitle = parent.current_title ?? ''
+      parentYtId = parent.yt_video_id
+    } catch {}
+  }
+
+  const guestName = video.guest_name ?? extractGuestFromTitle(video.current_title ?? '')
+  const rules = channel.rules ?? {}
+
+  // Step 3: Claude generates new title + description
+  const prompt = `Ты оптимизируешь заголовки YouTube Shorts.
+
+Текущий заголовок: "${video.current_title}"
+${transcript ? `Субтитры (что говорится в шортсе): "${transcript.slice(0, 1500)}"` : ''}
+${guestName ? `Имя гостя: ${guestName}` : ''}
+${video.guest_title ? `Регалия гостя: ${video.guest_title}` : ''}
+${parentTitle ? `Родительский подкаст: "${parentTitle}"` : ''}
+
+Формат заголовка (СТРОГО):
+Суть момента — Имя Гостя, регалия #shorts
+
+Примеры хороших заголовков:
+- Почему стартапы умирают — Иван Петров, предприниматель #shorts
+- Три элемента счастливой жизни — Алексей Красиков, психолог #shorts
+- Netflix для снов — Илья Блозин, кубик сна deep #shorts
+
+Правила:
+- Заголовок должен передавать СУТЬ того, о чём говорится в видео
+- Используй субтитры чтобы понять суть, не копируй текущий заголовок
+- Если регалия неизвестна, определи из контекста (психолог, предприниматель, учёный, etc.)
+- Максимум 90 символов включая #shorts
+- Заголовок на русском
+
+Верни JSON:
+{
+  "title": "Новый заголовок #shorts",
+  "guest_name": "Имя Фамилия",
+  "guest_title": "регалия",
+  "description": "Краткое описание (1-2 предложения)\\n\\n${parentYtId ? `Полное интервью: https://youtube.com/watch?v=${parentYtId}` : ''}\\n${(rules.required_links ?? []).join('\\n')}\\n${(rules.hashtags_fixed ?? []).join(' ')}"
+}`
+
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 500,
+    messages: [{ role: 'user', content: prompt }],
+  })
+
+  const text = response.content[0].type === 'text' ? response.content[0].text : ''
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error('Claude returned no JSON')
+
+  const result = JSON.parse(jsonMatch[0])
+
+  await supabase.from('yt_videos').update({
+    generated_title: result.title,
+    generated_description: result.description,
+    guest_name: result.guest_name || guestName,
+    guest_title: result.guest_title || video.guest_title,
+    shorts_status: 'generated',
+  }).eq('id', videoId)
+
+  console.log(`[short_title] ${video.yt_video_id}: "${result.title}"`)
+}
+
+function extractGuestFromTitle(title: string): string | null {
+  const clean = title.replace(/#\S+/g, '').replace(/[^\p{L}\p{N}\s:—–\-,]/gu, '').trim()
+  const dashMatch = clean.match(/[—–-]\s*([А-ЯЁA-Z][а-яёa-z]+\s+[А-ЯЁA-Z][а-яёa-z]+)/)
+  if (dashMatch) return dashMatch[1].trim()
+  const colonMatch = clean.match(/^([А-ЯЁA-Z][а-яёa-z]+\s+[А-ЯЁA-Z][а-яёa-z]+)\s*:/)
+  if (colonMatch) return colonMatch[1].trim()
+  const withMatch = clean.match(/(?:с|c)\s+([А-ЯЁA-Z][а-яёa-z]+(?:\s+[А-ЯЁA-Z][а-яёa-z]+)+)/)
+  if (withMatch) return withMatch[1].trim()
+  return null
+}
+
 // --- Worker ---
 
 const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> = {
@@ -1231,6 +1337,7 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   process_clip: (videoId, data) => handleProcessClip(videoId, data),
   telegram_send: (_videoId, data) => handleTelegramSend(data?.postId),
   newsletter_stats: () => handleNewsletterStats(),
+  generate_short_title: handleGenerateShortTitle,
 }
 
 // --- Stale job cleanup ---
