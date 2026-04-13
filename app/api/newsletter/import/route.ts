@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getCampaigns, getCampaignStats } from '@/lib/unisender'
+import { getCampaigns, getCampaignStats, getMessage } from '@/lib/unisender'
 import { getSession } from '@/lib/session'
+
+const MIN_DATE = '2026-04-13' // Only import campaigns from this date
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
 
   try {
-    const campaigns = await getCampaigns(50)
+    const campaigns = await getCampaigns(100)
     const session = await getSession()
     const projectId = session.activeProjectId ?? null
 
@@ -17,6 +19,9 @@ export async function POST(req: NextRequest) {
 
     for (const camp of campaigns) {
       if (camp.status !== 'completed' && camp.status !== 'analysed') continue
+
+      // Filter by date
+      if (camp.start_time < MIN_DATE) continue
 
       // Check if already imported
       const { data: existing } = await supabaseAdmin
@@ -27,13 +32,20 @@ export async function POST(req: NextRequest) {
 
       if (existing) continue
 
+      // Fetch message body
+      let bodyHtml = ''
+      try {
+        const msg = await getMessage(camp.message_id)
+        bodyHtml = msg.body ?? ''
+      } catch { /* body may not be available */ }
+
       // Create issue
-      const issueNumber = imported + 1
       const { data: issue } = await supabaseAdmin
         .from('nl_issues')
         .insert({
           subject: camp.subject,
-          tag: 'Импорт',
+          tag: '',
+          body_html: bodyHtml,
           status: 'sent',
           sent_at: camp.start_time ? new Date(camp.start_time + 'Z').toISOString() : null,
           issue_number: null,
@@ -56,9 +68,8 @@ export async function POST(req: NextRequest) {
         clickRate = stats.delivered > 0
           ? Math.round((stats.clicked_unique / stats.delivered) * 10000) / 100
           : 0
-      } catch { /* some old campaigns may not have stats */ }
+      } catch { /* some campaigns may not have stats yet */ }
 
-      // Create campaign record
       await supabaseAdmin
         .from('nl_campaigns')
         .insert({

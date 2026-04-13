@@ -224,7 +224,11 @@ export default function NewsletterPage() {
                 <div
                   key={issue.id}
                   className="w-full flex items-center gap-4 p-4 bg-surface border border-border rounded-xl hover:border-accent/30 transition-colors text-left cursor-pointer"
-                  onClick={() => router.push(`/newsletter/editor/${issue.id}`)}
+                  onClick={() => router.push(
+                    issue.status === 'sent'
+                      ? `/newsletter/view/${issue.id}`
+                      : `/newsletter/editor/${issue.id}`
+                  )}
                 >
                   <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center text-sm font-bold shrink-0">
                     {issue.issue_number ?? '#'}

@@ -171,3 +171,18 @@ interface CampaignListItem {
 export async function getCampaigns(limit = 50): Promise<CampaignListItem[]> {
   return call<CampaignListItem[]>('getCampaigns', { limit })
 }
+
+// --- Message content ---
+
+interface MessageResult {
+  id: number
+  subject: string
+  body: string
+  sender_name: string
+  sender_email: string
+}
+
+export async function getMessage(messageId: number): Promise<MessageResult> {
+  const result = await call<MessageResult | MessageResult[]>('getMessage', { id: messageId })
+  return Array.isArray(result) ? result[0] : result
+}
