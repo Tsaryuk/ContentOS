@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     let imported = 0
 
     for (const camp of campaigns) {
-      if (camp.status !== 'completed') continue
+      if (camp.status !== 'completed' && camp.status !== 'analysed') continue
 
       // Check if already imported
       const { data: existing } = await supabaseAdmin
