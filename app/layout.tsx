@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { Sidebar } from '@/components/layout/Sidebar'
+import { LayoutShell } from '@/components/layout/LayoutShell'
 
 export const metadata: Metadata = {
   title: 'ContentOS',
@@ -26,12 +26,7 @@ export default function RootLayout({
           } catch(e) {}
         ` }} />
       </head>
-      <body className="antialiased flex h-screen overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </body>
+      <LayoutShell>{children}</LayoutShell>
     </html>
   )
 }

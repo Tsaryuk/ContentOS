@@ -43,6 +43,9 @@ const OTHER_PLATFORMS: { platform: Platform; label: string; icon: React.ReactNod
 
 export function Sidebar() {
   const pathname = usePathname()
+
+  // Hide sidebar on public pages (letters.tsaryuk.ru)
+  if (pathname.startsWith('/letters')) return null
   const router = useRouter()
   const [hovered, setHovered] = useState<string | null>(null)
   const [ytChannels, setYtChannels] = useState<YtChannel[]>([])
