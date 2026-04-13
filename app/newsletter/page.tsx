@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Mail, Loader2, RefreshCw, Users, Eye, MousePointer, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, Mail, Loader2, RefreshCw, Users, Eye, MousePointer, TrendingUp, TrendingDown, Download } from 'lucide-react'
 
 interface Campaign {
   total_sent: number
@@ -32,6 +32,7 @@ export default function NewsletterPage() {
   const [issues, setIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
+  const [importing, setImporting] = useState(false)
 
   const fetchIssues = useCallback(async () => {
     const res = await fetch('/api/newsletter/issues')
@@ -98,6 +99,25 @@ export default function NewsletterPage() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              if (importing) return
+              setImporting(true)
+              try {
+                const res = await fetch('/api/newsletter/import', { method: 'POST' })
+                const data = await res.json()
+                if (data.imported > 0) fetchIssues()
+              } finally {
+                setImporting(false)
+              }
+            }}
+            disabled={importing}
+            className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream disabled:opacity-50 flex items-center gap-1.5"
+            title="Импорт кампаний из Unisender"
+          >
+            {importing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+            Импорт
+          </button>
           <button
             onClick={() => { fetchIssues(); fetchStats() }}
             className="p-2 text-dim hover:text-muted transition-colors"

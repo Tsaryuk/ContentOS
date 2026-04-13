@@ -144,12 +144,30 @@ export async function subscribe(email: string, name?: string, listId?: number): 
 }
 
 interface ContactCountResult {
-  count: number
+  count: string
 }
 
 export async function getContactCount(listId?: number): Promise<number> {
   const result = await call<ContactCountResult>('getContactCount', {
     list_id: listId ?? getListId(),
+    'params[type]': 'address',
   })
-  return result.count
+  return parseInt(result.count, 10) || 0
+}
+
+// --- Campaigns list ---
+
+interface CampaignListItem {
+  id: number
+  start_time: string
+  status: string
+  message_id: number
+  list_id: number
+  subject: string
+  sender_name: string
+  sender_email: string
+}
+
+export async function getCampaigns(limit = 50): Promise<CampaignListItem[]> {
+  return call<CampaignListItem[]>('getCampaigns', { limit })
 }

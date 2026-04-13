@@ -6,6 +6,7 @@ import { HeroMetrics } from '@/components/dashboard/HeroMetrics'
 import { FilterTabs } from '@/components/dashboard/FilterTabs'
 import { ChannelGrid } from '@/components/dashboard/ChannelGrid'
 import { AiInsightsBar } from '@/components/dashboard/AiInsightsBar'
+import { NewsletterWidget } from '@/components/dashboard/NewsletterWidget'
 import { Channel, PLATFORM_LABELS, getUniquePlatforms, aggregateMetrics } from '@/lib/channels'
 
 function getSupabase() {
@@ -193,6 +194,11 @@ export default function DashboardPage() {
           <a href="/settings" className="text-accent underline">Добавить в настройках</a>
         </div>
       )}
+
+      {/* Newsletter Widget */}
+      <div className="mb-6">
+        <NewsletterWidget />
+      </div>
 
       {/* AI Insights */}
       <AiInsightsBar />
