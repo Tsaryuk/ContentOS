@@ -38,7 +38,6 @@ const OTHER_PLATFORMS: { platform: Platform; label: string; icon: React.ReactNod
   { platform: 'instagram', label: 'Instagram', icon: <Camera className="w-4 h-4" /> },
   { platform: 'tiktok',   label: 'TikTok',    icon: <TikTokIcon /> },
   { platform: 'threads',  label: 'Threads',   icon: <ThreadsIcon /> },
-  { platform: 'email',    label: 'Email',      icon: <Mail className="w-4 h-4" /> },
   { platform: 'website',  label: 'Сайт',       icon: <Globe className="w-4 h-4" /> },
 ]
 
@@ -82,6 +81,7 @@ export function Sidebar() {
   const isCarousels = pathname.startsWith('/carousels')
   const isTasks = pathname.startsWith('/tasks')
   const isTelegram = pathname.startsWith('/telegram')
+  const isNewsletter = pathname.startsWith('/newsletter')
 
   // Static channels for non-YT platforms
   const staticChannelsByPlatform = (platform: Platform) =>
@@ -200,6 +200,17 @@ export function Sidebar() {
       >
         <Send className="w-4 h-4 shrink-0" />
         <span className="text-xs font-medium">Telegram</span>
+      </Link>
+
+      {/* Newsletter */}
+      <Link
+        href="/newsletter"
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
+          isNewsletter ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+        }`}
+      >
+        <Mail className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-medium">Рассылка</span>
       </Link>
 
       {/* Other platforms */}

@@ -114,12 +114,12 @@ export const CHANNELS: Channel[] = [
   },
   {
     id: 'email-unisender',
-    name: 'Email рассылка',
+    name: 'Стратегия Жизни',
     platform: 'email',
     slug: 'email',
-    connected: false,
+    connected: true,
     metrics: null,
-    href: '#',
+    href: '/newsletter',
   },
   {
     id: 'web-tsaryuk',

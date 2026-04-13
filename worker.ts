@@ -1133,6 +1133,92 @@ async function handleTelegramSend(postId: string) {
   await sendTelegramPost(postId)
 }
 
+// --- Newsletter Stats ---
+
+async function handleNewsletterStats() {
+  console.log('[newsletter_stats] Fetching campaign stats...')
+
+  const { data: campaigns } = await supabase
+    .from('nl_campaigns')
+    .select('id, unisender_campaign_id, issue_id')
+    .in('status', ['scheduled', 'sent'])
+    .not('unisender_campaign_id', 'is', null)
+
+  if (!campaigns || campaigns.length === 0) {
+    console.log('[newsletter_stats] No campaigns to update')
+    return
+  }
+
+  const API_BASE = 'https://api.unisender.com/ru/api'
+  const apiKey = process.env.UNISENDER_API_KEY
+  if (!apiKey) {
+    console.log('[newsletter_stats] UNISENDER_API_KEY not set, skipping')
+    return
+  }
+
+  for (const campaign of campaigns) {
+    try {
+      // Check campaign status
+      const statusRes = await fetch(
+        `${API_BASE}/getCampaignStatus?format=json&api_key=${apiKey}&campaign_id=${campaign.unisender_campaign_id}`
+      )
+      const statusData = await statusRes.json()
+      const campStatus = statusData.result?.status
+
+      if (campStatus === 'completed' || campStatus === 'analysed') {
+        // Fetch stats
+        const statsRes = await fetch(
+          `${API_BASE}/getCampaignCommonStats?format=json&api_key=${apiKey}&campaign_id=${campaign.unisender_campaign_id}`
+        )
+        const statsData = await statsRes.json()
+        const stats = statsData.result
+
+        if (stats) {
+          const openRate = stats.delivered > 0
+            ? Math.round((stats.read_unique / stats.delivered) * 10000) / 100
+            : 0
+          const clickRate = stats.delivered > 0
+            ? Math.round((stats.clicked_unique / stats.delivered) * 10000) / 100
+            : 0
+
+          await supabase
+            .from('nl_campaigns')
+            .update({
+              status: 'sent',
+              total_sent: stats.sent,
+              total_delivered: stats.delivered,
+              total_opened: stats.read_unique,
+              total_clicked: stats.clicked_unique,
+              total_unsubscribed: stats.unsubscribed,
+              open_rate: openRate,
+              click_rate: clickRate,
+              raw_stats: stats,
+              stats_fetched_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', campaign.id)
+
+          // Update issue status
+          await supabase
+            .from('nl_issues')
+            .update({
+              status: 'sent',
+              sent_at: statusData.result.start_time
+                ? new Date(statusData.result.start_time + 'Z').toISOString()
+                : new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', campaign.issue_id)
+
+          console.log(`[newsletter_stats] Updated campaign ${campaign.unisender_campaign_id}: OR=${openRate}% CR=${clickRate}%`)
+        }
+      }
+    } catch (err: any) {
+      console.error(`[newsletter_stats] Error for campaign ${campaign.unisender_campaign_id}:`, err.message)
+    }
+  }
+}
+
 // --- Worker ---
 
 const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> = {
@@ -1144,6 +1230,7 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   analyze_clips: handleAnalyzeClips,
   process_clip: (videoId, data) => handleProcessClip(videoId, data),
   telegram_send: (_videoId, data) => handleTelegramSend(data?.postId),
+  newsletter_stats: () => handleNewsletterStats(),
 }
 
 // --- Stale job cleanup ---
@@ -1236,5 +1323,18 @@ worker.on('completed', (job) => {
 // Cleanup stale jobs on start and every 5 minutes
 cleanupStaleJobs()
 setInterval(cleanupStaleJobs, 5 * 60 * 1000)
+
+// Newsletter stats cron — every 6 hours
+const nlQueue = new Queue('contentos', { connection: redis })
+async function scheduleNewsletterStats() {
+  try {
+    await nlQueue.add('newsletter_stats', {}, {
+      repeat: { every: 6 * 60 * 60 * 1000 },
+      jobId: 'newsletter_stats_cron',
+    })
+    console.log('[worker] Newsletter stats cron scheduled (every 6h)')
+  } catch {}
+}
+scheduleNewsletterStats()
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')
