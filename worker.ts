@@ -51,10 +51,10 @@ const supabase = createClient(
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
-// Retry wrapper for Claude API (handles 529 overloaded errors)
+// Retry wrapper for Claude API (handles 529 overloaded, 429 rate limit, timeouts)
 async function claudeWithRetry(
   params: Parameters<typeof anthropic.messages.create>[0],
-  maxRetries = 2,
+  maxRetries = 4,
   timeoutMs = 180000, // 3 min timeout per attempt
   onRetry?: (attempt: number, maxRetries: number, reason: string) => void,
 ): Promise<any> {
@@ -69,21 +69,27 @@ async function claudeWithRetry(
       return result
     } catch (err: any) {
       const status = err?.status ?? err?.error?.status
-      if (err?.message === 'TIMEOUT') {
-        console.log(`[claude] Timeout after ${timeoutMs / 1000}s, attempt ${attempt}/${maxRetries}`)
-        if (attempt < maxRetries) {
-          onRetry?.(attempt + 1, maxRetries, 'timeout')
-          continue
-        }
-        throw new Error(`Claude API timeout after ${maxRetries} attempts`)
-      }
-      if ((status === 529 || status === 429 || err?.message?.includes('Overloaded') || err?.message?.includes('rate_limit')) && attempt < maxRetries) {
-        const delay = status === 429 ? 60000 * attempt : 30000 * attempt
-        console.log(`[claude] ${status} rate limit, retry ${attempt}/${maxRetries} in ${delay / 1000}s...`)
-        onRetry?.(attempt + 1, maxRetries, `${status} rate limit`)
+      const isRetryable =
+        err?.message === 'TIMEOUT' ||
+        status === 529 || status === 429 || status === 500 || status === 503 ||
+        err?.message?.includes('Overloaded') || err?.message?.includes('rate_limit')
+
+      if (isRetryable && attempt < maxRetries) {
+        // Exponential backoff: 429 waits longer, 529 moderate, timeout short
+        const baseDelay = status === 429 ? 60000 : status === 529 ? 30000 : 15000
+        const delay = baseDelay * attempt
+        const reason = err?.message === 'TIMEOUT' ? 'timeout' : `${status} ${err?.error?.type ?? 'error'}`
+        console.log(`[claude] ${reason}, retry ${attempt}/${maxRetries} in ${delay / 1000}s...`)
+        onRetry?.(attempt + 1, maxRetries, reason)
         await new Promise(r => setTimeout(r, delay))
         continue
       }
+
+      // Human-readable error for common failures
+      if (status === 529) throw new Error('Claude API перегружен. Попробуйте позже.')
+      if (status === 429) throw new Error('Превышен лимит запросов к Claude API. Попробуйте через минуту.')
+      if (err?.message === 'TIMEOUT') throw new Error(`Claude API не ответил за ${timeoutMs / 1000}с после ${maxRetries} попыток.`)
+      if (err?.message?.includes('credit balance')) throw new Error('Баланс Anthropic API исчерпан. Пополните счёт на console.anthropic.com.')
       throw err
     }
   }
