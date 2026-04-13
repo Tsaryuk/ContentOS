@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Mail, Loader2, RefreshCw, Users, Eye, MousePointer, TrendingUp, TrendingDown, Download } from 'lucide-react'
+import { Plus, Mail, Loader2, RefreshCw, Users, Eye, MousePointer, TrendingUp, TrendingDown, Download, Trash2 } from 'lucide-react'
 
 interface Campaign {
   total_sent: number
@@ -33,6 +33,23 @@ export default function NewsletterPage() {
   const [loading, setLoading] = useState(true)
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
   const [importing, setImporting] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  async function handleDelete(issueId: string) {
+    if (!confirm('Удалить этот выпуск?')) return
+    setDeleting(issueId)
+    await fetch(`/api/newsletter/issues/${issueId}`, { method: 'DELETE' })
+    setDeleting(null)
+    fetchIssues()
+  }
+
+  async function handleDeleteAll() {
+    if (!confirm(`Удалить все ${issues.length} выпусков? Это действие необратимо.`)) return
+    for (const issue of issues) {
+      await fetch(`/api/newsletter/issues/${issue.id}`, { method: 'DELETE' })
+    }
+    fetchIssues()
+  }
 
   const fetchIssues = useCallback(async () => {
     const res = await fetch('/api/newsletter/issues')
@@ -118,6 +135,15 @@ export default function NewsletterPage() {
             {importing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
             Импорт
           </button>
+          {issues.length > 0 && (
+            <button
+              onClick={handleDeleteAll}
+              className="px-3 py-1.5 border border-red-500/20 rounded-lg text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3 h-3" />
+              Удалить все
+            </button>
+          )}
           <button
             onClick={() => { fetchIssues(); fetchStats() }}
             className="p-2 text-dim hover:text-muted transition-colors"
@@ -195,10 +221,10 @@ export default function NewsletterPage() {
               const prevCampaign = prevIssue?.campaign?.[0]
 
               return (
-                <button
+                <div
                   key={issue.id}
+                  className="w-full flex items-center gap-4 p-4 bg-surface border border-border rounded-xl hover:border-accent/30 transition-colors text-left cursor-pointer"
                   onClick={() => router.push(`/newsletter/editor/${issue.id}`)}
-                  className="w-full flex items-center gap-4 p-4 bg-surface border border-border rounded-xl hover:border-accent/30 transition-colors text-left"
                 >
                   <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center text-sm font-bold shrink-0">
                     {issue.issue_number ?? '#'}
@@ -248,7 +274,17 @@ export default function NewsletterPage() {
                       </div>
                     </div>
                   )}
-                </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(issue.id) }}
+                    disabled={deleting === issue.id}
+                    className="p-2 text-dim hover:text-red-400 transition-colors shrink-0"
+                    title="Удалить"
+                  >
+                    {deleting === issue.id
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Trash2 className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               )
             })}
           </div>
