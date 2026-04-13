@@ -219,11 +219,13 @@ Return ONLY valid JSON (no markdown, no \`\`\`):
 - Mix: 30% broad, 70% narrow.
 
 ### Timecodes (${timecodesCount} chapters)
-- Format "MM:SS" (or "HH:MM:SS" for >60 min videos)
+- Format: ALWAYS "H:MM:SS" for videos >60 min (e.g. "1:05:23"), "MM:SS" for shorter videos.
+- NEVER use MM>59 (e.g. "65:00" is WRONG, use "1:05:00").
+- CRITICAL: Extract EXACT timestamps from the transcript [MM:SS] markers. Do NOT round to :00. Use the precise time where each topic actually starts in the transcript.
 - Each label = SEO searchable keyword phrase (like article subheadings)
 - Proportionally distributed across ${durationMin} minutes
 - First always "00:00" with introductory heading
-- CRITICAL: Last timecode MUST NOT exceed ${Math.floor(durationMin / 60)}:${String(durationMin % 60).padStart(2, '0')}:00 (total video duration). Any timecode beyond this is invalid.
+- CRITICAL: Last timecode MUST NOT exceed video duration of ${durationMin} minutes.
 
 ### Thumbnail text
 - MAX 3 words (ideal 2). Max 20 characters.

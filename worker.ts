@@ -146,6 +146,31 @@ async function getVideo(videoId: string) {
   return data
 }
 
+/** Convert timecode to seconds (handles MM:SS, HH:MM:SS, and broken MM:SS where MM>59) */
+function tcToSecs(t: string): number {
+  const parts = t.split(':').map(Number)
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  // MM:SS where MM>59 means it's actually minutes (e.g. 65:00 = 65 min)
+  return parts[0] * 60 + (parts[1] ?? 0)
+}
+
+/** Fix timecodes: convert 65:00 -> 1:05:00, filter exceeding duration */
+function fixTimecodes(timecodes: { time: string; label: string }[], durationSecs: number): { time: string; label: string }[] {
+  return timecodes
+    .map(tc => {
+      const parts = tc.time.split(':').map(Number)
+      // Fix MM:SS where MM >= 60 -> H:MM:SS
+      if (parts.length === 2 && parts[0] >= 60) {
+        const h = Math.floor(parts[0] / 60)
+        const m = parts[0] % 60
+        const s = parts[1] ?? 0
+        return { ...tc, time: `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }
+      }
+      return tc
+    })
+    .filter(tc => durationSecs <= 0 || tcToSecs(tc.time) <= durationSecs)
+}
+
 async function getChannel(channelId: string) {
   const { data, error } = await supabase.from('yt_channels').select('*').eq('id', channelId).single()
   if (error || !data) throw new Error(`Channel not found: ${channelId}`)
@@ -541,19 +566,7 @@ async function handleGenerate(videoId: string) {
     const result = JSON.parse(jsonMatch[0])
     if (!result.title || !result.description) throw new Error('Missing required fields')
 
-    // Filter timecodes that exceed video duration
-    // Supports HH:MM:SS, HH:MM, MM:SS formats
-    function tcToSecs(t: string): number {
-      const parts = t.split(':').map(Number)
-      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
-      // HH:MM or MM:SS — disambiguate: if first part > 59, treat as H:MM
-      if (parts[0] > 59) return parts[0] * 3600 + parts[1] * 60
-      return parts[0] * 60 + (parts[1] ?? 0)
-    }
-    const dur = video.duration_seconds ?? 0
-    const validTimecodes = dur > 0
-      ? (result.timecodes ?? []).filter((tc: { time: string }) => tcToSecs(tc.time) <= dur)
-      : (result.timecodes ?? [])
+    const validTimecodes = fixTimecodes(result.timecodes ?? [], video.duration_seconds ?? 0)
 
     await supabase.from('yt_videos').update({
       generated_title: result.title,
@@ -849,7 +862,12 @@ async function handleProduce(videoId: string) {
       throw new Error('Missing required fields in producer output')
     }
 
-    console.log(`[produce] Got ${output.title_variants.length} titles, ${output.clip_suggestions?.length ?? 0} clips, ${output.short_suggestions?.length ?? 0} shorts`)
+    // Fix timecodes: convert 65:00 -> 1:05:00, filter exceeding duration
+    if (output.timecodes?.length) {
+      output.timecodes = fixTimecodes(output.timecodes, video.duration_seconds ?? 0)
+    }
+
+    console.log(`[produce] Got ${output.title_variants.length} titles, ${output.clip_suggestions?.length ?? 0} clips, ${output.short_suggestions?.length ?? 0} shorts, ${output.timecodes?.length ?? 0} timecodes`)
     await updateProgress(videoId, 'Сохранение результатов...')
 
     // Thumbnails: NOT auto-generated. User creates via Thumbnail Studio (fal.ai)
