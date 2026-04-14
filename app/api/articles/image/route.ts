@@ -30,16 +30,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'article_id обязателен' }, { status: 400 })
     }
 
-    const fullPrompt = `${STYLE_PREFIX} Scene: ${prompt}`
+    const fullPrompt = `${prompt}, ${STYLE_PREFIX} NEGATIVE: white border, white frame, white margins, vignette, rounded corners, signature, watermark, text, letters, logo, paper texture, decorative border`
 
-    const result = await fal.subscribe('fal-ai/flux/dev', {
+    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
       input: {
         prompt: fullPrompt,
-        image_size: { width: 1280, height: 720 },
+        aspect_ratio: '16:9',
+        resolution: '2K',
         num_images: 1,
-        num_inference_steps: 28,
-        guidance_scale: 3.5,
-      },
+        safety_tolerance: 5,
+      } as any,
     }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }
 
     const images = result?.data?.images ?? result?.images ?? []

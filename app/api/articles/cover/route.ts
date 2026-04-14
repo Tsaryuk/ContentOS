@@ -5,7 +5,10 @@ import { fal } from '@fal-ai/client'
 
 export const maxDuration = 120
 
-const DEFAULT_STYLE = `Black and white woodcut engraving illustration. Extreme full-bleed composition, image extends beyond the frame on all sides, content is cropped by the edges. NO white borders, NO white margins, NO vignette, NO rounded corners, NO frame, NO signature, NO watermark, NO artist signature, NO text, NO letters, NO numbers. The black ink extends all the way to pixels 0,0 and 1280,720 with no padding. Dense detailed crosshatching, fine parallel line work, deep shadows, high contrast. Dark atmospheric philosophical mood. Editorial illustration style of classic book engravings like those of Gustave Doré. Cinematic crop where subject is close to viewer, environment fills all corners with dense linework.`
+const DEFAULT_STYLE = `black and white woodcut engraving, dense crosshatching, fine parallel line work, deep shadows, high contrast, dark atmospheric mood, style of Gustave Doré, detailed ink illustration`
+
+// Negative prompt — removes unwanted artifacts common in AI-generated images
+const NEGATIVE_PROMPT = `white border, white frame, white margins, vignette, rounded corners, artist signature, watermark, text, letters, logo, paper texture, torn edges, frame within frame, decorative border, book cover layout`
 
 interface CoverRequest {
   title: string
@@ -27,21 +30,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const stylePrefix = style?.trim() || DEFAULT_STYLE
-    const scene = customPrompt?.trim() || `Scene depicting the concept: "${description || title}". Wide cinematic composition, 16:9 aspect ratio. Mood: contemplative, philosophical, mysterious. More abstract symbolism than literal representation.`
-    const prompt = `${stylePrefix} ${scene}`
+    const scene = customPrompt?.trim() || `${description || title}, wide cinematic composition, contemplative philosophical mood, abstract symbolism`
+    const prompt = `${scene}, ${stylePrefix}, edge-to-edge composition filling entire canvas`
 
-    const result = await fal.subscribe('fal-ai/flux/dev', {
+    // Using nano-banana (same model as YouTube thumbnails) — follows prompts
+    // precisely, handles full-bleed cleanly, no spurious white borders
+    const runNano = () => fal.subscribe('fal-ai/nano-banana-2/edit', {
       input: {
-        prompt,
-        image_size: { width: 1280, height: 720 },
-        num_images: 2,
-        num_inference_steps: 28,
-        guidance_scale: 3.5,
-      },
-    }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }
+        prompt: `${prompt} NEGATIVE: ${NEGATIVE_PROMPT}`,
+        aspect_ratio: '16:9',
+        resolution: '2K',
+        num_images: 1,
+        safety_tolerance: 5,
+      } as any,
+    }) as Promise<{ data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }>
 
-    const images = result?.data?.images ?? result?.images ?? []
-    const falUrls = images.map(img => img.url).filter(Boolean)
+    const results = await Promise.allSettled([runNano(), runNano()])
+    const falUrls: string[] = []
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        const imgs = r.value?.data?.images ?? r.value?.images ?? []
+        for (const img of imgs) if (img.url) falUrls.push(img.url)
+      }
+    }
 
     return NextResponse.json({ urls: falUrls, prompt })
   } catch (err: unknown) {
