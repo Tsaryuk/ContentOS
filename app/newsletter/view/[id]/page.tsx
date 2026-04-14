@@ -36,6 +36,7 @@ interface Issue {
   created_at: string
   category: string | null
   tags: string[]
+  blog_slug: string | null
   campaign: Campaign[]
 }
 
