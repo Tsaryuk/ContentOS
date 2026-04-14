@@ -14,6 +14,20 @@ interface ArticlePanelProps {
 
 type PreviewMode = 'edit' | 'desktop' | 'mobile'
 
+function stripEmailWrapper(html: string): string {
+  if (!html) return ''
+  let clean = html
+  clean = clean.replace(/<!DOCTYPE[^>]*>/gi, '')
+  clean = clean.replace(/<html[^>]*>/gi, '').replace(/<\/html>/gi, '')
+  clean = clean.replace(/<head[\s\S]*?<\/head>/gi, '')
+  clean = clean.replace(/<style[\s\S]*?<\/style>/gi, '')
+  clean = clean.replace(/<body[^>]*>/gi, '').replace(/<\/body>/gi, '')
+  clean = clean.replace(/<div class="preheader"[\s\S]*?<\/div>/gi, '')
+  clean = clean.replace(/<div class="wrap">/gi, '').replace(/<\/div>\s*$/gi, '')
+  clean = clean.replace(/<div class="footer"[\s\S]*$/gi, '')
+  return clean.trim()
+}
+
 export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subtitle, onUpdate }: ArticlePanelProps) {
   const [preview, setPreview] = useState<PreviewMode>('edit')
   const [generating, setGenerating] = useState(false)
@@ -151,7 +165,7 @@ export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subti
               [&_h2]:text-xs [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:font-bold [&_h2]:text-accent [&_h2]:mt-8 [&_h2]:mb-3
               [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted
               [&_strong]:text-cream [&_a]:text-accent"
-            dangerouslySetInnerHTML={{ __html: articleHtml || '<p style="color:#555">Расширенная версия статьи для блога...</p>' }}
+            dangerouslySetInnerHTML={{ __html: stripEmailWrapper(articleHtml) || '<p style="color:#555">Расширенная версия статьи для блога...</p>' }}
             onBlur={e => onUpdate({ article_html: e.currentTarget.innerHTML })}
           />
         ) : (
