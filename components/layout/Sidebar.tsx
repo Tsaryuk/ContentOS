@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  LayoutGrid, Mail, Globe, Settings, Scissors,
+  LayoutGrid, Mail, Globe, Settings, Scissors, FileText,
   Play, Send, Camera, GalleryHorizontalEnd, CheckSquare
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
@@ -85,6 +85,7 @@ export function Sidebar() {
   const isTasks = pathname.startsWith('/tasks')
   const isTelegram = pathname.startsWith('/telegram')
   const isNewsletter = pathname.startsWith('/newsletter')
+  const isArticles = pathname.startsWith('/articles')
 
   // Static channels for non-YT platforms
   const staticChannelsByPlatform = (platform: Platform) =>
@@ -203,6 +204,17 @@ export function Sidebar() {
       >
         <Send className="w-4 h-4 shrink-0" />
         <span className="text-xs font-medium">Telegram</span>
+      </Link>
+
+      {/* Articles */}
+      <Link
+        href="/articles"
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
+          isArticles ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+        }`}
+      >
+        <FileText className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-medium">Статьи</span>
       </Link>
 
       {/* Newsletter */}
