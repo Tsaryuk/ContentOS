@@ -163,75 +163,110 @@ function secsToTc(secs: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-/** Extract all [MM:SS] or [H:MM:SS] timestamp markers from transcript */
-function extractTranscriptTimestamps(transcript: string): number[] {
-  const re = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g
-  const set = new Set<number>()
+/** Normalize text for loose matching — lowercase, collapse whitespace/punctuation */
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[\s.,!?;:«»"'()—–-]+/g, ' ').trim()
+}
+
+/**
+ * Find the exact timestamp in transcript where the quote first appears.
+ * Transcript format: "[MM:SS]\nline text\n[MM:SS]\nline text..."
+ * Returns seconds of the [MM:SS] marker immediately before the matched quote,
+ * or null if quote not found.
+ */
+function findQuoteTimestamp(quote: string, transcript: string): number | null {
+  if (!quote || !transcript) return null
+
+  const normQuote = normalizeForMatch(quote)
+  if (normQuote.length < 6) return null
+
+  // Split transcript into segments: each segment is [time, text]
+  const segRe = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]\s*([^\[]*)/g
+  const segments: { secs: number; text: string }[] = []
   let m: RegExpExecArray | null
-  while ((m = re.exec(transcript)) !== null) {
+  while ((m = segRe.exec(transcript)) !== null) {
     const secs = m[3]
       ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])
       : Number(m[1]) * 60 + Number(m[2])
-    set.add(secs)
+    segments.push({ secs, text: m[4] })
   }
-  return [...set].sort((a, b) => a - b)
-}
 
-/** Snap timecode to nearest real transcript marker when it looks rounded/hallucinated */
-function snapToRealTimestamp(secs: number, markers: number[], windowSecs: number): number {
-  if (markers.length === 0) return secs
-  let bestDiff = Infinity
-  let best = secs
-  // Prefer markers that are NOT themselves round :00 (avoids same hallucinated round time)
-  for (const m of markers) {
-    const diff = Math.abs(m - secs)
-    if (diff > windowSecs) continue
-    if (diff < bestDiff) {
-      bestDiff = diff
-      best = m
+  if (segments.length === 0) return null
+
+  // Concatenate normalized text with position -> original segment index mapping
+  let concat = ''
+  const positions: number[] = [] // for each char in concat, index of segment it belongs to
+  for (let i = 0; i < segments.length; i++) {
+    const normText = normalizeForMatch(segments[i].text)
+    if (i > 0 && concat.length > 0) concat += ' '
+    for (let c = 0; c < normText.length; c++) positions.push(i)
+    if (normText.length > 0) concat += normText
+  }
+
+  const idx = concat.indexOf(normQuote)
+  if (idx < 0) {
+    // Fuzzy fallback: try first 4 words
+    const firstWords = normQuote.split(' ').slice(0, 4).join(' ')
+    if (firstWords.length >= 10) {
+      const idx2 = concat.indexOf(firstWords)
+      if (idx2 >= 0 && idx2 < positions.length) return segments[positions[idx2]].secs
     }
+    return null
   }
-  return best
+
+  if (idx < positions.length) return segments[positions[idx]].secs
+  return null
 }
 
-/** Fix timecodes: convert 65:00 -> 1:05:00, snap rounded times to real markers, filter exceeding duration */
+/** Fix timecodes: derive exact timestamps from transcript_quote, drop unmatched, convert MM>59 format */
 function fixTimecodes(
-  timecodes: { time: string; label: string }[],
+  timecodes: { time: string; label: string; transcript_quote?: string }[],
   durationSecs: number,
   transcript?: string,
 ): { time: string; label: string }[] {
-  const markers = transcript ? extractTranscriptTimestamps(transcript) : []
+  const result: { time: string; label: string }[] = []
 
-  return timecodes
-    .map((tc, i) => {
-      const parts = tc.time.split(':').map(Number)
-      let fixed = tc.time
-      // Fix MM:SS where MM >= 60 -> H:MM:SS
-      if (parts.length === 2 && parts[0] >= 60) {
-        const h = Math.floor(parts[0] / 60)
-        const m = parts[0] % 60
-        const s = parts[1] ?? 0
-        fixed = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  for (let i = 0; i < timecodes.length; i++) {
+    const tc = timecodes[i]
+    let fixed = tc.time
+
+    // Fix MM:SS where MM >= 60 -> H:MM:SS
+    const parts = fixed.split(':').map(Number)
+    if (parts.length === 2 && parts[0] >= 60) {
+      const h = Math.floor(parts[0] / 60)
+      const mm = parts[0] % 60
+      const ss = parts[1] ?? 0
+      fixed = `${h}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+    }
+
+    // First chapter is always 00:00 by YouTube rule
+    if (i === 0) {
+      result.push({ time: '00:00', label: tc.label })
+      continue
+    }
+
+    // Derive exact timestamp from transcript quote
+    if (transcript && tc.transcript_quote) {
+      const secs = findQuoteTimestamp(tc.transcript_quote, transcript)
+      if (secs !== null) {
+        // Check it doesn't exceed duration and is strictly after previous timecode
+        if (durationSecs > 0 && secs > durationSecs) continue
+        const prevSecs = result.length > 0 ? tcToSecs(result[result.length - 1].time) : 0
+        if (secs <= prevSecs) continue // non-monotonic, skip
+        result.push({ time: secsToTc(secs), label: tc.label })
+        continue
       }
+      // Quote not found in transcript — drop this timecode
+      console.log(`[timecodes] Drop "${tc.label}" — quote not found: "${tc.transcript_quote.slice(0, 40)}..."`)
+      continue
+    }
 
-      // First timecode must be exactly 00:00 — don't snap
-      if (i === 0) return { ...tc, time: fixed }
+    // No transcript or no quote — keep as-is, just validate duration
+    if (durationSecs > 0 && tcToSecs(fixed) > durationSecs) continue
+    result.push({ time: fixed, label: tc.label })
+  }
 
-      // Snap suspiciously rounded times (seconds == 0) to nearest real transcript marker
-      const secs = tcToSecs(fixed)
-      const endsOnMinute = secs % 60 === 0
-      if (endsOnMinute && markers.length > 0) {
-        // Search within ±90 seconds, but only accept non-round markers
-        const nonRound = markers.filter(m => m % 60 !== 0 || m === 0)
-        const snapped = snapToRealTimestamp(secs, nonRound, 90)
-        if (snapped !== secs) {
-          fixed = secsToTc(snapped)
-        }
-      }
-
-      return { ...tc, time: fixed }
-    })
-    .filter(tc => durationSecs <= 0 || tcToSecs(tc.time) <= durationSecs)
+  return result
 }
 
 async function getChannel(channelId: string) {

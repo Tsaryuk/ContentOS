@@ -141,7 +141,7 @@ Return ONLY valid JSON (no markdown, no \`\`\`):
   "hashtags": ["#слово1", "#слово2", "#слово3"],
   "tags": ["tag1", "tag2", "...15-20 tags ordered by priority"],
   "timecodes": [
-    {"time": "00:00", "label": "SEO-optimized chapter title (searchable keyword, NOT generic)"}
+    {"time": "00:00", "label": "SEO-optimized chapter title (searchable keyword, NOT generic)", "transcript_quote": "EXACT first 4-8 words from transcript where this chapter begins (copy verbatim)"}
   ],
   "thumbnail_spec": {
     "prompt": "Visual scene description for thumbnail background (NO text, text added separately)",
@@ -219,16 +219,12 @@ Return ONLY valid JSON (no markdown, no \`\`\`):
 - Mix: 30% broad, 70% narrow.
 
 ### Timecodes (${timecodesCount} chapters)
-- Format: "H:MM:SS" for videos >60 min, "MM:SS" for shorter. NEVER use MM>59.
-- **MANDATORY PROCESS for timecodes:**
-  1. The transcript has markers like [00:00], [03:06], [22:54], [1:05:17].
-  2. When a new topic starts, find the NEAREST [MM:SS] marker in the transcript.
-  3. Use THAT EXACT timestamp. Do NOT round to :00 or :05.
-  4. Example: if the topic "Мелатонин" starts near [29:47], write "29:47", NOT "30:00".
-- Every timecode MUST match a real [MM:SS] marker from the transcript. Rounded times like "30:00", "35:00", "50:00", "1:10:00" are FORBIDDEN unless they happen to be exact.
+- **CRITICAL**: For each timecode you MUST return a "transcript_quote" field — the EXACT first 4-8 words from the transcript where this chapter begins (copy verbatim, including any punctuation). This quote will be matched against the transcript to derive the precise timestamp.
+- The "time" field is still required but will be verified/corrected from the transcript_quote. Use format "H:MM:SS" for videos >60 min, "MM:SS" for shorter. Never MM>59.
 - Each label = SEO searchable keyword phrase (NOT generic like "Вступление" or "Часть 2")
-- First always "00:00"
-- Last timecode MUST NOT exceed ${durationMin} minutes.
+- First chapter: time="00:00", transcript_quote = first 4-8 words of the transcript
+- Last timecode MUST NOT exceed ${durationMin} minutes
+- If you cannot find exact starting words in the transcript for a chapter, SKIP that chapter. Better fewer accurate chapters than many hallucinated ones.
 
 ### Thumbnail text
 - MAX 3 words (ideal 2). Max 20 characters.
