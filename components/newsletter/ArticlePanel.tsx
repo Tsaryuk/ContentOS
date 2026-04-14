@@ -194,14 +194,14 @@ export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subti
                     p{margin-bottom:1.4em}
                     .sub{font-style:italic;font-size:18px;color:#888;margin-bottom:12px}
                     .date{font-family:'Inter',sans-serif;font-size:13px;color:#555;margin-bottom:40px}
-                    blockquote{border-left:3px solid #1a4fff;padding:4px 0 4px 20px;margin:24px 0;font-style:italic;color:#888}
+                    blockquote{border-left:3px solid #2d5a3f;padding:4px 0 4px 20px;margin:24px 0;font-style:italic;color:#888}
                     strong{color:#fff}
                     a{color:#888;border-bottom:1px dotted #555}
                     img.cover{width:100%;border-radius:8px;margin-bottom:40px}
                     .video{position:relative;padding-bottom:56.25%;height:0;margin:32px 0;border-radius:8px;overflow:hidden}
                     .video iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
-                    .insight{border-left:3px solid #1a4fff;padding:4px 0 4px 20px;margin:32px 0}
-                    .ins-label{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#1a4fff;margin-bottom:6px}
+                    .insight{border-left:3px solid #2d5a3f;padding:4px 0 4px 20px;margin:32px 0}
+                    .ins-label{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#2d5a3f;margin-bottom:6px}
                     .ins-text{font-style:italic;font-size:19px;line-height:1.5}
                     .qblock{border-top:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:28px 0;margin:40px 0}
                     .q-label{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#555;margin-bottom:10px}

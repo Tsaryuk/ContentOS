@@ -98,7 +98,7 @@ export default function NewsletterEditorPage() {
   if (!issue) return <div className="flex-1 flex items-center justify-center"><p className="text-muted">Выпуск не найден</p></div>
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="h-screen flex flex-col overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
         <Link href="/newsletter" className="p-1.5 text-dim hover:text-muted"><ArrowLeft className="w-4 h-4" /></Link>
         <span className="text-sm font-medium text-cream">

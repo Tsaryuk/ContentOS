@@ -16,6 +16,7 @@ interface Article {
   seo_description: string
   blog_slug: string | null
   published_at: string | null
+  show_cover_in_article?: boolean
 }
 
 const ARTICLES_DIR = '/var/www/letters/articles'
@@ -52,8 +53,9 @@ export async function publishArticleFiles(
         day: 'numeric', month: 'long', year: 'numeric',
       })
 
-  // Cover image tag (only if cover_url present)
-  const coverImg = article.cover_url
+  // Cover image in body — only if toggle enabled (default true for backwards compat)
+  const showCover = article.show_cover_in_article !== false
+  const coverImg = showCover && article.cover_url
     ? `<img class="article-cover" src="${article.cover_url}" alt="${article.title.replace(/"/g, '&quot;')}">`
     : ''
 

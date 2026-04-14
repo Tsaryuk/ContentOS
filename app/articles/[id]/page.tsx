@@ -17,6 +17,7 @@ interface Article {
   blog_slug: string | null; og_image_url: string | null
   email_issue_id: string | null; version: number
   published_at: string | null
+  show_cover_in_article: boolean
   ai_messages: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
@@ -46,6 +47,10 @@ export default function ArticleEditorPage() {
   const [coverPrompt, setCoverPrompt] = useState('')
   const [showCoverSettings, setShowCoverSettings] = useState(false)
   const [persistingCover, setPersistingCover] = useState(false)
+  const [showImageDialog, setShowImageDialog] = useState(false)
+  const [imagePrompt, setImagePrompt] = useState('')
+  const [genImage, setGenImage] = useState(false)
+  const savedRangeRef = useRef<Range | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [creatingEmail, setCreatingEmail] = useState(false)
 
@@ -97,6 +102,7 @@ export default function ArticleEditorPage() {
           category: article.category, tags: article.tags,
           seo_title: article.seo_title, seo_description: article.seo_description,
           seo_keywords: article.seo_keywords, blog_slug: article.blog_slug, og_image_url: article.og_image_url,
+          show_cover_in_article: article.show_cover_in_article,
         }),
       })
       const data = await res.json()
@@ -148,6 +154,49 @@ export default function ArticleEditorPage() {
   }
 
   // Insert YouTube embed at cursor position in editor
+  // Save cursor position before opening dialog
+  function saveSelection() {
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange()
+    }
+  }
+
+  function openImageDialog() {
+    saveSelection()
+    setImagePrompt('')
+    setShowImageDialog(true)
+  }
+
+  async function generateInlineImage() {
+    if (!imagePrompt.trim() || !article) return
+    setGenImage(true)
+    try {
+      const res = await fetch('/api/articles/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ article_id: article.id, prompt: imagePrompt }),
+      })
+      const data = await res.json()
+      if (data.error) { alert(data.error); return }
+      if (data.url) {
+        // Restore cursor + insert image
+        editorRef.current?.focus()
+        const sel = window.getSelection()
+        if (sel && savedRangeRef.current) {
+          sel.removeAllRanges()
+          sel.addRange(savedRangeRef.current)
+        }
+        pushUndo()
+        document.execCommand('insertHTML', false,
+          `<img class="article-cover" src="${data.url}" alt="${imagePrompt.replace(/"/g, '&quot;').slice(0, 100)}" style="width:100%;border-radius:8px;margin:32px 0;aspect-ratio:16/9;object-fit:cover;display:block"><p></p>`
+        )
+        syncEditor()
+        setShowImageDialog(false)
+      }
+    } finally { setGenImage(false) }
+  }
+
   function insertYoutubeEmbed() {
     const url = article?.youtube_url
     if (!url) return
@@ -289,7 +338,7 @@ export default function ArticleEditorPage() {
   const isPublished = article.status === 'published'
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
         <Link href="/articles" className="p-1.5 text-dim hover:text-muted"><ArrowLeft className="w-4 h-4" /></Link>
@@ -380,6 +429,17 @@ export default function ArticleEditorPage() {
                   {article.cover_url && !coverOptions.length && (
                     <img src={article.cover_url} className="w-full h-28 object-cover rounded-lg" alt="" />
                   )}
+                  {article.cover_url && (
+                    <label className="flex items-center gap-2 text-[11px] text-muted cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={article.show_cover_in_article !== false}
+                        onChange={e => updateLocal({ show_cover_in_article: e.target.checked })}
+                        className="w-3.5 h-3.5 accent-accent"
+                      />
+                      Показывать обложку внутри статьи (помимо preview)
+                    </label>
+                  )}
                 </div>
                 {/* YouTube + Category */}
                 <div className="w-64 space-y-2 shrink-0">
@@ -426,6 +486,11 @@ export default function ArticleEditorPage() {
                 </button>
               ))}
               <div className="w-px h-4 bg-border mx-1" />
+              <button onClick={openImageDialog} title="AI картинка в тексте"
+                className="p-1.5 text-dim hover:text-accent hover:bg-white/5 rounded">
+                <Image className="w-3.5 h-3.5" />
+              </button>
+              <div className="w-px h-4 bg-border mx-1" />
               {[
                 { label: 'Инсайт', html: '<div class="insight"><div class="ins-label">Главная мысль</div><p class="ins-text">Текст</p></div>' },
                 { label: 'Вопрос', html: '<div class="qblock"><div class="q-label">Вопрос для размышления</div><div class="q-text">Текст</div></div>' },
@@ -470,7 +535,7 @@ export default function ArticleEditorPage() {
               ) : (
                 <div className="p-6 flex justify-center">
                   <div className={`bg-black rounded-lg shadow-lg overflow-hidden ${preview === 'mobile' ? 'w-[375px]' : 'w-[680px]'}`}>
-                    <iframe srcDoc={`<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#000;color:#e8e8e8;font-family:'Lora',Georgia,serif;font-size:19px;line-height:1.75;-webkit-font-smoothing:antialiased}.w{max-width:680px;margin:0 auto;padding:48px 24px}h1{font-size:36px;font-weight:400;line-height:1.25;margin-bottom:12px}h2{font-family:'Inter',sans-serif;font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin:48px 0 16px;color:#e8e8e8}p{margin-bottom:1.4em}blockquote{border-left:3px solid #1a4fff;padding:4px 0 4px 20px;margin:24px 0;font-style:italic;color:#888}blockquote cite{display:block;margin-top:8px;font-style:normal;font-size:14px;font-family:'Inter',sans-serif;color:#555}strong{color:#fff}a{color:#888}.sub{font-style:italic;font-size:18px;color:#888;margin-bottom:40px}.insight{border-left:3px solid #1a4fff;padding:4px 0 4px 20px;margin:32px 0}.ins-label,.ins-text,.qblock,.q-label,.q-text{font-family:'Lora',serif}.ins-label{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#1a4fff;margin-bottom:6px}.ins-text{font-style:italic;font-size:19px;line-height:1.5}.qblock{border-top:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:28px 0;margin:40px 0}.q-label{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#555;margin-bottom:10px}.q-text{font-style:italic;font-size:22px;line-height:1.4}hr{border:none;border-top:1px solid #1a1a1a;margin:24px 0}img.cover{width:100%;border-radius:8px;margin-bottom:40px}.video-embed{position:relative;margin:32px 0;border-radius:8px;overflow:hidden}.video-embed iframe{width:100%;aspect-ratio:16/9;border:0}</style><link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;600&display=swap" rel="stylesheet"><div class="w">${article.cover_url ? `<img class="cover" src="${article.cover_url}">` : ''}<h1>${article.title || 'Заголовок'}</h1><p class="sub">${article.subtitle || ''}</p>${article.body_html || ''}</div>`}
+                    <iframe srcDoc={`<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#000;color:#e8e8e8;font-family:'Lora',Georgia,serif;font-size:19px;line-height:1.75;-webkit-font-smoothing:antialiased}.w{max-width:680px;margin:0 auto;padding:48px 24px}h1{font-size:36px;font-weight:400;line-height:1.25;margin-bottom:12px}h2{font-family:'Inter',sans-serif;font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin:48px 0 16px;color:#e8e8e8}p{margin-bottom:1.4em}blockquote{border-left:3px solid #2d5a3f;padding:4px 0 4px 20px;margin:24px 0;font-style:italic;color:#888}blockquote cite{display:block;margin-top:8px;font-style:normal;font-size:14px;font-family:'Inter',sans-serif;color:#555}strong{color:#fff}a{color:#888}.sub{font-style:italic;font-size:18px;color:#888;margin-bottom:40px}.insight{border-left:3px solid #2d5a3f;padding:4px 0 4px 20px;margin:32px 0}.ins-label,.ins-text,.qblock,.q-label,.q-text{font-family:'Lora',serif}.ins-label{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#2d5a3f;margin-bottom:6px}.ins-text{font-style:italic;font-size:19px;line-height:1.5}.qblock{border-top:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:28px 0;margin:40px 0}.q-label{font-family:'Inter',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#555;margin-bottom:10px}.q-text{font-style:italic;font-size:22px;line-height:1.4}hr{border:none;border-top:1px solid #1a1a1a;margin:24px 0}img.cover{width:100%;border-radius:8px;margin-bottom:40px}.video-embed{position:relative;margin:32px 0;border-radius:8px;overflow:hidden}.video-embed iframe{width:100%;aspect-ratio:16/9;border:0}</style><link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;600&display=swap" rel="stylesheet"><div class="w">${article.cover_url ? `<img class="cover" src="${article.cover_url}">` : ''}<h1>${article.title || 'Заголовок'}</h1><p class="sub">${article.subtitle || ''}</p>${article.body_html || ''}</div>`}
                       className="w-full border-0" style={{ height: '80vh' }} />
                   </div>
                 </div>
@@ -592,6 +657,46 @@ export default function ArticleEditorPage() {
           </div>
         </div>
       </div>
+
+      {/* Inline image generation modal */}
+      {showImageDialog && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6"
+          onClick={() => !genImage && setShowImageDialog(false)}>
+          <div className="bg-surface border border-border rounded-xl p-6 max-w-lg w-full"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <Image className="w-4 h-4 text-accent" />
+              <h3 className="text-sm font-medium text-cream">Вставить AI-картинку</h3>
+            </div>
+            <p className="text-[11px] text-dim mb-3">
+              Стиль ч/б гравюры применяется автоматически. Опишите сцену на английском (лучше работает) или русском.
+            </p>
+            <textarea
+              value={imagePrompt}
+              onChange={e => setImagePrompt(e.target.value)}
+              placeholder="A lone tree on a cliff edge, storm clouds swirling above, waves crashing below"
+              rows={4}
+              autoFocus
+              className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent resize-none font-mono mb-4"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowImageDialog(false)}
+                disabled={genImage}
+                className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream disabled:opacity-50">
+                Отмена
+              </button>
+              <button
+                onClick={generateInlineImage}
+                disabled={!imagePrompt.trim() || genImage}
+                className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs hover:bg-accent/90 disabled:opacity-50 flex items-center gap-1.5">
+                {genImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+                {genImage ? 'Генерация...' : 'Сгенерировать и вставить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
