@@ -1,24 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { supabaseAdmin } from '@/lib/supabase'
 import { fal } from '@fal-ai/client'
 
 export const maxDuration = 120
 
-const STYLE_PREFIX = `Black and white ink illustration in the style of detailed woodcut engraving. High contrast, intricate crosshatching, fine line work. Dark atmospheric scene with deep shadows. Abstract and philosophical mood. Editorial illustration style reminiscent of classic book engravings. No text, no watermark, no letters, no words.`
+const DEFAULT_STYLE = `Black and white ink illustration in the style of detailed woodcut engraving. High contrast, intricate crosshatching, fine line work. Dark atmospheric scene with deep shadows. Abstract and philosophical mood. Editorial illustration style reminiscent of classic book engravings. No text, no watermark, no letters, no words.`
 
-export async function POST(req: NextRequest) {
+interface CoverRequest {
+  title: string
+  description?: string
+  customPrompt?: string
+  style?: string
+}
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
 
   try {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })
-    const { title, description } = await req.json()
+    const { title, description, customPrompt, style }: CoverRequest = await req.json()
 
     if (!title?.trim()) {
       return NextResponse.json({ error: 'Укажите тему' }, { status: 400 })
     }
 
-    const prompt = `${STYLE_PREFIX} Scene depicting the concept: "${description || title}". Wide cinematic composition, 16:9 aspect ratio. Mood: contemplative, philosophical, mysterious. More abstract symbolism than literal representation.`
+    const stylePrefix = style?.trim() || DEFAULT_STYLE
+    const scene = customPrompt?.trim() || `Scene depicting the concept: "${description || title}". Wide cinematic composition, 16:9 aspect ratio. Mood: contemplative, philosophical, mysterious. More abstract symbolism than literal representation.`
+    const prompt = `${stylePrefix} ${scene}`
 
     const result = await fal.subscribe('fal-ai/flux/dev', {
       input: {
@@ -28,14 +38,61 @@ export async function POST(req: NextRequest) {
         num_inference_steps: 28,
         guidance_scale: 3.5,
       },
-    }) as any
+    }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }
 
     const images = result?.data?.images ?? result?.images ?? []
-    const urls = images.map((img: any) => img.url).filter(Boolean)
+    const falUrls = images.map(img => img.url).filter(Boolean)
 
-    return NextResponse.json({ urls })
-  } catch (err) {
+    return NextResponse.json({ urls: falUrls, prompt })
+  } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Ошибка генерации'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+// --- Persist fal.ai image to our storage ---
+
+export async function PUT(req: NextRequest): Promise<NextResponse> {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
+  try {
+    const { fal_url, article_id }: { fal_url: string; article_id: string } = await req.json()
+    if (!fal_url || !article_id) {
+      return NextResponse.json({ error: 'fal_url и article_id обязательны' }, { status: 400 })
+    }
+
+    // Download from fal.ai
+    const imgRes = await fetch(fal_url)
+    if (!imgRes.ok) throw new Error(`Fal.ai download failed: ${imgRes.status}`)
+    const buffer = Buffer.from(await imgRes.arrayBuffer())
+
+    // Upload to Supabase storage
+    const fileName = `articles/${article_id}/cover_${Date.now()}.jpg`
+
+    // Ensure bucket exists
+    const { data: buckets } = await supabaseAdmin.storage.listBuckets()
+    const hasArticleBucket = buckets?.some(b => b.name === 'articles')
+    if (!hasArticleBucket) {
+      await supabaseAdmin.storage.createBucket('articles', { public: true })
+    }
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('articles')
+      .upload(fileName, buffer, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from('articles')
+      .getPublicUrl(fileName)
+
+    return NextResponse.json({ url: publicUrl })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Ошибка загрузки'
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

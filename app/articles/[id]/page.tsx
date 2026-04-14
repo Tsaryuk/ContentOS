@@ -43,6 +43,9 @@ export default function ArticleEditorPage() {
   const [preview, setPreview] = useState<Preview>('editor')
   const [genCover, setGenCover] = useState(false)
   const [coverOptions, setCoverOptions] = useState<string[]>([])
+  const [coverPrompt, setCoverPrompt] = useState('')
+  const [showCoverSettings, setShowCoverSettings] = useState(false)
+  const [persistingCover, setPersistingCover] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [creatingEmail, setCreatingEmail] = useState(false)
 
@@ -161,11 +164,44 @@ export default function ArticleEditorPage() {
     try {
       const res = await fetch('/api/articles/cover', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: article.title, description: article.subtitle }),
+        body: JSON.stringify({
+          title: article.title,
+          description: article.subtitle,
+          customPrompt: coverPrompt.trim() || undefined,
+        }),
       })
       const data = await res.json()
-      if (data.urls?.length) { setCoverOptions(data.urls); updateLocal({ cover_url: data.urls[0] }) }
+      if (data.urls?.length) {
+        setCoverOptions(data.urls)
+        // Auto-select first and persist to our storage
+        await selectCover(data.urls[0])
+      }
     } finally { setGenCover(false) }
+  }
+
+  // Persist fal.ai URL → Supabase storage, then save as cover_url
+  async function selectCover(falUrl: string) {
+    if (!article) return
+    setPersistingCover(true)
+    try {
+      // If it's already our storage URL, just use it
+      if (falUrl.includes('/storage/v1/object/public/articles/')) {
+        updateLocal({ cover_url: falUrl })
+        return
+      }
+      const res = await fetch('/api/articles/cover', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fal_url: falUrl, article_id: article.id }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        updateLocal({ cover_url: data.url })
+      } else {
+        // Fallback: keep fal.ai URL even if persist failed
+        updateLocal({ cover_url: falUrl })
+      }
+    } finally { setPersistingCover(false) }
   }
 
   // Cover upload via file input
@@ -313,13 +349,30 @@ export default function ArticleEditorPage() {
                       className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs hover:bg-accent/20 disabled:opacity-50 flex items-center gap-1.5">
                       {genCover ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />} Генерировать
                     </button>
+                    <button onClick={() => setShowCoverSettings(v => !v)}
+                      className="px-2 py-1.5 border border-border rounded-lg text-xs text-dim hover:text-cream"
+                      title="Настроить промпт">⚙</button>
                   </div>
+                  {showCoverSettings && (
+                    <textarea
+                      value={coverPrompt}
+                      onChange={e => setCoverPrompt(e.target.value)}
+                      placeholder="Промпт для сцены (на английском). Например: A lone figure standing at a crossroads in a misty forest, ancient stone pillars. Wide cinematic composition, 16:9. Пусто = сгенерируется из темы."
+                      rows={3}
+                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-[11px] text-muted focus:outline-none focus:border-accent resize-none font-mono" />
+                  )}
                   {coverOptions.length > 0 && (
                     <div className="flex gap-2">
                       {coverOptions.map((url, i) => (
-                        <button key={i} onClick={() => updateLocal({ cover_url: url })}
-                          className={`rounded-lg overflow-hidden border-2 ${article.cover_url === url ? 'border-accent' : 'border-border'}`}>
+                        <button key={i} onClick={() => selectCover(url)}
+                          disabled={persistingCover}
+                          className={`relative rounded-lg overflow-hidden border-2 disabled:opacity-60 ${article.cover_url === url || (article.cover_url?.includes('articles/') && i === 0) ? 'border-accent' : 'border-border'}`}>
                           <img src={url} className="w-24 h-14 object-cover" alt="" />
+                          {persistingCover && article.cover_url !== url && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                              <Loader2 className="w-3 h-3 animate-spin text-white" />
+                            </div>
+                          )}
                         </button>
                       ))}
                     </div>

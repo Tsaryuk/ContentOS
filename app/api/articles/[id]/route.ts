@@ -47,7 +47,20 @@ export async function PATCH(
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ article: data })
+
+    // Auto-republish if already published — updates static HTML on letters.tsaryuk.ru
+    let republished = false
+    if (data.status === 'published' && data.blog_slug) {
+      try {
+        const { publishArticleFiles } = await import('@/lib/articles/publish')
+        await publishArticleFiles(data)
+        republished = true
+      } catch (err) {
+        console.error('[auto-republish] failed:', err)
+      }
+    }
+
+    return NextResponse.json({ article: data, republished })
   } catch {
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
