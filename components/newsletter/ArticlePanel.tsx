@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Image, Youtube, Eye, Smartphone, Monitor } from 'lucide-react'
+import { Image, Eye, Smartphone, Monitor, Play } from 'lucide-react'
 
 interface ArticlePanelProps {
   articleHtml: string
@@ -59,7 +59,7 @@ export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subti
             />
             {embedId && (
               <span className="px-2 py-1.5 text-[10px] text-green-400 flex items-center gap-1">
-                <Youtube className="w-3 h-3" /> Привязано
+                <Play className="w-3 h-3" /> Привязано
               </span>
             )}
           </div>
