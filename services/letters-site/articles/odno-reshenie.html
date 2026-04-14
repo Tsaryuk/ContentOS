@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Одно решение, которое определяет всю твою жизнь — Стратегия Жизни</title>
+<meta name="description" content="Почему нерешительность — это тоже выбор. Просто чужой.">
+<meta property="og:title" content="Одно решение, которое определяет всю твою жизнь">
+<meta property="og:description" content="Почему нерешительность — это тоже выбор. Просто чужой.">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#000;--surface:#0d0d0d;--border:#1a1a1a;--text:#e8e8e8;--muted:#888;--dim:#555;--accent-blue:#1a4fff;--serif:'Lora',Georgia,serif;--sans:'Inter',-apple-system,sans-serif}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--muted);text-decoration:none;transition:color .2s}
+a:hover{color:var(--text)}
+
+.header{padding:20px 0;border-bottom:1px solid var(--border)}
+.header-inner{max-width:960px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text)}
+.back{font-size:13px;color:var(--dim)}
+.back:hover{color:var(--text)}
+
+.article{max-width:680px;margin:0 auto;padding:48px 24px 80px}
+.article-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--dim);margin-bottom:12px}
+.article-title{font-family:var(--serif);font-size:clamp(28px,4.5vw,40px);font-weight:400;line-height:1.25;margin-bottom:12px;letter-spacing:-0.02em}
+.article-sub{font-family:var(--serif);font-style:italic;font-size:18px;color:var(--muted);margin-bottom:12px}
+.article-date{font-size:13px;color:var(--dim);margin-bottom:40px}
+
+.article-body{font-family:var(--serif);font-size:19px;line-height:1.75}
+.article-body p{margin-bottom:1.4em}
+.article-body h2{font-family:var(--sans);font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin:48px 0 16px}
+.article-body blockquote{border-left:3px solid var(--accent-blue);padding:4px 0 4px 20px;margin:24px 0;font-style:italic;color:var(--muted)}
+.article-body blockquote cite{display:block;margin-top:8px;font-style:normal;font-size:14px;font-family:var(--sans);color:var(--dim)}
+.article-body strong{color:#fff}
+.article-body a{color:var(--muted);border-bottom:1px dotted var(--dim)}
+.article-body a:hover{color:var(--text)}
+
+.insight{border-left:3px solid var(--accent-blue);padding:4px 0 4px 20px;margin:32px 0}
+.insight-label{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent-blue);margin-bottom:6px}
+.insight-text{font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.5}
+
+.qblock{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:28px 0;margin:40px 0}
+.q-label{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:10px}
+.q-text{font-family:var(--serif);font-style:italic;font-size:22px;line-height:1.4}
+
+.muted-text{color:var(--muted);font-size:16px;font-family:var(--serif)}
+.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+
+.video-embed{position:relative;padding-bottom:56.25%;height:0;margin:32px 0;border-radius:8px;overflow:hidden}
+.video-embed iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+
+.subscribe-cta{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;text-align:center;margin-top:56px}
+.subscribe-cta h3{font-family:var(--serif);font-size:20px;font-weight:400;margin-bottom:8px}
+.subscribe-cta p{font-size:14px;color:var(--muted);margin-bottom:20px}
+.subscribe-form{display:flex;gap:8px;max-width:400px;margin:0 auto}
+.subscribe-form input{flex:1;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);font-family:var(--sans);outline:none}
+.subscribe-form input:focus{border-color:var(--dim)}
+.subscribe-form input::placeholder{color:var(--dim)}
+.subscribe-form button{padding:12px 24px;background:#fff;color:#000;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+
+.footer{max-width:680px;margin:0 auto;padding:24px;text-align:center;font-size:12px;color:var(--dim);border-top:1px solid var(--border)}
+.footer a{color:var(--dim);margin:0 8px}
+.footer a:hover{color:var(--text)}
+
+/* Author */
+.author{display:flex;align-items:center;gap:14px;margin-bottom:40px}
+.author-photo{width:48px;height:48px;border-radius:50%;object-fit:cover;filter:grayscale(100%)}
+.author-info{display:flex;flex-direction:column}
+.author-name{font-family:var(--sans);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text)}
+.author-date{font-family:var(--sans);font-size:12px;color:var(--dim)}
+
+/* Share */
+.share-bar{display:flex;align-items:center;gap:12px;margin:40px 0;padding:16px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.share-label{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim)}
+.share-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--muted);font-family:var(--sans);cursor:pointer;background:transparent;transition:all .2s;text-decoration:none}
+.share-btn:hover{border-color:var(--dim);color:var(--text);text-decoration:none}
+.share-btn svg{width:14px;height:14px}
+
+@media(max-width:640px){
+  .article{padding:32px 16px 60px}
+  .article-body{font-size:17px}
+  .subscribe-form{flex-direction:column}
+  .share-bar{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a href="/" class="logo">Стратегия Жизни</a>
+    <a href="/" class="back">&larr; Все выпуски</a>
+  </div>
+</header>
+
+<article class="article">
+  <div class="article-cat">Мышление</div>
+  <h1 class="article-title">Одно решение, которое определяет всю твою жизнь</h1>
+  <p class="article-sub">Почему нерешительность — это тоже выбор. Просто чужой.</p>
+  <div class="author">
+    <img class="author-photo" src="https://letters.tsaryuk.ru/assets/img/author.jpg" alt="Денис Царюк">
+    <div class="author-info">
+      <span class="author-name">Денис Царюк</span>
+      <span class="author-date">13 апреля 2026</span>
+    </div>
+  </div>
+
+  <div class="article-body">
+    <p>Качество твоих решений определяет качество твоей жизни.</p>
+    <p>Но есть одно решение, которое определяет все остальные.</p>
+    <p>Я принял его не в один момент. Это было ощущение, которое копилось годами — что жизнь по умолчанию, та самая, которую тебе расписали ещё в школе, мне не подходит. Я не мог объяснить почему. Просто что-то внутри сопротивлялось.</p>
+
+    <blockquote>
+      Большинство людей живут чужой жизнью — просто потому что не приняли решение жить своей.
+      <cite>— Денис Царюк</cite>
+    </blockquote>
+
+    <h2>Ты едешь по чужим рельсам</h2>
+    <p>Когда ты рождаешься, тебя ставят на путь по умолчанию. В России он очень конкретный: школа &rarr; институт &rarr; работа &rarr; ипотека &rarr; дача &rarr; пенсия. Каждый этап кажется логичным, пока ты внутри него. Двадцать лет инерции — и ты уже несёшься по этим рельсам, не задавая вопросов.</p>
+    <p>Проблема не в самом пути. Проблема в том, что большинство <strong>никогда не решали</strong>, что это их путь. Они просто оказались на нём.</p>
+    <p>Главное решение в жизни — это решение жить осознанно. Не успешно, не богато, не «как надо». А осознанно. Понимая, зачем ты делаешь то, что делаешь.</p>
+    <p>Именно тогда начинается твоя жизнь.</p>
+
+    <h2>Твои действия говорят правду</h2>
+    <p>Можно сколько угодно говорить о ценностях. Но посмотри на то, что ты реально делаешь каждый день.</p>
+    <p>Если ты каждый вечер листаешь ленту — ты ценишь отключение от реальности. Если откладываешь важный разговор месяцами — ты ценишь временный комфорт дороже отношений. Если работаешь на нелюбимой работе третий год — ты ценишь безопасность больше смысла.</p>
+    <p>Это не осуждение. Это просто данность. <strong>Наши решения — или их отсутствие — всегда честнее, чем наши слова о себе.</strong></p>
+    <p>Нерешительность — это тоже решение. Просто не твоё. Ты позволяешь обстоятельствам, другим людям, привычкам решать за тебя.</p>
+
+    <h2>Ошибки — это не потери, это навигация</h2>
+    <p>Несколько лет назад я начал разрушать собственный бизнес. Осознанно. Не потому что хотел — а потому что увидел: если я продолжу делать то, что делаю, у меня нет шансов. Мир менялся быстрее, чем я успевал адаптироваться.</p>
+    <p>Я мог притвориться, что всё нормально. Многие так делают. Но я принял другое решение — уйти в неизвестность. Закрыть привычное. Начать подкаст. Изучать системное мышление. Строить то, во что верил, не зная, сработает ли это.</p>
+    <p>Многие друзья до сих пор крутят у виска.</p>
+    <p>Но именно тогда я понял: <strong>нет ничего опаснее, чем продолжать делать то, что перестало работать</strong> — только потому что страшно остановиться.</p>
+    <p>Неправильное решение лучше, чем никакого. Потому что неправильное решение даёт информацию. Ты узнаёшь, чего не хочешь. Это ценнее, чем годы в подвешенном состоянии.</p>
+
+    <div class="insight">
+      <div class="insight-label">Главная мысль</div>
+      <p class="insight-text">Не бойся принять неправильное решение. Бойся не принять никакого — и обнаружить через десять лет, что всё это время за тебя решали другие.</p>
+    </div>
+
+    <div class="qblock">
+      <div class="q-label">Вопрос недели</div>
+      <div class="q-text">Куда приведёт твоя жизнь, если ты продолжишь принимать те же решения, что и сейчас?</div>
+    </div>
+
+    <p>Возьми лист бумаги. Запиши всё, что ты делал сегодня. Потом честно ответь: это жизнь, которую ты выбрал? Или жизнь, в которую ты просто попал?</p>
+    <p class="muted-text">Если этот вопрос что-то тронул — ответь мне. Я читаю каждое письмо.</p>
+
+    <hr class="divider">
+
+    <h2>Личная Философия</h2>
+    <p>Веду подкаст, где притворяюсь умным.</p>
+    <p>На этой неделе разговариваю с Алексеем Красиковым — о том, как принять правду жизни и снять розовые очки.</p>
+
+    <div class="video-embed">
+      <iframe src="https://www.youtube.com/embed/5WJ2r-aTHJI" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>
+
+    <h2>Лайфхак</h2>
+    <p>Начните изучать нейросети. Прямо сейчас. Не «потом», не «когда разберусь» — сегодня. Откройте ChatGPT или Claude и задайте первый вопрос о том, что вас давно интересует.</p>
+    <p>В следующем выпуске поговорим об этом серьёзно: AI и Человек — кто кому служит?</p>
+  </div>
+
+  <!-- Share -->
+  <div class="share-bar">
+    <span class="share-label">Поделиться</span>
+    <a class="share-btn" href="https://t.me/share/url?url=https://letters.tsaryuk.ru/articles/odno-reshenie.html&text=Одно решение, которое определяет всю твою жизнь" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+      Telegram
+    </a>
+    <a class="share-btn" id="copyLink" href="#" onclick="navigator.clipboard.writeText(window.location.href);this.innerHTML='Скопировано!';setTimeout(()=>this.innerHTML='<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot;><rect x=&quot;9&quot; y=&quot;9&quot; width=&quot;13&quot; height=&quot;13&quot; rx=&quot;2&quot;/><path d=&quot;M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1&quot;/></svg> Скопировать ссылку',2000);return false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      Скопировать ссылку
+    </a>
+  </div>
+
+  <div class="subscribe-cta">
+    <h3>Это письмо из рассылки</h3>
+    <p>Каждую неделю одно честное письмо. Подпишитесь, чтобы не пропустить.</p>
+    <form class="subscribe-form" id="subscribeForm">
+      <input type="email" placeholder="Ваш email" required id="emailInput">
+      <button type="submit">Подписаться</button>
+    </form>
+  </div>
+</article>
+
+<footer class="footer">
+  <a href="https://tsaryuk.ru">tsaryuk.ru</a>
+  <a href="https://t.me/tsaryuk_ru">@tsaryuk_ru</a>
+  <div style="margin-top:8px">&copy; Денис Царюк, 2026</div>
+</footer>
+
+<script>
+document.getElementById('subscribeForm').addEventListener('submit',async e=>{
+  e.preventDefault();const btn=e.target.querySelector('button'),inp=document.getElementById('emailInput');
+  btn.disabled=true;btn.textContent='...';
+  try{const p=new URLSearchParams();p.append('api_key','67kqumu7yrmzy1auyg4647tri7ghuznnda3r5w4o');p.append('list_ids','2');p.append('fields[email]',inp.value);p.append('double_optin','3');
+  await fetch('https://api.unisender.com/ru/api/subscribe?format=json',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()});
+  btn.textContent='Готово!'}catch{btn.textContent='Ошибка';btn.disabled=false}
+});
+</script>
+</body>
+</html>

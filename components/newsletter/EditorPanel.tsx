@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Eye, Smartphone, Monitor, Save, Upload, Calendar, Loader2 } from 'lucide-react'
+import {
+  Eye, Smartphone, Monitor, Save, Upload, Calendar, Loader2, Sparkles,
+  Bold, Italic, Heading2, Quote, Link2, List, Minus, Type
+} from 'lucide-react'
 
 interface Issue {
   id: string
@@ -35,10 +38,10 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
   const [preview, setPreview] = useState<PreviewMode>('edit')
   const [scheduleDate, setScheduleDate] = useState('')
   const [showSchedule, setShowSchedule] = useState(false)
+  const [enhancing, setEnhancing] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
   const autoSaveTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // Auto-save every 30s
   useEffect(() => {
     autoSaveTimer.current = setInterval(() => {
       if (issue.status === 'draft') onSave()
@@ -66,10 +69,109 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
     return sel ? sel.toString() : ''
   }
 
-  // Expose getSelectedText for AI chat
   useEffect(() => {
     (window as any).__nlGetSelectedText = getSelectedText
   }, [])
+
+  // Formatting commands
+  function execCmd(cmd: string, value?: string) {
+    document.execCommand(cmd, false, value)
+    editorRef.current?.focus()
+    syncHtml()
+  }
+
+  function syncHtml() {
+    if (editorRef.current) {
+      onUpdate({ body_html: editorRef.current.innerHTML })
+    }
+  }
+
+  function insertHeading() {
+    execCmd('formatBlock', 'h2')
+  }
+
+  function insertBlockquote() {
+    execCmd('formatBlock', 'blockquote')
+  }
+
+  function insertDivider() {
+    execCmd('insertHTML', '<hr class="divider">')
+  }
+
+  function insertInsightBlock() {
+    execCmd('insertHTML', `
+      <div class="insight">
+        <div class="ins-label">Главная мысль</div>
+        <p class="ins-text">Ваша ключевая мысль здесь</p>
+      </div>
+    `)
+  }
+
+  function insertQuestionBlock() {
+    execCmd('insertHTML', `
+      <div class="qblock">
+        <div class="q-label">Вопрос недели</div>
+        <div class="q-text">Ваш вопрос здесь</div>
+      </div>
+    `)
+  }
+
+  function insertLink() {
+    const url = prompt('URL ссылки:')
+    if (url) execCmd('createLink', url)
+  }
+
+  // AI Enhance
+  async function handleEnhance() {
+    const currentHtml = editorRef.current?.innerHTML ?? issue.body_html
+    if (!currentHtml?.trim()) return
+
+    setEnhancing(true)
+    try {
+      const res = await fetch('/api/newsletter/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          issue_id: issue.id,
+          message: `Улучши текст этого письма. Сделай:
+1. Добавь правильную HTML-разметку: заголовки <h2>, цитаты <blockquote>, выделение <strong>
+2. Улучши стиль: сделай текст живее, добавь личные примеры, убери воду
+3. Добавь блок "Главная мысль" (div class="insight") и "Вопрос недели" (div class="qblock") если их нет
+4. Сохрани структуру: вступление → 2-3 раздела → инсайт → вопрос → задание → подкаст → лайфхак → анонс
+
+Верни ТОЛЬКО готовый HTML для body письма, без обёрток и пояснений.`,
+          current_html: currentHtml,
+        }),
+      })
+      const data = await res.json()
+      if (data.content) {
+        // Remove possible markdown code blocks
+        let html = data.content.replace(/^```html?\n?/i, '').replace(/\n?```$/i, '').trim()
+        onUpdate({ body_html: html })
+        if (editorRef.current) {
+          editorRef.current.innerHTML = html
+        }
+      }
+    } finally {
+      setEnhancing(false)
+    }
+  }
+
+  const formatButtons = [
+    { icon: Bold, title: 'Жирный', action: () => execCmd('bold') },
+    { icon: Italic, title: 'Курсив', action: () => execCmd('italic') },
+    { icon: Heading2, title: 'Заголовок H2', action: insertHeading },
+    { icon: Quote, title: 'Цитата', action: insertBlockquote },
+    { icon: Link2, title: 'Ссылка', action: insertLink },
+    { icon: List, title: 'Список', action: () => execCmd('insertUnorderedList') },
+    { icon: Minus, title: 'Разделитель', action: insertDivider },
+  ]
+
+  const blockButtons = [
+    { label: 'Инсайт', action: insertInsightBlock },
+    { label: 'Вопрос', action: insertQuestionBlock },
+    { label: 'P', action: () => execCmd('formatBlock', 'p'), title: 'Абзац' },
+  ]
 
   return (
     <div className="flex flex-col h-full">
@@ -120,7 +222,41 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
         </div>
       </div>
 
-      {/* Toolbar */}
+      {/* Formatting toolbar */}
+      <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border/50">
+        {formatButtons.map(({ icon: Icon, title, action }) => (
+          <button
+            key={title}
+            onClick={action}
+            title={title}
+            className="p-1.5 text-dim hover:text-cream hover:bg-white/5 rounded transition-colors"
+          >
+            <Icon className="w-3.5 h-3.5" />
+          </button>
+        ))}
+        <div className="w-px h-4 bg-border mx-1" />
+        {blockButtons.map(({ label, action, title }) => (
+          <button
+            key={label}
+            onClick={action}
+            title={title ?? label}
+            className="px-2 py-1 text-[10px] text-dim hover:text-cream hover:bg-white/5 rounded transition-colors font-medium"
+          >
+            {label}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <button
+          onClick={handleEnhance}
+          disabled={enhancing}
+          className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs hover:bg-accent/20 disabled:opacity-50 flex items-center gap-1.5"
+        >
+          {enhancing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+          Улучшить AI
+        </button>
+      </div>
+
+      {/* View mode + actions */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
         <div className="flex gap-1">
           {(['edit', 'desktop', 'mobile'] as const).map(m => (
@@ -202,9 +338,16 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
             className="p-6 min-h-full text-cream text-sm leading-relaxed focus:outline-none prose prose-invert max-w-none
               [&_h2]:text-xs [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:font-bold [&_h2]:text-accent [&_h2]:mt-8 [&_h2]:mb-3
               [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted
+              [&_.insight]:border-l-2 [&_.insight]:border-accent [&_.insight]:pl-4 [&_.insight]:my-6
+              [&_.ins-label]:text-[10px] [&_.ins-label]:uppercase [&_.ins-label]:tracking-wider [&_.ins-label]:text-accent [&_.ins-label]:mb-1
+              [&_.ins-text]:italic [&_.ins-text]:text-cream
+              [&_.qblock]:border-y [&_.qblock]:border-border [&_.qblock]:py-5 [&_.qblock]:my-6
+              [&_.q-label]:text-[10px] [&_.q-label]:uppercase [&_.q-label]:tracking-wider [&_.q-label]:text-dim [&_.q-label]:mb-2
+              [&_.q-text]:italic [&_.q-text]:text-lg [&_.q-text]:text-cream
+              [&_hr]:border-border [&_hr]:my-6
               [&_strong]:text-cream [&_a]:text-accent"
             dangerouslySetInnerHTML={{ __html: issue.body_html || '' }}
-            onBlur={e => onUpdate({ body_html: e.currentTarget.innerHTML })}
+            onBlur={syncHtml}
           />
         ) : (
           <div className="p-6 flex justify-center">
@@ -225,6 +368,7 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
                     .sub { font-style: italic; color: #666; font-size: 17px; margin-bottom: 24px; }
                     .divider { border: none; border-top: 1px solid #e0e0e0; margin: 24px 0; }
                     blockquote { border-left: 4px solid #1a4fff; padding: 4px 0 4px 16px; margin: 20px 0; color: #333; font-style: italic; }
+                    blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 13px; color: #999; font-family: Helvetica, Arial, sans-serif; }
                     .insight { border-left: 4px solid #1a4fff; padding: 4px 0 4px 16px; margin: 24px 0; }
                     .ins-label { font-family: Helvetica, Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #1a4fff; margin-bottom: 6px; }
                     .ins-text { font-style: italic; color: #111; }
