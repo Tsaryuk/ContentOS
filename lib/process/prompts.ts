@@ -219,13 +219,16 @@ Return ONLY valid JSON (no markdown, no \`\`\`):
 - Mix: 30% broad, 70% narrow.
 
 ### Timecodes (${timecodesCount} chapters)
-- Format: ALWAYS "H:MM:SS" for videos >60 min (e.g. "1:05:23"), "MM:SS" for shorter videos.
-- NEVER use MM>59 (e.g. "65:00" is WRONG, use "1:05:00").
-- CRITICAL: Extract EXACT timestamps from the transcript [MM:SS] markers. Do NOT round to :00. Use the precise time where each topic actually starts in the transcript.
-- Each label = SEO searchable keyword phrase (like article subheadings)
-- Proportionally distributed across ${durationMin} minutes
-- First always "00:00" with introductory heading
-- CRITICAL: Last timecode MUST NOT exceed video duration of ${durationMin} minutes.
+- Format: "H:MM:SS" for videos >60 min, "MM:SS" for shorter. NEVER use MM>59.
+- **MANDATORY PROCESS for timecodes:**
+  1. The transcript has markers like [00:00], [03:06], [22:54], [1:05:17].
+  2. When a new topic starts, find the NEAREST [MM:SS] marker in the transcript.
+  3. Use THAT EXACT timestamp. Do NOT round to :00 or :05.
+  4. Example: if the topic "Мелатонин" starts near [29:47], write "29:47", NOT "30:00".
+- Every timecode MUST match a real [MM:SS] marker from the transcript. Rounded times like "30:00", "35:00", "50:00", "1:10:00" are FORBIDDEN unless they happen to be exact.
+- Each label = SEO searchable keyword phrase (NOT generic like "Вступление" or "Часть 2")
+- First always "00:00"
+- Last timecode MUST NOT exceed ${durationMin} minutes.
 
 ### Thumbnail text
 - MAX 3 words (ideal 2). Max 20 characters.
