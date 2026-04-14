@@ -106,12 +106,43 @@ export default function ArticleEditorPage() {
     return () => clearInterval(t)
   }, [article?.status, handleSave])
 
-  // Formatting
-  function execCmd(cmd: string, value?: string) { document.execCommand(cmd, false, value); editorRef.current?.focus() }
+  // Undo/Redo history
+  const undoStack = useRef<string[]>([])
+  const redoStack = useRef<string[]>([])
 
-  // Undo / Redo
-  function handleUndo() { document.execCommand('undo'); syncEditor() }
-  function handleRedo() { document.execCommand('redo'); syncEditor() }
+  function pushUndo() {
+    const html = editorRef.current?.innerHTML ?? ''
+    if (undoStack.current[undoStack.current.length - 1] !== html) {
+      undoStack.current.push(html)
+      if (undoStack.current.length > 50) undoStack.current.shift()
+      redoStack.current = []
+    }
+  }
+
+  // Formatting
+  function execCmd(cmd: string, value?: string) {
+    pushUndo()
+    document.execCommand(cmd, false, value)
+    editorRef.current?.focus()
+  }
+
+  function handleUndo() {
+    if (undoStack.current.length === 0) return
+    const current = editorRef.current?.innerHTML ?? ''
+    redoStack.current.push(current)
+    const prev = undoStack.current.pop()!
+    if (editorRef.current) editorRef.current.innerHTML = prev
+    updateLocal({ body_html: prev })
+  }
+
+  function handleRedo() {
+    if (redoStack.current.length === 0) return
+    const current = editorRef.current?.innerHTML ?? ''
+    undoStack.current.push(current)
+    const next = redoStack.current.pop()!
+    if (editorRef.current) editorRef.current.innerHTML = next
+    updateLocal({ body_html: next })
+  }
 
   // Insert YouTube embed at cursor position in editor
   function insertYoutubeEmbed() {
@@ -319,8 +350,9 @@ export default function ArticleEditorPage() {
               </div>
             </div>
 
-            {/* Toolbar */}
-            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border/50 shrink-0">
+            {/* Editor scroll area: toolbar sticky + content scrolls */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border/50 sticky top-0 bg-bg z-10">
               <button onClick={handleUndo} title="Отменить (Ctrl+Z)" className="p-1.5 text-dim hover:text-cream hover:bg-white/5 rounded">
                 <Undo2 className="w-3.5 h-3.5" />
               </button>
@@ -359,8 +391,8 @@ export default function ArticleEditorPage() {
               </div>
             </div>
 
-            {/* Editor / Preview — fills remaining space */}
-            <div className="flex-1 overflow-y-auto min-h-0">
+            {/* Editor / Preview */}
+            <div>
               {preview === 'editor' ? (
                 <div ref={editorRef} contentEditable suppressContentEditableWarning
                   className="p-6 min-h-full text-cream text-sm leading-relaxed focus:outline-none prose prose-invert max-w-none
@@ -376,7 +408,12 @@ export default function ArticleEditorPage() {
                     [&_.video-embed]:my-6 [&_.video-embed]:rounded-lg [&_.video-embed]:overflow-hidden
                     [&_iframe]:w-full [&_iframe]:border-0"
                   dangerouslySetInnerHTML={{ __html: article.body_html || '<p style="color:#555">Начните писать статью...</p>' }}
-                  onBlur={syncEditor} />
+                  onBlur={syncEditor}
+                  onInput={() => { pushUndo() }}
+                  onKeyDown={e => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo() }
+                    if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleRedo() }
+                  }} />
               ) : (
                 <div className="p-6 flex justify-center">
                   <div className={`bg-black rounded-lg shadow-lg overflow-hidden ${preview === 'mobile' ? 'w-[375px]' : 'w-[680px]'}`}>
@@ -386,6 +423,7 @@ export default function ArticleEditorPage() {
                 </div>
               )}
             </div>
+            </div>{/* close scroll area */}
           </>)}
 
           {tab === 'seo' && (
