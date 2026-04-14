@@ -1,7 +1,7 @@
 // Publishes/updates a static HTML article on letters.tsaryuk.ru
 // Called from publish route (first-time) and auto-republish on save
 
-import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs'
+import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from 'fs'
 import { join } from 'path'
 
 interface Article {
@@ -29,7 +29,10 @@ interface IndexEntry {
   cover: string | null
 }
 
-export async function publishArticleFiles(article: Article): Promise<{ url: string }> {
+export async function publishArticleFiles(
+  article: Article,
+  opts: { previousSlug?: string | null } = {}
+): Promise<{ url: string }> {
   if (!article.blog_slug) throw new Error('blog_slug обязателен')
   if (!article.body_html?.trim()) throw new Error('Статья пустая')
 
@@ -76,6 +79,15 @@ export async function publishArticleFiles(article: Article): Promise<{ url: stri
   const filePath = join(ARTICLES_DIR, `${article.blog_slug}.html`)
   writeFileSync(filePath, html, 'utf-8')
 
+  // Remove old HTML file if slug changed
+  const prev = opts.previousSlug
+  if (prev && prev !== article.blog_slug) {
+    const oldPath = join(ARTICLES_DIR, `${prev}.html`)
+    if (existsSync(oldPath)) {
+      try { unlinkSync(oldPath) } catch { /* ignore */ }
+    }
+  }
+
   // Update articles/index.json
   let articles: IndexEntry[] = []
   if (existsSync(INDEX_JSON)) {
@@ -86,7 +98,8 @@ export async function publishArticleFiles(article: Article): Promise<{ url: stri
     }
   }
 
-  articles = articles.filter(a => a.slug !== article.blog_slug)
+  // Remove current slug AND previous slug (if different) from index
+  articles = articles.filter(a => a.slug !== article.blog_slug && a.slug !== prev)
   articles.unshift({
     slug: article.blog_slug,
     title: article.title,
@@ -98,4 +111,24 @@ export async function publishArticleFiles(article: Article): Promise<{ url: stri
   writeFileSync(INDEX_JSON, JSON.stringify(articles, null, 2), 'utf-8')
 
   return { url: `https://letters.tsaryuk.ru/articles/${article.blog_slug}.html` }
+}
+
+// Remove published article: delete HTML file + index entry
+export async function unpublishArticleFiles(slug: string): Promise<void> {
+  if (!existsSync('/var/www/letters')) return
+
+  const filePath = join(ARTICLES_DIR, `${slug}.html`)
+  if (existsSync(filePath)) {
+    try { unlinkSync(filePath) } catch { /* ignore */ }
+  }
+
+  if (existsSync(INDEX_JSON)) {
+    try {
+      const articles: IndexEntry[] = JSON.parse(readFileSync(INDEX_JSON, 'utf-8'))
+      const filtered = articles.filter(a => a.slug !== slug)
+      writeFileSync(INDEX_JSON, JSON.stringify(filtered, null, 2), 'utf-8')
+    } catch {
+      /* ignore */
+    }
+  }
 }
