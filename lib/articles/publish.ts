@@ -49,14 +49,22 @@ export async function publishArticleFiles(article: Article): Promise<{ url: stri
         day: 'numeric', month: 'long', year: 'numeric',
       })
 
+  // Cover image tag (only if cover_url present)
+  const coverImg = article.cover_url
+    ? `<img class="article-cover" src="${article.cover_url}" alt="${article.title.replace(/"/g, '&quot;')}">`
+    : ''
+
   // Body already contains YouTube embed if inserted via editor; don't duplicate
   const html = template
     .replace(/\{\{TITLE\}\}/g, article.title)
     .replace(/\{\{DESCRIPTION\}\}/g, article.seo_description || article.subtitle)
+    .replace(/\{\{SUBTITLE\}\}/g, article.subtitle || '')
     .replace(/\{\{COVER_URL\}\}/g, article.cover_url || '')
+    .replace(/\{\{COVER_IMG\}\}/g, coverImg)
     .replace(/\{\{CATEGORY\}\}/g, article.category || '')
     .replace(/\{\{DATE\}\}/g, date)
     .replace(/\{\{NUMBER\}\}/g, '')
+    .replace(/\{\{SLUG\}\}/g, article.blog_slug || '')
     .replace(/\{\{BODY_HTML\}\}/g, article.body_html)
 
   // Only write on server (not dev machine)
