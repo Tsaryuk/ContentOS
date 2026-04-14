@@ -212,6 +212,8 @@ export default function NewsletterEditorPage() {
               subject={issue.subject}
               subtitle={issue.subtitle}
               onUpdate={updateLocal}
+              onSave={handleSave}
+              saving={saving}
             />
           )}
           {tab === 'seo' && (

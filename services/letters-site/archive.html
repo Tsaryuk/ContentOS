@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Архив выпусков — Личная Стратегия</title>
+<meta name="description" content="Все выпуски рассылки Личная Стратегия. Мышление, деньги, отношения, стратегия, AI, путешествия.">
+<link rel="canonical" href="https://letters.tsaryuk.ru/archive.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#000;--surface:#0d0d0d;--border:#1a1a1a;--text:#e8e8e8;--muted:#888;--dim:#555;--serif:'Lora',Georgia,serif;--sans:'Inter',-apple-system,sans-serif}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+html{overflow-x:hidden}
+a{color:var(--muted);text-decoration:none;transition:color .2s}
+a:hover{color:var(--text)}
+.container{max-width:680px;margin:0 auto;padding:0 24px}
+.wide{max-width:960px}
+
+.header{padding:24px 0;border-bottom:1px solid var(--border)}
+.header-inner{display:flex;align-items:center;justify-content:space-between}
+.header-links a{font-size:13px;color:var(--dim)}
+.header-links a:hover{color:var(--text)}
+.logo{font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text)}
+
+.page-title{text-align:center;padding:48px 0 32px}
+.page-title h1{font-family:var(--serif);font-size:32px;font-weight:400;margin-bottom:12px}
+.page-title p{font-size:15px;color:var(--muted)}
+
+.nav-tabs{display:flex;justify-content:center;gap:8px;padding:0 0 32px;flex-wrap:wrap}
+.nav-tab{font-size:12px;padding:6px 16px;border-radius:20px;border:1px solid var(--border);color:var(--dim);cursor:pointer;transition:all .2s;background:transparent;text-decoration:none;display:inline-block}
+.nav-tab:hover,.nav-tab.active{color:var(--text);border-color:var(--dim);text-decoration:none}
+
+.archive-list{display:flex;flex-direction:column}
+.archive-item{display:flex;align-items:center;gap:16px;padding:18px 0;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);transition:opacity .2s}
+.archive-item:hover{opacity:0.8;text-decoration:none}
+.archive-item:last-child{border-bottom:none}
+.archive-cover{width:100px;height:68px;border-radius:8px;object-fit:cover;background:var(--surface);flex-shrink:0}
+.archive-body{flex:1;min-width:0}
+.archive-body h3{font-family:var(--serif);font-size:17px;font-weight:500;margin-bottom:4px}
+.archive-body p{font-size:13px;color:var(--muted);line-height:1.4;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.archive-body span{font-size:12px;color:var(--dim)}
+.archive-empty{text-align:center;padding:40px 0;color:var(--dim);font-size:14px}
+
+.footer{padding:32px 0;text-align:center;font-size:12px;color:var(--dim);border-top:1px solid var(--border);margin-top:48px}
+.footer-links{margin-bottom:8px}
+.footer-links a{margin:0 10px;color:var(--dim)}
+.footer-links a:hover{color:var(--text)}
+
+@media(max-width:640px){
+  .page-title{padding:32px 0 24px}
+  .page-title h1{font-size:26px}
+  .nav-tabs{gap:6px;padding:0 16px 24px}
+  .nav-tab{font-size:11px;padding:5px 12px}
+  .container{padding:0 16px}
+  .archive-cover{width:72px;height:50px}
+  .archive-body h3{font-size:15px}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="container wide header-inner">
+    <div class="header-links">
+      <a href="/">&larr; Главная</a>
+    </div>
+    <a href="/" class="logo">ЛИЧНАЯ СТРАТЕГИЯ</a>
+    <div class="header-links">
+      <a href="https://t.me/tsaryuk_ru" target="_blank">Telegram</a>
+    </div>
+  </div>
+</header>
+
+<div class="page-title">
+  <div class="container">
+    <h1>Архив выпусков</h1>
+    <p>Все письма рассылки «Личная Стратегия»</p>
+  </div>
+</div>
+
+<nav class="nav-tabs" id="navTabs">
+  <a class="nav-tab active" href="#" data-cat="all">Все</a>
+  <a class="nav-tab" href="#" data-cat="Мышление">Мышление</a>
+  <a class="nav-tab" href="#" data-cat="Деньги">Деньги</a>
+  <a class="nav-tab" href="#" data-cat="Отношения">Отношения</a>
+  <a class="nav-tab" href="#" data-cat="Стратегия">Стратегия</a>
+  <a class="nav-tab" href="#" data-cat="AI">AI</a>
+  <a class="nav-tab" href="#" data-cat="Путешествия">Путешествия</a>
+</nav>
+
+<div class="container">
+  <div class="archive-list" id="archiveList">
+    <div class="archive-empty">Загрузка...</div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footer-links">
+    <a href="https://tsaryuk.ru">Сайт автора</a>
+    <a href="https://t.me/tsaryuk_ru">Telegram</a>
+    <a href="https://youtube.com/@tsaryuk">YouTube</a>
+  </div>
+  <div>&copy; Денис Царюк, 2026</div>
+</footer>
+
+<script>
+let allArticles=[];
+(async()=>{
+  try{
+    const r=await fetch('/articles/index.json');
+    allArticles=await r.json();
+    renderArticles('all');
+  }catch{
+    document.getElementById('archiveList').innerHTML='<div class="archive-empty">Скоро здесь появятся статьи</div>';
+  }
+})();
+
+function renderArticles(cat){
+  const list=document.getElementById('archiveList');
+  const filtered=cat==='all'?allArticles:allArticles.filter(a=>a.category===cat);
+  if(filtered.length===0){
+    list.innerHTML='<div class="archive-empty">Нет статей в этой рубрике</div>';
+    return;
+  }
+  list.innerHTML='';
+  filtered.forEach(a=>{
+    const el=document.createElement('a');
+    el.href='/articles/'+a.slug+'.html';
+    el.className='archive-item';
+    el.innerHTML=`${a.cover?`<img class="archive-cover" src="${a.cover}" alt="">`:`<div class="archive-cover"></div>`}<div class="archive-body"><h3>${a.title}</h3><span>${a.date}${a.category?' &middot; '+a.category:''}</span></div>`;
+    list.appendChild(el);
+  });
+}
+
+document.getElementById('navTabs').addEventListener('click',e=>{
+  e.preventDefault();
+  const tab=e.target.closest('.nav-tab');
+  if(!tab)return;
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  renderArticles(tab.dataset.cat);
+});
+</script>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=108538087', 'ym');
+    ym(108538087, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/108538087" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+</body>
+</html>

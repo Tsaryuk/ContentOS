@@ -10,6 +10,8 @@ interface ArticlePanelProps {
   subject: string
   subtitle: string
   onUpdate: (fields: Record<string, any>) => void
+  onSave: () => Promise<void>
+  saving: boolean
 }
 
 type PreviewMode = 'edit' | 'desktop' | 'mobile'
@@ -28,7 +30,7 @@ function stripEmailWrapper(html: string): string {
   return clean.trim()
 }
 
-export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subtitle, onUpdate }: ArticlePanelProps) {
+export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subtitle, onUpdate, onSave, saving }: ArticlePanelProps) {
   const [preview, setPreview] = useState<PreviewMode>('edit')
   const [generating, setGenerating] = useState(false)
   const [coverOptions, setCoverOptions] = useState<string[]>([])
@@ -139,7 +141,7 @@ export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subti
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center px-4 py-2 border-b border-border/50">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
         <div className="flex gap-1">
           {(['edit', 'desktop', 'mobile'] as const).map(m => (
             <button
@@ -153,6 +155,14 @@ export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subti
             </button>
           ))}
         </div>
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs hover:bg-accent/90 disabled:opacity-50 flex items-center gap-1.5"
+        >
+          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+          Сохранить
+        </button>
       </div>
 
       {/* Content */}
