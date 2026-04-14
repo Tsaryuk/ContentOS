@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}} — Стратегия Жизни</title>
+<meta name="description" content="{{DESCRIPTION}}">
+<meta property="og:title" content="{{TITLE}} — Стратегия Жизни">
+<meta property="og:description" content="{{DESCRIPTION}}">
+<meta property="og:image" content="{{COVER_URL}}">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#000;--surface:#111;--border:#1a1a1a;--text:#e8e8e8;--muted:#888;--dim:#555;--accent:#1a4fff;--serif:'Lora',Georgia,serif;--sans:'Inter',-apple-system,sans-serif}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.header{padding:20px 0;border-bottom:1px solid var(--border)}
+.header-inner{max-width:960px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--text)}
+.logo span{color:var(--muted);font-weight:400}
+.back{font-size:13px;color:var(--muted)}
+
+/* Article */
+.article{max-width:680px;margin:0 auto;padding:48px 24px 80px}
+.article-meta{margin-bottom:32px}
+.article-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--accent);margin-bottom:12px}
+.article-title{font-family:var(--serif);font-size:clamp(28px,4.5vw,40px);font-weight:400;line-height:1.25;margin-bottom:12px;letter-spacing:-0.02em}
+.article-date{font-size:13px;color:var(--dim)}
+
+/* Cover */
+.article-cover{width:100%;border-radius:8px;margin-bottom:40px;aspect-ratio:16/9;object-fit:cover;background:var(--surface)}
+
+/* Content */
+.article-body{font-family:var(--serif);font-size:19px;line-height:1.75;color:var(--text)}
+.article-body p{margin-bottom:1.4em}
+.article-body h2{font-family:var(--sans);font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text);margin:48px 0 16px}
+.article-body blockquote{border-left:3px solid var(--accent);padding:4px 0 4px 20px;margin:24px 0;font-style:italic;color:var(--muted)}
+.article-body blockquote cite{display:block;margin-top:8px;font-style:normal;font-size:14px;font-family:var(--sans);color:var(--dim)}
+.article-body strong{color:#fff}
+.article-body a{color:var(--accent);border-bottom:1px dotted var(--accent)}
+
+/* Insight block */
+.insight{border-left:3px solid var(--accent);padding:4px 0 4px 20px;margin:32px 0}
+.insight-label{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);margin-bottom:6px}
+.insight-text{font-style:italic;font-size:19px;line-height:1.5}
+
+/* Question block */
+.qblock{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:28px 0;margin:40px 0}
+.q-label{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:10px}
+.q-text{font-family:var(--serif);font-style:italic;font-size:22px;line-height:1.4}
+
+/* YouTube embed */
+.video-embed{position:relative;padding-bottom:56.25%;height:0;margin:32px 0;border-radius:8px;overflow:hidden}
+.video-embed iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+
+/* CTA */
+.subscribe-cta{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;text-align:center;margin-top:56px}
+.subscribe-cta h3{font-family:var(--serif);font-size:20px;font-weight:400;margin-bottom:8px}
+.subscribe-cta p{font-size:14px;color:var(--muted);margin-bottom:20px}
+.subscribe-form{display:flex;gap:8px;max-width:400px;margin:0 auto}
+.subscribe-form input{flex:1;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);font-family:var(--sans);outline:none}
+.subscribe-form input:focus{border-color:var(--accent)}
+.subscribe-form input::placeholder{color:var(--dim)}
+.subscribe-form button{padding:12px 24px;background:#fff;color:#000;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+
+/* Footer */
+.footer{max-width:680px;margin:0 auto;padding:24px;text-align:center;font-size:12px;color:var(--dim);border-top:1px solid var(--border)}
+.footer a{color:var(--accent);margin:0 8px}
+
+@media(max-width:640px){
+  .article{padding:32px 16px 60px}
+  .article-body{font-size:17px}
+  .subscribe-form{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a href="/" class="logo">Стратегия Жизни <span>/ Денис Царюк</span></a>
+    <a href="/" class="back">&larr; Все выпуски</a>
+  </div>
+</header>
+
+<article class="article">
+  <div class="article-meta">
+    <div class="article-cat">{{CATEGORY}}</div>
+    <h1 class="article-title">{{TITLE}}</h1>
+    <div class="article-date">{{DATE}} &middot; Выпуск #{{NUMBER}}</div>
+  </div>
+
+  <img class="article-cover" src="{{COVER_URL}}" alt="{{TITLE}}">
+
+  <div class="article-body">
+    {{BODY_HTML}}
+  </div>
+
+  <!-- Subscribe CTA -->
+  <div class="subscribe-cta">
+    <h3>Это письмо из рассылки</h3>
+    <p>Каждую неделю одно честное письмо. Подпишитесь, чтобы не пропустить.</p>
+    <form class="subscribe-form" id="subscribeForm">
+      <input type="email" placeholder="Ваш email" required id="emailInput">
+      <button type="submit">Подписаться</button>
+    </form>
+  </div>
+</article>
+
+<footer class="footer">
+  <a href="https://tsaryuk.ru">tsaryuk.ru</a>
+  <a href="https://t.me/tsaryuk_ru">@tsaryuk_ru</a>
+  <div style="margin-top:8px">&copy; Денис Царюк, 2026</div>
+</footer>
+
+<script>
+const API_KEY = '67kqumu7yrmzy1auyg4647tri7ghuznnda3r5w4o';
+document.getElementById('subscribeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button');
+  const input = document.getElementById('emailInput');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const params = new URLSearchParams();
+    params.append('api_key', API_KEY);
+    params.append('list_ids', '2');
+    params.append('fields[email]', input.value);
+    params.append('double_optin', '3');
+    await fetch('https://api.unisender.com/ru/api/subscribe?format=json', {
+      method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: params.toString()
+    });
+    btn.textContent = 'Готово!';
+  } catch { btn.textContent = 'Ошибка'; btn.disabled = false; }
+});
+</script>
+
+</body>
+</html>

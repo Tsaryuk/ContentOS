@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Одно решение, которое определяет всю твою жизнь — Стратегия Жизни</title>
+<title>Одно решение, которое определяет всю твою жизнь — Личная Стратегия</title>
 <meta name="description" content="Почему нерешительность — это тоже выбор. Просто чужой.">
 <meta property="og:title" content="Одно решение, которое определяет всю твою жизнь">
 <meta property="og:description" content="Почему нерешительность — это тоже выбор. Просто чужой.">
@@ -19,8 +19,8 @@ a{color:var(--muted);text-decoration:none;transition:color .2s}
 a:hover{color:var(--text)}
 
 .header{padding:20px 0;border-bottom:1px solid var(--border)}
-.header-inner{max-width:960px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between}
-.logo{font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text)}
+.header-inner{max-width:960px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:center;gap:24px}
+.logo{font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text);flex-shrink:0}
 .back{font-size:13px;color:var(--dim)}
 .back:hover{color:var(--text)}
 
@@ -92,7 +92,8 @@ a:hover{color:var(--text)}
 
 <header class="header">
   <div class="header-inner">
-    <a href="/" class="logo">Стратегия Жизни</a>
+    <a href="https://tsaryuk.ru" class="back" target="_blank">Сайт автора</a>
+    <a href="/" class="logo">ЛИЧНАЯ СТРАТЕГИЯ</a>
     <a href="/" class="back">&larr; Все выпуски</a>
   </div>
 </header>
@@ -190,8 +191,9 @@ a:hover{color:var(--text)}
 </article>
 
 <footer class="footer">
-  <a href="https://tsaryuk.ru">tsaryuk.ru</a>
-  <a href="https://t.me/tsaryuk_ru">@tsaryuk_ru</a>
+  <a href="https://tsaryuk.ru">Сайт автора</a>
+  <a href="https://t.me/tsaryuk_ru">Telegram</a>
+  <a href="https://youtube.com/@tsaryuk">YouTube</a>
   <div style="margin-top:8px">&copy; Денис Царюк, 2026</div>
 </footer>
 
@@ -199,10 +201,22 @@ a:hover{color:var(--text)}
 document.getElementById('subscribeForm').addEventListener('submit',async e=>{
   e.preventDefault();const btn=e.target.querySelector('button'),inp=document.getElementById('emailInput');
   btn.disabled=true;btn.textContent='...';
-  try{const p=new URLSearchParams();p.append('api_key','67kqumu7yrmzy1auyg4647tri7ghuznnda3r5w4o');p.append('list_ids','2');p.append('fields[email]',inp.value);p.append('double_optin','3');
+  try{const p=new URLSearchParams();p.append('api_key','67kqumu7yrmzy1auyg4647tri7ghuznnda3r5w4o');p.append('list_ids','1');p.append('fields[email]',inp.value);p.append('double_optin','3');
   await fetch('https://api.unisender.com/ru/api/subscribe?format=json',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()});
   btn.textContent='Готово!'}catch{btn.textContent='Ошибка';btn.disabled=false}
 });
 </script>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=108538087', 'ym');
+    ym(108538087, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/108538087" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
 </body>
 </html>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Image, Eye, Smartphone, Monitor, Play } from 'lucide-react'
+import { Image, Eye, Smartphone, Monitor, Play, Loader2 } from 'lucide-react'
 
 interface ArticlePanelProps {
   articleHtml: string
@@ -16,6 +16,30 @@ type PreviewMode = 'edit' | 'desktop' | 'mobile'
 
 export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subtitle, onUpdate }: ArticlePanelProps) {
   const [preview, setPreview] = useState<PreviewMode>('edit')
+  const [generating, setGenerating] = useState(false)
+  const [coverOptions, setCoverOptions] = useState<string[]>([])
+
+  async function generateCover() {
+    if (!subject.trim()) return
+    setGenerating(true)
+    setCoverOptions([])
+    try {
+      const res = await fetch('/api/newsletter/cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, description: subtitle }),
+      })
+      const data = await res.json()
+      if (data.urls?.length > 0) {
+        setCoverOptions(data.urls)
+        onUpdate({ cover_url: data.urls[0] })
+      } else if (data.error) {
+        alert(data.error)
+      }
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   function getYoutubeEmbedId(url: string): string | null {
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/)
@@ -39,15 +63,49 @@ export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subti
                 className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent"
               />
               <button
-                className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs hover:bg-accent/20 flex items-center gap-1.5"
-                title="Генерация обложки (fal.ai)"
+                onClick={generateCover}
+                disabled={generating || !subject.trim()}
+                className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs hover:bg-accent/20 disabled:opacity-50 flex items-center gap-1.5"
+                title="Генерация обложки (fal.ai, ч/б гравюра)"
               >
-                <Image className="w-3 h-3" />
-                Генерировать
+                {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+                {generating ? 'Генерация...' : 'Генерировать'}
               </button>
             </div>
           </div>
         </div>
+        {/* Cover options */}
+        {coverOptions.length > 0 && (
+          <div>
+            <label className="text-[10px] text-dim uppercase tracking-wider mb-1.5 block">Выберите обложку</label>
+            <div className="flex gap-2">
+              {coverOptions.map((url, i) => (
+                <button
+                  key={i}
+                  onClick={() => onUpdate({ cover_url: url })}
+                  className={`relative rounded-lg overflow-hidden border-2 transition-colors ${
+                    coverUrl === url ? 'border-accent' : 'border-border hover:border-muted'
+                  }`}
+                >
+                  <img src={url} alt={`Вариант ${i + 1}`} className="w-40 h-24 object-cover" />
+                  {coverUrl === url && (
+                    <div className="absolute inset-0 bg-accent/10 flex items-center justify-center">
+                      <span className="text-[10px] text-accent font-bold">Выбрано</span>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cover preview */}
+        {coverUrl && (
+          <div>
+            <img src={coverUrl} alt="Обложка" className="w-full h-40 object-cover rounded-lg" />
+          </div>
+        )}
+
         <div>
           <label className="text-[10px] text-dim uppercase tracking-wider mb-1 block">YouTube видео</label>
           <div className="flex gap-2">

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Личная Стратегия — Денис Царюк | Еженедельные письма о жизни, мышлении и стратегии</title>
+<meta name="description" content="Еженедельные письма Дениса Царюка о том, как строить жизнь осознанно. Мышление, деньги, отношения, стратегия. 6000+ подписчиков.">
+<meta name="keywords" content="личная стратегия, рассылка, Денис Царюк, мышление, саморазвитие, осознанность, подкаст, личная философия">
+<meta property="og:title" content="Личная Стратегия — Денис Царюк">
+<meta property="og:description" content="Еженедельные письма о том, как строить жизнь осознанно">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://letters.tsaryuk.ru">
+<meta property="og:site_name" content="Личная Стратегия">
+<meta property="og:locale" content="ru_RU">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://letters.tsaryuk.ru">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "Личная Стратегия",
+  "description": "Еженедельные письма о том, как строить жизнь осознанно",
+  "url": "https://letters.tsaryuk.ru",
+  "author": {
+    "@type": "Person",
+    "name": "Денис Царюк",
+    "url": "https://tsaryuk.ru",
+    "image": "https://letters.tsaryuk.ru/assets/img/author.jpg"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "Денис Царюк"
+  },
+  "inLanguage": "ru"
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#000;--surface:#0d0d0d;--border:#1a1a1a;--text:#e8e8e8;--muted:#888;--dim:#555;--accent:#fff;--serif:'Lora',Georgia,serif;--sans:'Inter',-apple-system,sans-serif}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--muted);text-decoration:none;transition:color .2s}
+a:hover{color:var(--text)}
+.container{max-width:680px;margin:0 auto;padding:0 24px}
+.wide{max-width:960px}
+
+/* Header */
+.header{padding:24px 0;border-bottom:1px solid var(--border)}
+.header-inner{display:flex;align-items:center;justify-content:space-between}
+.header-links{display:flex;gap:20px}
+.header-links a{font-size:13px;color:var(--dim)}
+.header-links a:hover{color:var(--text)}
+
+/* Brand */
+.brand{text-align:center;padding:48px 0 0}
+.brand-name{font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:var(--text)}
+.brand-sep{width:40px;height:1px;background:var(--dim);margin:16px auto}
+.brand-author{font-size:13px;color:var(--dim);font-weight:400}
+
+/* Nav tabs */
+.nav-tabs{display:flex;justify-content:center;gap:8px;padding:32px 0 0;flex-wrap:wrap}
+.nav-tab{font-size:12px;padding:6px 16px;border-radius:20px;border:1px solid var(--border);color:var(--dim);cursor:pointer;transition:all .2s;background:transparent;text-decoration:none;display:inline-block}
+.nav-tab:hover,.nav-tab.active{color:var(--text);border-color:var(--dim);text-decoration:none}
+
+/* Hero */
+.hero{padding:48px 0 56px;text-align:center}
+.hero h1{font-family:var(--serif);font-size:clamp(28px,4.5vw,42px);font-weight:400;line-height:1.3;margin-bottom:20px;letter-spacing:-0.02em}
+.hero-desc{font-size:17px;color:var(--muted);max-width:500px;margin:0 auto 36px;line-height:1.6;text-align:center}
+
+/* Subscribe */
+.subscribe-form{display:flex;gap:8px;max-width:420px;margin:0 auto}
+.subscribe-form input{flex:1;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:15px;color:var(--text);font-family:var(--sans);outline:none;transition:border-color .2s}
+.subscribe-form input:focus{border-color:var(--dim)}
+.subscribe-form input::placeholder{color:var(--dim)}
+.subscribe-form button{padding:14px 28px;background:#fff;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;transition:opacity .2s;white-space:nowrap}
+.subscribe-form button:hover{opacity:0.85}
+.subscribe-form button:disabled{opacity:0.5}
+.subscribe-count{font-size:13px;color:var(--dim);margin-top:14px;text-align:center}
+.form-error{color:#ef4444;font-size:13px;margin-top:8px;text-align:center;display:none}
+.form-error.show{display:block}
+.subscribe-success{display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:420px;margin:0 auto;text-align:center}
+.subscribe-success.show{display:block}
+.subscribe-success h3{font-family:var(--serif);font-size:22px;margin-bottom:8px}
+.subscribe-success p{color:var(--muted);font-size:14px;margin-bottom:20px}
+.tg-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:#fff;color:#000;border-radius:8px;font-size:14px;font-weight:500}
+.tg-btn:hover{color:#000;opacity:0.85}
+
+.divider{border:none;border-top:1px solid var(--border);margin:0}
+
+/* Section */
+.section{padding:48px 0}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:var(--dim);margin-bottom:24px;text-align:center}
+
+/* Features */
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;text-align:left}
+.feature h3{font-family:var(--serif);font-size:17px;font-weight:500;margin-bottom:8px}
+.feature p{font-size:14px;color:var(--muted);line-height:1.6}
+
+/* Archive */
+.archive-list{display:flex;flex-direction:column}
+.archive-item{display:flex;align-items:center;gap:16px;padding:18px 0;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);transition:opacity .2s}
+.archive-item:hover{opacity:0.8;text-decoration:none}
+.archive-item:last-child{border-bottom:none}
+.archive-cover{width:88px;height:60px;border-radius:6px;object-fit:cover;background:var(--surface);flex-shrink:0}
+.archive-body{flex:1;min-width:0}
+.archive-body h4{font-family:var(--serif);font-size:16px;font-weight:500;margin-bottom:3px}
+.archive-body span{font-size:12px;color:var(--dim)}
+.archive-empty{text-align:center;padding:24px 0;color:var(--dim);font-size:14px}
+
+/* Footer */
+.footer{padding:32px 0;text-align:center;font-size:12px;color:var(--dim);border-top:1px solid var(--border)}
+.footer-links{margin-bottom:8px}
+.footer-links a{margin:0 10px;color:var(--dim)}
+.footer-links a:hover{color:var(--text)}
+
+/* Mobile */
+@media(max-width:640px){
+  .hero{padding:32px 0 40px}
+  .hero h1{font-size:26px}
+  .hero-desc{font-size:15px}
+  .subscribe-form{flex-direction:column}
+  .subscribe-form button{width:100%}
+  .features{grid-template-columns:1fr;gap:20px}
+  .archive-cover{width:64px;height:44px}
+  .nav-tabs{gap:6px;padding:24px 16px 0}
+  .nav-tab{font-size:11px;padding:5px 12px}
+  .header-links{gap:12px}
+  .header-links a{font-size:12px}
+  .brand{padding:32px 0 0}
+  .brand-name{font-size:12px}
+  .section{padding:36px 0}
+  .container{padding:0 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="container wide header-inner">
+    <div class="header-links">
+      <a href="https://tsaryuk.ru" target="_blank">Сайт автора</a>
+    </div>
+    <div class="header-links">
+      <a href="#archive">Архив</a>
+      <a href="https://t.me/tsaryuk_ru" target="_blank">Telegram</a>
+    </div>
+  </div>
+</header>
+
+<!-- Brand -->
+<div class="brand">
+  <div class="brand-name">ЛИЧНАЯ СТРАТЕГИЯ</div>
+  <div class="brand-sep"></div>
+  <div class="brand-author">Денис Царюк</div>
+</div>
+
+<!-- Nav tabs -->
+<nav class="nav-tabs" id="navTabs">
+  <a class="nav-tab active" href="#" data-cat="all">Все</a>
+  <a class="nav-tab" href="#" data-cat="Мышление">Мышление</a>
+  <a class="nav-tab" href="#" data-cat="Деньги">Деньги</a>
+  <a class="nav-tab" href="#" data-cat="Отношения">Отношения</a>
+  <a class="nav-tab" href="#" data-cat="Стратегия">Стратегия</a>
+  <a class="nav-tab" href="#" data-cat="AI">AI</a>
+  <a class="nav-tab" href="#" data-cat="Путешествия">Путешествия</a>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <h1>Письма о том, как строить жизнь осознанно</h1>
+    <p class="hero-desc">Каждую неделю одно честное письмо. Про мышление, деньги, отношения и стратегию. Без достигаторства и пустых обещаний.</p>
+
+    <form class="subscribe-form" id="subscribeForm">
+      <input type="email" placeholder="Ваш email" required id="emailInput">
+      <button type="submit" id="submitBtn">Подписаться</button>
+    </form>
+    <div class="form-error" id="formError"></div>
+    <div class="subscribe-count" id="subCount"></div>
+
+    <div class="subscribe-success" id="successBlock">
+      <h3>Готово!</h3>
+      <p>Первое письмо уже в пути. Подпишись на Telegram:</p>
+      <a href="https://t.me/tsaryuk_ru" target="_blank" class="tg-btn">@tsaryuk_ru</a>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Archive -->
+<section class="section" id="archive">
+  <div class="container">
+    <div class="section-label">Выпуски</div>
+    <div class="archive-list" id="archiveList">
+      <div class="archive-empty">Загрузка...</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- What's inside -->
+<section class="section">
+  <div class="container">
+    <div class="section-label">Что внутри</div>
+    <div class="features">
+      <div class="feature">
+        <h3>Разговор о жизни</h3>
+        <p>Честный текст на одну тему: мышление, деньги, отношения, страхи. Без воды.</p>
+      </div>
+      <div class="feature">
+        <h3>Подкаст</h3>
+        <p>Анонс свежего выпуска «Личной Философии» с гостем или соло.</p>
+      </div>
+      <div class="feature">
+        <h3>Лайфхак недели</h3>
+        <p>Один совет, инструмент или наблюдение, проверенное на себе.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Bottom CTA -->
+<section class="section">
+  <div class="container" style="text-align:center">
+    <p style="font-family:var(--serif);font-size:20px;margin-bottom:24px">Присоединяйтесь</p>
+    <form class="subscribe-form" id="subscribeForm2">
+      <input type="email" placeholder="Ваш email" required id="emailInput2">
+      <button type="submit">Подписаться</button>
+    </form>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-links">
+    <a href="https://tsaryuk.ru">Сайт автора</a>
+    <a href="https://t.me/tsaryuk_ru">Telegram</a>
+    <a href="https://youtube.com/@tsaryuk">YouTube</a>
+  </div>
+  <div>&copy; Денис Царюк, 2026</div>
+</footer>
+
+<script>
+const API_KEY='67kqumu7yrmzy1auyg4647tri7ghuznnda3r5w4o',LIST_ID=1;
+async function doSubscribe(email){
+  const p=new URLSearchParams();
+  p.append('api_key',API_KEY);p.append('list_ids',LIST_ID);
+  p.append('fields[email]',email);p.append('double_optin','3');
+  const r=await fetch('https://api.unisender.com/ru/api/subscribe?format=json',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()});
+  return r.json();
+}
+document.getElementById('subscribeForm').addEventListener('submit',async e=>{
+  e.preventDefault();const btn=document.getElementById('submitBtn'),inp=document.getElementById('emailInput'),err=document.getElementById('formError');
+  btn.disabled=true;btn.textContent='...';err.classList.remove('show');
+  try{const d=await doSubscribe(inp.value);if(d.error){err.textContent=d.error;err.classList.add('show');btn.disabled=false;btn.textContent='Подписаться'}else{document.getElementById('subscribeForm').style.display='none';document.getElementById('subCount').style.display='none';document.getElementById('successBlock').classList.add('show')}}
+  catch{err.textContent='Ошибка';err.classList.add('show');btn.disabled=false;btn.textContent='Подписаться'}
+});
+document.getElementById('subscribeForm2').addEventListener('submit',async e=>{
+  e.preventDefault();const btn=e.target.querySelector('button'),inp=document.getElementById('emailInput2');
+  btn.disabled=true;btn.textContent='...';try{await doSubscribe(inp.value);btn.textContent='Готово!'}catch{btn.textContent='Ошибка';btn.disabled=false}
+});
+
+// Subscriber count (list 1)
+(async()=>{try{const r=await fetch(`https://api.unisender.com/ru/api/getContactCount?format=json&api_key=${API_KEY}&list_id=${LIST_ID}&params%5Btype%5D=address`);const d=await r.json();if(d.result?.count)document.getElementById('subCount').textContent=Number(d.result.count).toLocaleString('ru-RU')+' подписчиков уже читают'}catch{}})();
+
+// Articles
+let allArticles=[];
+(async()=>{
+  try{
+    const r=await fetch('/articles/index.json');
+    allArticles=await r.json();
+    renderArticles('all');
+  }catch{
+    document.getElementById('archiveList').innerHTML='<div class="archive-empty">Скоро здесь появятся статьи</div>';
+  }
+})();
+
+function renderArticles(cat){
+  const list=document.getElementById('archiveList');
+  const filtered=cat==='all'?allArticles:allArticles.filter(a=>a.category===cat);
+  if(filtered.length===0){
+    list.innerHTML='<div class="archive-empty">Нет статей в этой рубрике</div>';
+    return;
+  }
+  list.innerHTML='';
+  filtered.forEach(a=>{
+    const el=document.createElement('a');
+    el.href='/articles/'+a.slug+'.html';
+    el.className='archive-item';
+    el.innerHTML=`${a.cover?`<img class="archive-cover" src="${a.cover}" alt="">`:`<div class="archive-cover"></div>`}<div class="archive-body"><h4>${a.title}</h4><span>${a.date}${a.category?' &middot; '+a.category:''}</span></div>`;
+    list.appendChild(el);
+  });
+}
+
+// Category filter
+document.getElementById('navTabs').addEventListener('click',e=>{
+  e.preventDefault();
+  const tab=e.target.closest('.nav-tab');
+  if(!tab)return;
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  renderArticles(tab.dataset.cat);
+});
+</script>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=108538087', 'ym');
+    ym(108538087, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/108538087" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+</body>
+</html>
