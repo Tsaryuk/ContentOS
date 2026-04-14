@@ -1,0 +1,95 @@
+/* Личная Стратегия — shared article styles */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#000;
+  --surface:#0d0d0d;
+  --border:#1a1a1a;
+  --text:#e8e8e8;
+  --muted:#888;
+  --dim:#555;
+  --accent-blue:#1a4fff;
+  --serif:'Lora',Georgia,serif;
+  --sans:'Inter',-apple-system,sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+html{overflow-x:hidden}
+a{color:var(--muted);text-decoration:none;transition:color .2s}
+a:hover{color:var(--text)}
+
+/* Header */
+.header{padding:20px 0;border-bottom:1px solid var(--border)}
+.header-inner{max-width:960px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:flex-end;position:relative}
+.logo{font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text);position:absolute;left:50%;transform:translateX(-50%)}
+.back{font-size:13px;color:var(--dim)}
+.back:hover{color:var(--text)}
+
+/* Article */
+.article{max-width:680px;margin:0 auto;padding:48px 24px 80px}
+.article-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--dim);margin-bottom:12px}
+.article-title{font-family:var(--serif);font-size:clamp(28px,4.5vw,40px);font-weight:400;line-height:1.25;margin-bottom:12px;letter-spacing:-0.02em}
+.article-sub{font-family:var(--serif);font-style:italic;font-size:18px;color:var(--muted);margin-bottom:12px}
+
+/* Author */
+.author{display:flex;align-items:center;gap:14px;margin-bottom:40px;margin-top:24px}
+.author-photo{width:48px;height:48px;border-radius:50%;object-fit:cover;filter:grayscale(100%)}
+.author-info{display:flex;flex-direction:column}
+.author-name{font-family:var(--sans);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text)}
+.author-date{font-family:var(--sans);font-size:12px;color:var(--dim)}
+
+/* Cover */
+.article-cover{width:100%;border-radius:8px;margin-bottom:40px;aspect-ratio:16/9;object-fit:cover;background:var(--surface)}
+
+/* Body content */
+.article-body{font-family:var(--serif);font-size:19px;line-height:1.75}
+.article-body p{margin-bottom:1.4em}
+.article-body h2{font-family:var(--sans);font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin:48px 0 16px}
+.article-body blockquote{border-left:3px solid var(--accent-blue);padding:4px 0 4px 20px;margin:24px 0;font-style:italic;color:var(--muted)}
+.article-body blockquote cite{display:block;margin-top:8px;font-style:normal;font-size:14px;font-family:var(--sans);color:var(--dim)}
+.article-body strong{color:#fff}
+.article-body a{color:var(--muted);border-bottom:1px dotted var(--dim)}
+.article-body a:hover{color:var(--text)}
+.article-body hr.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+
+/* Insight block */
+.insight{border-left:3px solid var(--accent-blue);padding:4px 0 4px 20px;margin:32px 0}
+.ins-label{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent-blue);margin-bottom:6px}
+.ins-text{font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.5}
+
+/* Question block */
+.qblock{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:28px 0;margin:40px 0}
+.q-label{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);margin-bottom:10px}
+.q-text{font-family:var(--serif);font-style:italic;font-size:22px;line-height:1.4}
+
+.muted-text{color:var(--muted);font-size:16px;font-family:var(--serif)}
+
+/* Video */
+.video-embed{position:relative;margin:32px 0;border-radius:8px;overflow:hidden}
+.video-embed iframe{width:100%;aspect-ratio:16/9;border:0;display:block}
+
+/* Share */
+.share-bar{display:flex;align-items:center;gap:12px;margin:40px 0;padding:16px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.share-label{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim)}
+.share-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--muted);font-family:var(--sans);cursor:pointer;background:transparent;transition:all .2s;text-decoration:none}
+.share-btn:hover{border-color:var(--dim);color:var(--text);text-decoration:none}
+.share-btn svg{width:14px;height:14px}
+
+/* Subscribe CTA */
+.subscribe-cta{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;text-align:center;margin-top:40px}
+.subscribe-cta h3{font-family:var(--serif);font-size:20px;font-weight:400;margin-bottom:8px}
+.subscribe-cta p{font-size:14px;color:var(--muted);margin-bottom:20px}
+.subscribe-form{display:flex;gap:8px;max-width:400px;margin:0 auto}
+.subscribe-form input{flex:1;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);font-family:var(--sans);outline:none}
+.subscribe-form input:focus{border-color:var(--dim)}
+.subscribe-form input::placeholder{color:var(--dim)}
+.subscribe-form button{padding:12px 24px;background:#fff;color:#000;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+
+/* Footer */
+.footer{max-width:680px;margin:0 auto;padding:24px;text-align:center;font-size:12px;color:var(--dim);border-top:1px solid var(--border);margin-top:32px}
+.footer a{color:var(--dim);margin:0 8px}
+.footer a:hover{color:var(--text)}
+
+@media(max-width:640px){
+  .article{padding:32px 16px 60px}
+  .article-body{font-size:17px}
+  .subscribe-form{flex-direction:column}
+}
