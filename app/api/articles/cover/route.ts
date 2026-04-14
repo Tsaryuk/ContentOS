@@ -5,7 +5,7 @@ import { fal } from '@fal-ai/client'
 
 export const maxDuration = 120
 
-const DEFAULT_STYLE = `Black and white ink illustration in the style of detailed woodcut engraving. High contrast, intricate crosshatching, fine line work. Dark atmospheric scene with deep shadows. Abstract and philosophical mood. Editorial illustration style reminiscent of classic book engravings. No text, no watermark, no letters, no words.`
+const DEFAULT_STYLE = `Black and white ink illustration in the style of detailed woodcut engraving. Full-bleed composition that fills the entire frame edge to edge with no borders, no margins, no white space around the image. High contrast, intricate crosshatching, fine line work. Dark atmospheric scene with deep shadows. Abstract and philosophical mood. Editorial illustration style reminiscent of classic book engravings. No text, no watermark, no letters, no words, no signature, no frame, no border.`
 
 interface CoverRequest {
   title: string
