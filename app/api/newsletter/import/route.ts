@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
           subject: camp.subject,
           tag: '',
           body_html: bodyHtml,
+          article_html: bodyHtml,
           status: 'sent',
           sent_at: camp.start_time ? new Date(camp.start_time + 'Z').toISOString() : null,
           issue_number: null,

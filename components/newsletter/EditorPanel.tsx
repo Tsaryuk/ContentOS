@@ -74,6 +74,25 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
   }, [])
 
   // Formatting commands
+  // Strip email wrapper (DOCTYPE, head, style, body, .wrap div) — show only content
+  function stripEmailWrapper(html: string): string {
+    if (!html) return ''
+    let clean = html
+    // Remove DOCTYPE, html, head, style tags
+    clean = clean.replace(/<!DOCTYPE[^>]*>/gi, '')
+    clean = clean.replace(/<html[^>]*>/gi, '').replace(/<\/html>/gi, '')
+    clean = clean.replace(/<head[\s\S]*?<\/head>/gi, '')
+    clean = clean.replace(/<style[\s\S]*?<\/style>/gi, '')
+    clean = clean.replace(/<body[^>]*>/gi, '').replace(/<\/body>/gi, '')
+    // Remove preheader hidden div
+    clean = clean.replace(/<div class="preheader"[\s\S]*?<\/div>/gi, '')
+    // Unwrap .wrap div
+    clean = clean.replace(/<div class="wrap">/gi, '').replace(/<\/div>\s*$/gi, '')
+    // Remove footer
+    clean = clean.replace(/<div class="footer"[\s\S]*$/gi, '')
+    return clean.trim()
+  }
+
   function execCmd(cmd: string, value?: string) {
     document.execCommand(cmd, false, value)
     editorRef.current?.focus()
@@ -346,7 +365,7 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
               [&_.q-text]:italic [&_.q-text]:text-lg [&_.q-text]:text-cream
               [&_hr]:border-border [&_hr]:my-6
               [&_strong]:text-cream [&_a]:text-accent"
-            dangerouslySetInnerHTML={{ __html: issue.body_html || '' }}
+            dangerouslySetInnerHTML={{ __html: stripEmailWrapper(issue.body_html) || '' }}
             onBlur={syncHtml}
           />
         ) : (
