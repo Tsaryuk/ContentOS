@@ -48,6 +48,7 @@ export default function VideoDetailPage() {
   const [descSaved, setDescSaved] = useState(false)
   const [publishedVariants, setPublishedVariants] = useState<Set<number>>(new Set())
   const [copiedTimecodes, setCopiedTimecodes] = useState(false)
+  const [regenTimecodes, setRegenTimecodes] = useState(false)
   const [guestLinks, setGuestLinks] = useState<string | null>(null)
   const [guestLinksSaved, setGuestLinksSaved] = useState(false)
   const descTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -422,18 +423,47 @@ export default function VideoDetailPage() {
                   <div className="p-4 bg-surface rounded-xl border border-border">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-medium text-muted flex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
-                      <button
-                        onClick={() => {
-                          const text = po.timecodes.map((tc: any) => `${tc.time} — ${tc.label}`).join('\n')
-                          navigator.clipboard.writeText(text)
-                          setCopiedTimecodes(true)
-                          setTimeout(() => setCopiedTimecodes(false), 2000)
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors"
-                      >
-                        {copiedTimecodes ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        {copiedTimecodes ? 'Скопировано' : 'Копировать'}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={async () => {
+                            if (regenTimecodes) return
+                            setRegenTimecodes(true)
+                            try {
+                              const res = await fetch('/api/youtube/regenerate-timecodes', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ videoId }),
+                              })
+                              if (!res.ok) {
+                                const data = await res.json().catch(() => ({}))
+                                alert('Ошибка: ' + (data.error ?? res.status))
+                              }
+                            } finally {
+                              setTimeout(() => { setRegenTimecodes(false); loadVideo() }, 3000)
+                            }
+                          }}
+                          disabled={regenTimecodes}
+                          title="Перегенерировать таймкоды"
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors disabled:opacity-50"
+                        >
+                          {regenTimecodes
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Sparkles className="w-3.5 h-3.5" />}
+                          {regenTimecodes ? 'Генерация...' : 'Перегенерировать'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const text = po.timecodes.map((tc: any) => `${tc.time} — ${tc.label}`).join('\n')
+                            navigator.clipboard.writeText(text)
+                            setCopiedTimecodes(true)
+                            setTimeout(() => setCopiedTimecodes(false), 2000)
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors"
+                        >
+                          {copiedTimecodes ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copiedTimecodes ? 'Скопировано' : 'Копировать'}
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       {po.timecodes.map((tc: any, i: number) => (

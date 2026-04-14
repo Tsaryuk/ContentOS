@@ -1447,6 +1447,76 @@ function extractGuestFromTitle(title: string): string | null {
   return null
 }
 
+// --- Regenerate timecodes only ---
+
+async function handleRegenerateTimecodes(videoId: string) {
+  const video = await getVideo(videoId)
+  if (!video.transcript) throw new Error('No transcript — run produce first')
+
+  console.log(`[regen-timecodes] ${video.current_title?.slice(0, 50)}`)
+  const stopHeartbeat = startHeartbeat(videoId)
+
+  try {
+    const durationMin = Math.round(video.duration_seconds / 60)
+    const timecodesCount = durationMin > 60 ? 20 : durationMin > 30 ? 15 : 10
+
+    const maxLen = 120000
+    const transcript = video.transcript.length > maxLen
+      ? video.transcript.slice(0, 80000) + '\n\n[...middle truncated...]\n\n' + video.transcript.slice(-30000)
+      : video.transcript
+
+    const msg = await claudeWithRetry({
+      model: AI_MODELS.claude,
+      max_tokens: 4096,
+      system: `You generate YouTube chapter timecodes from a podcast transcript.
+
+RULES:
+- Generate EXACTLY ${timecodesCount} chapters.
+- For each chapter you MUST return a "transcript_quote" field: the EXACT first 4-8 words from the transcript where the chapter begins. Copy verbatim, including punctuation. This will be matched against the transcript to derive the precise timestamp.
+- "time" field: use "H:MM:SS" for videos >60 min, "MM:SS" for shorter. Never MM>59. Format must match the transcript_quote location.
+- Each label = SEO searchable keyword phrase (NOT generic like "Вступление" or "Часть 2"). Russian language.
+- First chapter: time="00:00", transcript_quote = first 4-8 words of transcript.
+- Last timecode MUST NOT exceed ${durationMin} minutes.
+- If you cannot find exact starting words for a chapter, SKIP it. Better fewer accurate chapters than hallucinations.
+
+OUTPUT: JSON only (no markdown fences):
+{
+  "timecodes": [
+    {"time": "00:00", "label": "Chapter title", "transcript_quote": "exact first 4-8 words from transcript"}
+  ]
+}`,
+      messages: [{
+        role: 'user',
+        content: `Video duration: ${durationMin} min.\n\nTranscript:\n${transcript}\n\nReturn JSON with ${timecodesCount} timecodes.`,
+      }],
+    })
+
+    const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error('No JSON in Claude response')
+    const parsed = JSON.parse(jsonMatch[0])
+    if (!Array.isArray(parsed.timecodes)) throw new Error('Missing timecodes array')
+
+    const fixed = fixTimecodes(parsed.timecodes, video.duration_seconds ?? 0, video.transcript)
+    console.log(`[regen-timecodes] Got ${parsed.timecodes.length} from Claude, ${fixed.length} after verification`)
+
+    const po = { ...(video.producer_output ?? {}), timecodes: fixed }
+    await supabase.from('yt_videos').update({
+      producer_output: po,
+      updated_at: new Date().toISOString(),
+    }).eq('id', videoId)
+
+    await logJob(videoId, 'regenerate_timecodes', 'done', { count: fixed.length })
+    console.log(`[regen-timecodes] OK: ${fixed.length} timecodes`)
+  } catch (err: any) {
+    console.error(`[regen-timecodes] FAIL:`, err.message)
+    await logJob(videoId, 'regenerate_timecodes', 'failed', undefined, err.message)
+    throw err
+  } finally {
+    stopHeartbeat()
+  }
+}
+
 // --- Worker ---
 
 const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> = {
@@ -1460,6 +1530,7 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   telegram_send: (_videoId, data) => handleTelegramSend(data?.postId),
   newsletter_stats: () => handleNewsletterStats(),
   generate_short_title: handleGenerateShortTitle,
+  regenerate_timecodes: handleRegenerateTimecodes,
 }
 
 // --- Stale job cleanup ---

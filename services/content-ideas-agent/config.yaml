@@ -1,0 +1,30 @@
+monitoring:
+  interval_hours: 6
+  batch_size: 50
+  max_content_age_days: 7
+
+scoring:
+  relevance_threshold: 60
+  categories:
+    strategy: 0.25
+    philosophy: 0.25
+    wellbeing: 0.20
+    fatherhood: 0.15
+    business: 0.15
+
+generation:
+  content_types:
+    - telegram
+    - youtube
+  claude_model: "claude-sonnet-4-20250514"
+  max_tokens: 2000
+  max_ideas_per_topic: 2
+  max_topics_per_run: 20
+
+telegram_bot:
+  instant_notification_threshold: 85
+  digest_min_score: 75
+
+logging:
+  level: "INFO"
+  structured: true
