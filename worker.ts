@@ -154,19 +154,82 @@ function tcToSecs(t: string): number {
   return parts[0] * 60 + (parts[1] ?? 0)
 }
 
-/** Fix timecodes: convert 65:00 -> 1:05:00, filter exceeding duration */
-function fixTimecodes(timecodes: { time: string; label: string }[], durationSecs: number): { time: string; label: string }[] {
+/** Format seconds back to "MM:SS" or "H:MM:SS" */
+function secsToTc(secs: number): string {
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+/** Extract all [MM:SS] or [H:MM:SS] timestamp markers from transcript */
+function extractTranscriptTimestamps(transcript: string): number[] {
+  const re = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g
+  const set = new Set<number>()
+  let m: RegExpExecArray | null
+  while ((m = re.exec(transcript)) !== null) {
+    const secs = m[3]
+      ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])
+      : Number(m[1]) * 60 + Number(m[2])
+    set.add(secs)
+  }
+  return [...set].sort((a, b) => a - b)
+}
+
+/** Snap timecode to nearest real transcript marker when it looks rounded/hallucinated */
+function snapToRealTimestamp(secs: number, markers: number[], windowSecs: number): number {
+  if (markers.length === 0) return secs
+  let bestDiff = Infinity
+  let best = secs
+  // Prefer markers that are NOT themselves round :00 (avoids same hallucinated round time)
+  for (const m of markers) {
+    const diff = Math.abs(m - secs)
+    if (diff > windowSecs) continue
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = m
+    }
+  }
+  return best
+}
+
+/** Fix timecodes: convert 65:00 -> 1:05:00, snap rounded times to real markers, filter exceeding duration */
+function fixTimecodes(
+  timecodes: { time: string; label: string }[],
+  durationSecs: number,
+  transcript?: string,
+): { time: string; label: string }[] {
+  const markers = transcript ? extractTranscriptTimestamps(transcript) : []
+
   return timecodes
-    .map(tc => {
+    .map((tc, i) => {
       const parts = tc.time.split(':').map(Number)
+      let fixed = tc.time
       // Fix MM:SS where MM >= 60 -> H:MM:SS
       if (parts.length === 2 && parts[0] >= 60) {
         const h = Math.floor(parts[0] / 60)
         const m = parts[0] % 60
         const s = parts[1] ?? 0
-        return { ...tc, time: `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }
+        fixed = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
       }
-      return tc
+
+      // First timecode must be exactly 00:00 — don't snap
+      if (i === 0) return { ...tc, time: fixed }
+
+      // Snap suspiciously rounded times (seconds == 0) to nearest real transcript marker
+      const secs = tcToSecs(fixed)
+      const endsOnMinute = secs % 60 === 0
+      if (endsOnMinute && markers.length > 0) {
+        // Search within ±90 seconds, but only accept non-round markers
+        const nonRound = markers.filter(m => m % 60 !== 0 || m === 0)
+        const snapped = snapToRealTimestamp(secs, nonRound, 90)
+        if (snapped !== secs) {
+          fixed = secsToTc(snapped)
+        }
+      }
+
+      return { ...tc, time: fixed }
     })
     .filter(tc => durationSecs <= 0 || tcToSecs(tc.time) <= durationSecs)
 }
@@ -566,7 +629,7 @@ async function handleGenerate(videoId: string) {
     const result = JSON.parse(jsonMatch[0])
     if (!result.title || !result.description) throw new Error('Missing required fields')
 
-    const validTimecodes = fixTimecodes(result.timecodes ?? [], video.duration_seconds ?? 0)
+    const validTimecodes = fixTimecodes(result.timecodes ?? [], video.duration_seconds ?? 0, video.transcript)
 
     await supabase.from('yt_videos').update({
       generated_title: result.title,
@@ -864,7 +927,7 @@ async function handleProduce(videoId: string) {
 
     // Fix timecodes: convert 65:00 -> 1:05:00, filter exceeding duration
     if (output.timecodes?.length) {
-      output.timecodes = fixTimecodes(output.timecodes, video.duration_seconds ?? 0)
+      output.timecodes = fixTimecodes(output.timecodes, video.duration_seconds ?? 0, video.transcript)
     }
 
     console.log(`[produce] Got ${output.title_variants.length} titles, ${output.clip_suggestions?.length ?? 0} clips, ${output.short_suggestions?.length ?? 0} shorts, ${output.timecodes?.length ?? 0} timecodes`)
