@@ -29,31 +29,41 @@ interface CoverRequest {
   article_id?: string
 }
 
-// Ask Claude to generate a concrete scene description from article theme
+// Ask Claude to generate a concrete scene description from article theme.
+// Hard timeout 10s — if Claude is slow, use fallback template.
 async function generateSceneDescription(title: string, description?: string): Promise<string> {
-  const response = await anthropic.messages.create({
-    model: AI_MODELS.claudeLight ?? AI_MODELS.claude,
-    max_tokens: 250,
-    system: `You create concrete visual scene descriptions for black-and-white woodcut engraving cover illustrations in the style of antique philosophy books. Scenes should use classical antiquity imagery: Greek marble busts, philosopher heads, ancient columns, celestial bodies, cosmic symbolism, hands holding objects, open books, flames, waves, clouds, mountains. AVOID: modern objects, horror imagery, cults, hooded figures, skulls.
+  const fallback = `classical Greek marble bust in profile, cosmic background with stars and a swirling galaxy, symbolic imagery related to "${title}"`
 
-Return ONLY the scene description in English, 1-2 sentences, highly visual and concrete. No quotes, no preamble, just the description.`,
-    messages: [{
-      role: 'user',
-      content: `Article title: "${title}"
-${description ? `Subtitle: "${description}"` : ''}
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
 
-Describe a single concrete visual scene for the cover.`
-    }],
-  })
+  try {
+    const response = await anthropic.messages.create({
+      model: AI_MODELS.claudeLight ?? AI_MODELS.claude,
+      max_tokens: 200,
+      system: `You create concrete visual scene descriptions for black-and-white woodcut engraving cover illustrations in the style of antique philosophy books. Use classical antiquity imagery: Greek marble busts, philosopher heads, ancient columns, celestial bodies, cosmic symbolism, hands holding objects, open books, flames, waves, clouds, mountains. AVOID modern objects, horror, cults, hooded figures, skulls.
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map(b => b.text)
-    .join('')
-    .trim()
-    .replace(/^["«]|["»]$/g, '')
+Return ONLY the scene description in English, 1-2 sentences, visual and concrete. No quotes, no preamble.`,
+      messages: [{
+        role: 'user',
+        content: `Article: "${title}"${description ? `\nSubtitle: "${description}"` : ''}\n\nDescribe a single concrete visual scene.`,
+      }],
+    }, { signal: controller.signal })
+    clearTimeout(timeout)
 
-  return text || `classical Greek marble bust in profile, cosmic background with stars and a swirling galaxy`
+    const text = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map(b => b.text)
+      .join('')
+      .trim()
+      .replace(/^["«]|["»]$/g, '')
+
+    return text || fallback
+  } catch (err) {
+    clearTimeout(timeout)
+    console.warn('[cover] Claude scene gen failed, using fallback:', err instanceof Error ? err.message : String(err))
+    return fallback
+  }
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -76,35 +86,29 @@ ${BASE_PROMPT}
 
 NEGATIVE: ${NEGATIVE}`
 
-    // nano-banana-2/edit uses the style reference as visual anchor
-    const runNano = () => fal.subscribe('fal-ai/nano-banana-2/edit', {
+    console.log('[cover] generating with scene:', scene.slice(0, 100))
+
+    // nano-banana-2/edit with reference — request 2 variants in one call
+    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
       input: {
         prompt,
         image_urls: [STYLE_REF_URL],
         aspect_ratio: '16:9',
         resolution: '2K',
-        num_images: 1,
+        num_images: 2,
         safety_tolerance: 5,
       } as any,
-    }) as Promise<{ data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }>
+    }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }
 
-    const results = await Promise.allSettled([runNano(), runNano()])
-    const falUrls: string[] = []
-    const errors: string[] = []
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        const imgs = r.value?.data?.images ?? r.value?.images ?? []
-        for (const img of imgs) if (img.url) falUrls.push(img.url)
-      } else {
-        errors.push(r.reason?.message ?? String(r.reason))
-      }
-    }
+    const imgs = result?.data?.images ?? result?.images ?? []
+    const falUrls = imgs.map(i => i.url).filter(Boolean)
 
     if (falUrls.length === 0) {
-      console.error('[cover] all generations failed:', errors)
-      return NextResponse.json({ error: `Генерация не удалась: ${errors[0] ?? 'unknown'}` }, { status: 500 })
+      console.error('[cover] nano-banana returned no images')
+      return NextResponse.json({ error: 'Генерация не вернула изображений' }, { status: 500 })
     }
 
+    console.log(`[cover] got ${falUrls.length} variants`)
     return NextResponse.json({ urls: falUrls, prompt, scene })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Ошибка генерации'

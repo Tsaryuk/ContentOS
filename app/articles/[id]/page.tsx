@@ -189,7 +189,7 @@ export default function ArticleEditorPage() {
         }
         pushUndo()
         document.execCommand('insertHTML', false,
-          `<img class="article-cover" src="${data.url}" alt="${imagePrompt.replace(/"/g, '&quot;').slice(0, 100)}" style="width:100%;border-radius:8px;margin:32px 0;aspect-ratio:16/9;object-fit:cover;display:block"><p></p>`
+          `<img class="article-cover draggable-img" src="${data.url}" alt="${imagePrompt.replace(/"/g, '&quot;').slice(0, 100)}" draggable="true" style="width:100%;border-radius:8px;margin:32px 0;aspect-ratio:16/9;object-fit:cover;display:block;cursor:grab"><p></p>`
         )
         syncEditor()
         setShowImageDialog(false)
@@ -210,27 +210,46 @@ export default function ArticleEditorPage() {
   async function generateCover() {
     if (!article?.title.trim()) return
     setGenCover(true); setCoverOptions([])
+
+    // 180s timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 180000)
+
     try {
       const res = await fetch('/api/articles/cover', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: article.title,
           description: article.subtitle,
           customPrompt: coverPrompt.trim() || undefined,
         }),
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        alert(`Ошибка сервера: ${res.status} ${text.slice(0, 200)}`)
+        return
+      }
+
       const data = await res.json()
       if (data.error) {
-        alert('Ошибка генерации обложки: ' + data.error)
+        alert('Ошибка генерации: ' + data.error)
       } else if (data.urls?.length) {
         setCoverOptions(data.urls)
-        // Auto-select first and persist to our storage
         await selectCover(data.urls[0])
       } else {
         alert('Генерация не вернула изображений')
       }
     } catch (e) {
-      alert('Ошибка соединения: ' + (e instanceof Error ? e.message : String(e)))
+      clearTimeout(timeoutId)
+      if (e instanceof Error && e.name === 'AbortError') {
+        alert('Генерация превысила 3 минуты. Попробуйте ещё раз или задайте проще промпт.')
+      } else {
+        alert('Ошибка соединения: ' + (e instanceof Error ? e.message : String(e)))
+      }
     } finally { setGenCover(false) }
   }
 
@@ -537,6 +556,29 @@ export default function ArticleEditorPage() {
                   onKeyDown={e => {
                     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo() }
                     if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleRedo() }
+                    // Delete selected image with Backspace/Delete
+                    if ((e.key === 'Backspace' || e.key === 'Delete')) {
+                      const selected = editorRef.current?.querySelector('img.selected-img')
+                      if (selected) {
+                        e.preventDefault()
+                        pushUndo()
+                        selected.remove()
+                        syncEditor()
+                      }
+                    }
+                  }}
+                  onClick={e => {
+                    // Toggle selection on images
+                    const target = e.target as HTMLElement
+                    // Clear previous selection
+                    editorRef.current?.querySelectorAll('img.selected-img').forEach(img => {
+                      img.classList.remove('selected-img')
+                      ;(img as HTMLElement).style.outline = ''
+                    })
+                    if (target.tagName === 'IMG') {
+                      target.classList.add('selected-img')
+                      target.style.outline = '3px solid #2d5a3f'
+                    }
                   }} />
               ) : (
                 <div className="p-6 flex justify-center">
