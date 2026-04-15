@@ -24,42 +24,55 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
     textareaRef.current?.focus()
   }, [])
 
-  // Autosave raw text 2s after last keystroke
+  // Track last saved text so we don't resave identical content
+  const lastSavedRef = useRef(initialText ?? '')
+
+  // Autosave 3s after last keystroke, only if content actually changed.
+  // Uses dedicated lightweight /draft endpoint (single UPDATE, no republish).
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
+    if (text === lastSavedRef.current) return // nothing new to save
+
     saveTimer.current = setTimeout(async () => {
+      const toSave = text
       setSaving(true)
       try {
-        await fetch(`/api/articles/${articleId}`, {
+        const res = await fetch(`/api/articles/${articleId}/draft`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ draft_text: text }),
+          body: JSON.stringify({ draft_text: toSave }),
         })
-        // Bubble up so parent's article.draft_text stays in sync
-        onDraftSave?.(text)
-      } catch { /* ignore network hiccup, next keystroke will retry */ }
+        if (res.ok) {
+          lastSavedRef.current = toSave
+          onDraftSave?.(toSave)
+        }
+      } catch { /* next keystroke will retry */ }
       setSaving(false)
-    }, 2000)
+    }, 3000)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
   }, [text, articleId, onDraftSave])
 
   // Flush pending changes on unmount / close
   useEffect(() => {
     return () => {
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current)
-        // Fire-and-forget final save using sendBeacon-style fetch with keepalive
-        fetch(`/api/articles/${articleId}`, {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      // Only flush if there's unsaved content
+      if (textRef.current !== lastSavedRef.current) {
+        fetch(`/api/articles/${articleId}/draft`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ draft_text: text }),
+          body: JSON.stringify({ draft_text: textRef.current }),
           keepalive: true,
         }).catch(() => {})
-        onDraftSave?.(text)
+        onDraftSave?.(textRef.current)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Keep a ref to current text for the unmount cleanup
+  const textRef = useRef(text)
+  useEffect(() => { textRef.current = text }, [text])
 
   async function handleStyleEdit(): Promise<void> {
     if (!text.trim() || styleRunning) return
