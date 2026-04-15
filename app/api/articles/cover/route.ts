@@ -10,11 +10,11 @@ import { compressArticleImage } from '@/lib/articles/image-compress'
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
 
-const STYLE_PROMPT = `black and white woodcut engraving illustration, dense detailed crosshatching, fine parallel ink lines, stark high contrast, pure black ink on white paper, classical 19th-century book engraving technique in the style of Gustave Doré and antiquity philosophy books. Cosmic symbolism, Greek marble busts, philosopher heads, ancient columns, stars, galaxies, flames, waves, clouds — classical antiquity aesthetic.
+const STYLE_PROMPT = `Extreme close-up composition that EXTENDS BEYOND THE FRAME on all four sides — the scene overflows and is cropped by the canvas edges. The subject is so large it fills 100% of the image with no space around it. Black ink fills every corner, every edge pixel.
 
-CRITICAL COMPOSITION: Full-bleed, image fills the entire canvas edge-to-edge. Zero white borders, zero white margins, zero frame, zero rounded corners, zero vignette. Black ink extends all the way to every pixel boundary.
+Style: dense black and white woodcut engraving, intricate crosshatching, fine parallel ink lines, stark high contrast, pure black ink on white paper. Classical 19th-century book engraving technique in the style of Gustave Doré. Classical antiquity: Greek marble busts, philosopher heads, ancient columns, cosmic spirals, galaxies, flames, waves.
 
-Do NOT include any text, letters, numbers, signatures, watermarks, book covers, logos, horror imagery, hooded figures, gore, or skulls.`
+ABSOLUTELY NO: white borders, white margins, white frame, torn paper edges, vignette, rounded corners, paper texture visible around the image, book cover layout, title card layout, signatures, watermarks, captions, text, letters, numbers, logos, horror imagery, hooded figures, gore, skulls.`
 
 interface CoverRequest {
   title: string

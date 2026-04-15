@@ -764,6 +764,7 @@ export default function ArticleEditorPage() {
           articleId={article.id}
           initialText={article.draft_text || ''}
           onClose={() => setShowWhitePaper(false)}
+          onDraftSave={draft => updateLocal({ draft_text: draft })}
           onDone={html => {
             updateLocal({ body_html: html })
             if (editorRef.current) editorRef.current.innerHTML = html

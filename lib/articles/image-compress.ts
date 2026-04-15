@@ -7,6 +7,7 @@ import sharp from 'sharp'
 const TARGET_SIZE = 500 * 1024 // 500 KB
 const MAX_WIDTH = 1280
 const TRIM_THRESHOLD = 25 // 0-255; higher = more aggressive trimming
+const FORCED_CROP_PCT = 0.05 // Always crop 5% off each edge — kills AI model frame artifacts
 
 // Trim surrounding uniform borders (white frames, paper texture, signatures)
 async function trimBorders(buffer: Buffer): Promise<Buffer> {
@@ -16,9 +17,27 @@ async function trimBorders(buffer: Buffer): Promise<Buffer> {
       .toBuffer()
     return trimmed
   } catch {
-    // If trim fails (some edge cases), return original
     return buffer
   }
+}
+
+// Force-crop fixed percentage off each edge (after trim) — guarantees no AI frame artifacts
+async function forceCropEdges(buffer: Buffer): Promise<Buffer> {
+  const meta = await sharp(buffer).metadata()
+  const w = meta.width ?? 0
+  const h = meta.height ?? 0
+  if (!w || !h) return buffer
+
+  const cropX = Math.round(w * FORCED_CROP_PCT)
+  const cropY = Math.round(h * FORCED_CROP_PCT)
+  const newW = w - cropX * 2
+  const newH = h - cropY * 2
+
+  if (newW < 100 || newH < 100) return buffer // safety
+
+  return sharp(buffer)
+    .extract({ left: cropX, top: cropY, width: newW, height: newH })
+    .toBuffer()
 }
 
 // After trim we may have non-16:9 aspect — pad or crop to 1280x720
@@ -51,8 +70,12 @@ export async function compressArticleImage(rawBuffer: Buffer): Promise<Buffer> {
   // 1. Trim any uniform border edges (white frames, paper texture)
   const trimmed = await trimBorders(rawBuffer)
 
-  // 2. Normalize to 16:9 center crop (avoids weird aspect after trim)
-  const normalized = await normalizeAspect(trimmed)
+  // 2. Force-crop 5% off each edge to kill AI model frame artifacts
+  // (subtle grey/tan borders, torn-paper effects, signatures that trim missed)
+  const cropped = await forceCropEdges(trimmed)
+
+  // 3. Normalize to 16:9 center crop (avoids weird aspect after trim/crop)
+  const normalized = await normalizeAspect(cropped)
 
   // 3. Resize to max width
   let pipeline = sharp(normalized).resize({ width: MAX_WIDTH, withoutEnlargement: true })

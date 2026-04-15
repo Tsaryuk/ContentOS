@@ -8,9 +8,10 @@ interface WhitePaperProps {
   initialText?: string
   onDone: (textAsHtml: string) => void
   onClose: () => void
+  onDraftSave?: (text: string) => void // bubble autosaved text up to parent state
 }
 
-export function WhitePaper({ articleId, initialText, onDone, onClose }: WhitePaperProps) {
+export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSave }: WhitePaperProps) {
   const [text, setText] = useState(initialText ?? '')
   const [styleRunning, setStyleRunning] = useState(false)
   const [instruction, setInstruction] = useState('')
@@ -23,20 +24,42 @@ export function WhitePaper({ articleId, initialText, onDone, onClose }: WhitePap
     textareaRef.current?.focus()
   }, [])
 
-  // Autosave raw text every 5s
+  // Autosave raw text 2s after last keystroke
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       setSaving(true)
-      await fetch(`/api/articles/${articleId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draft_text: text }),
-      }).catch(() => {})
+      try {
+        await fetch(`/api/articles/${articleId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ draft_text: text }),
+        })
+        // Bubble up so parent's article.draft_text stays in sync
+        onDraftSave?.(text)
+      } catch { /* ignore network hiccup, next keystroke will retry */ }
       setSaving(false)
-    }, 5000)
+    }, 2000)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [text, articleId])
+  }, [text, articleId, onDraftSave])
+
+  // Flush pending changes on unmount / close
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current)
+        // Fire-and-forget final save using sendBeacon-style fetch with keepalive
+        fetch(`/api/articles/${articleId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ draft_text: text }),
+          keepalive: true,
+        }).catch(() => {})
+        onDraftSave?.(text)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleStyleEdit(): Promise<void> {
     if (!text.trim() || styleRunning) return
