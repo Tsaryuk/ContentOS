@@ -102,7 +102,10 @@ export function WhitePaper({ articleId, initialText, onDone, onClose }: WhitePap
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Minimal header */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-border/40">
-        <div className="text-[11px] text-dim tracking-[0.2em] uppercase">Белый лист</div>
+        <div>
+          <div className="text-[11px] text-dim tracking-[0.2em] uppercase">Белый лист</div>
+          <div className="text-[10px] text-dim/70 mt-0.5">Черновик независим от редактора. В редактор — только по твоей команде.</div>
+        </div>
         <div className="flex items-center gap-3 text-[11px] text-dim">
           <span>{wordCount} слов</span>
           {saving && <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> сохранение...</span>}
@@ -126,11 +129,15 @@ export function WhitePaper({ articleId, initialText, onDone, onClose }: WhitePap
           </button>
 
           <button
-            onClick={handleSendToEditor}
+            onClick={() => {
+              if (!text.trim()) { alert('Черновик пустой'); return }
+              if (!confirm('Перенести черновик в редактор?\n\nТекущее содержимое редактора будет ЗАМЕНЕНО черновиком.\nЧерновик сохранится — можешь вернуться в белый лист и продолжить.')) return
+              handleSendToEditor()
+            }}
             className="px-4 py-1.5 bg-white text-black rounded-full text-xs font-medium hover:opacity-90 flex items-center gap-2"
-            title="Перейти в редактор для форматирования"
+            title="Заменить содержимое редактора этим черновиком"
           >
-            В редактор <ArrowRight className="w-3 h-3" />
+            Сохранить в редактор <ArrowRight className="w-3 h-3" />
           </button>
 
           <button

@@ -74,8 +74,8 @@ export default function ArticleEditorPage() {
       if (data.article) {
         setArticle(data.article)
         setChatMessages(data.article.ai_messages ?? [])
-        // Auto-open white paper if article has no body yet (new article)
-        if (!data.article.body_html?.trim()) {
+        // Auto-open white paper only for completely empty articles (new, no draft either)
+        if (!data.article.body_html?.trim() && !data.article.draft_text?.trim()) {
           setShowWhitePaper(true)
         }
       }
