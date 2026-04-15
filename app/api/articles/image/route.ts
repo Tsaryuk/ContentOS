@@ -9,9 +9,9 @@ import { compressArticleImage } from '@/lib/articles/image-compress'
 
 export const maxDuration = 120
 
-const STYLE_PREFIX = `black and white woodcut engraving illustration, dense crosshatching, fine parallel line work, high contrast ink art, contemplative serene mood, soft natural light, elegant editorial illustration style, inspired by vintage botanical prints and classic book engravings, peaceful composition, edge-to-edge filling entire canvas, absolutely no text or writing anywhere`
+const STYLE_PREFIX = `black and white woodcut engraving illustration, dense crosshatching, fine parallel line work, high contrast ink art, deep shadows, contemplative philosophical mood, elegant editorial illustration style, classic book engraving technique. FULL-BLEED: image extends edge-to-edge filling the entire canvas with zero white space, zero border, zero margin, zero frame — illustration goes all the way to the pixel boundaries on every side`
 
-const INLINE_NEGATIVE = `text, letters, words, numbers, typography, captions, writing, labels, logo, signature, watermark, white border, white frame, white margins, vignette, rounded corners, paper texture, horror, scary, creepy, dark evil, gore, blood, skull, demon, monster, faceless hooded figure, cult imagery, occult symbols, gothic horror`
+const INLINE_NEGATIVE = `white border, white frame, white margins, white space around image, vignette, rounded corners, paper texture, torn edges, frame within frame, decorative border, text, letters, words, numbers, typography, captions, writing, labels, logo, signature, watermark, horror, scary, creepy, evil, gore, blood, skull, demon, monster, grotesque, faceless hooded figure, cult imagery, gothic horror`
 
 interface ImageRequest {
   article_id: string

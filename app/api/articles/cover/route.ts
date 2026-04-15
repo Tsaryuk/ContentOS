@@ -6,10 +6,10 @@ import { compressArticleImage } from '@/lib/articles/image-compress'
 
 export const maxDuration = 120
 
-const DEFAULT_STYLE = `black and white woodcut engraving illustration, dense crosshatching, fine parallel line work, high contrast ink art, contemplative serene mood, soft natural light, elegant editorial illustration style, inspired by vintage botanical prints and classic book engravings, peaceful composition`
+const DEFAULT_STYLE = `black and white woodcut engraving illustration, dense crosshatching, fine parallel line work, high contrast ink art, deep shadows, contemplative philosophical mood, elegant editorial illustration style, classic book engraving technique. FULL-BLEED: image extends edge-to-edge filling the entire canvas with zero white space, zero border, zero margin, zero frame — the illustration goes all the way to the pixel boundaries on every side`
 
 // Negative prompt — removes unwanted artifacts
-const NEGATIVE_PROMPT = `text, letters, words, numbers, typography, captions, writing, labels, book cover, title card, logo, signature, watermark, white border, white frame, white margins, vignette, rounded corners, paper texture, torn edges, frame within frame, decorative border, horror, scary, creepy, dark evil, gore, blood, skull, demon, monster, nightmare, disturbing, grotesque, ominous figure, faceless hooded figure, cult imagery, occult symbols, pentagram, gothic horror`
+const NEGATIVE_PROMPT = `white border, white frame, white margins, white space around image, vignette, rounded corners, paper texture, torn edges, frame within frame, decorative border, book cover layout, title card, text, letters, words, numbers, typography, captions, writing, labels, logo, signature, watermark, horror, scary, creepy, evil, gore, blood, skull, demon, monster, nightmare, grotesque, faceless hooded figure, cult imagery, occult symbols, pentagram, gothic horror`
 
 interface CoverRequest {
   title: string
@@ -31,9 +31,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const stylePrefix = style?.trim() || DEFAULT_STYLE
-    // Scene: gentle metaphor, positive/neutral tone, avoid dark symbolism
-    const scene = customPrompt?.trim() || `gentle symbolic scene inspired by the theme "${description || title}", metaphorical landscape or still life, peaceful thoughtful atmosphere, wide cinematic composition`
-    const prompt = `${scene}, ${stylePrefix}, edge-to-edge composition filling entire canvas, absolutely no text or writing anywhere in the image`
+    const scene = customPrompt?.trim() || `symbolic scene inspired by the theme "${description || title}", metaphorical composition, wide cinematic framing`
+    const prompt = `${scene}, ${stylePrefix}`
 
     // Using nano-banana (text-to-image, not edit variant)
     const runNano = () => fal.subscribe('fal-ai/nano-banana', {
