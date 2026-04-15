@@ -6,8 +6,9 @@ import Link from 'next/link'
 import {
   ArrowLeft, Loader2, Save, Image, Play, Globe, Mail, Sparkles,
   Bold, Italic, Heading2, Quote, Link2, Minus, Send, Mic, MicOff,
-  ExternalLink, Smartphone, Monitor, Upload, Undo2, Redo2
+  ExternalLink, Smartphone, Monitor, Upload, Undo2, Redo2, FileText
 } from 'lucide-react'
+import { WhitePaper } from '@/components/articles/WhitePaper'
 
 interface Article {
   id: string; title: string; subtitle: string; body_html: string
@@ -18,6 +19,7 @@ interface Article {
   email_issue_id: string | null; version: number
   published_at: string | null
   show_cover_in_article: boolean
+  draft_text: string
   ai_messages: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
@@ -51,6 +53,7 @@ export default function ArticleEditorPage() {
   const [imagePrompt, setImagePrompt] = useState('')
   const [genImage, setGenImage] = useState(false)
   const savedRangeRef = useRef<Range | null>(null)
+  const [showWhitePaper, setShowWhitePaper] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [creatingEmail, setCreatingEmail] = useState(false)
 
@@ -70,6 +73,10 @@ export default function ArticleEditorPage() {
       if (data.article) {
         setArticle(data.article)
         setChatMessages(data.article.ai_messages ?? [])
+        // Auto-open white paper if article has no body yet (new article)
+        if (!data.article.body_html?.trim()) {
+          setShowWhitePaper(true)
+        }
       }
       setLoading(false)
     }
@@ -369,6 +376,11 @@ export default function ArticleEditorPage() {
         </div>
         <div className="flex-1" />
         <span className="text-[10px] text-dim">v{article.version}</span>
+        <button onClick={() => setShowWhitePaper(true)}
+          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream flex items-center gap-1.5"
+          title="Режим белого листа — писать без форматирования, потом AI структурирует">
+          <FileText className="w-3 h-3" /> Белый лист
+        </button>
         <button onClick={handleSave} disabled={saving}
           className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream disabled:opacity-50 flex items-center gap-1.5">
           {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Сохранить
@@ -695,6 +707,19 @@ export default function ArticleEditorPage() {
       </div>
 
       {/* Inline image generation modal */}
+      {showWhitePaper && (
+        <WhitePaper
+          articleId={article.id}
+          initialText={article.draft_text || ''}
+          onClose={() => setShowWhitePaper(false)}
+          onDone={html => {
+            updateLocal({ body_html: html })
+            if (editorRef.current) editorRef.current.innerHTML = html
+            setShowWhitePaper(false)
+          }}
+        />
+      )}
+
       {showImageDialog && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6"
           onClick={() => !genImage && setShowImageDialog(false)}>

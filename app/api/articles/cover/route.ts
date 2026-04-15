@@ -47,7 +47,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.log('[cover] starting nano-banana with scene:', scene.slice(0, 80))
     const start = Date.now()
 
-    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
+    // 3 variants in parallel
+    const runOne = () => fal.subscribe('fal-ai/nano-banana-2/edit', {
       input: {
         prompt,
         image_urls: [STYLE_REF_URL],
@@ -56,12 +57,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         num_images: 1,
         safety_tolerance: 5,
       } as any,
-    }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }
+    }) as Promise<{ data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }>
 
+    const results = await Promise.allSettled([runOne(), runOne(), runOne()])
     console.log(`[cover] done in ${((Date.now()-start)/1000).toFixed(1)}s`)
 
-    const imgs = result?.data?.images ?? result?.images ?? []
-    const falUrls = imgs.map(i => i.url).filter(Boolean)
+    const falUrls: string[] = []
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        const imgs = r.value?.data?.images ?? r.value?.images ?? []
+        for (const img of imgs) if (img.url) falUrls.push(img.url)
+      } else {
+        console.warn('[cover] variant failed:', r.reason?.message ?? String(r.reason))
+      }
+    }
 
     if (falUrls.length === 0) {
       return NextResponse.json({ error: 'Модель не вернула изображений' }, { status: 500 })
