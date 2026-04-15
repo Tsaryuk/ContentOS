@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from '@/lib/ai-models'
 import { getSession } from '@/lib/session'
+import { EMAIL_WRITER_PROMPT } from '@/lib/articles/prompts'
 
 const anthropic = new Anthropic()
 
@@ -26,17 +27,11 @@ export async function POST(
 
     const textOnly = article.body_html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
 
-    // Generate shortened email version
+    // Generate shortened email version using centralized email writer prompt
     const response = await anthropic.messages.create({
       model: AI_MODELS.claude,
       max_tokens: 4096,
-      system: `Ты создаёшь email-версию статьи для рассылки «Личная Стратегия».
-Правила:
-- Сократи статью до 800-1000 слов (из ${textOnly.length} символов)
-- Сохрани стиль автора: от первого лица, тёплый, прямой
-- Сохрани структуру: вступление, 2-3 раздела с <h2>, цитаты <blockquote>, инсайт, вопрос
-- В конце добавь ссылку: <p><a href="https://letters.tsaryuk.ru/articles/${article.blog_slug || 'slug'}.html">Читать полную версию →</a></p>
-- Верни ТОЛЬКО HTML для тела письма`,
+      system: EMAIL_WRITER_PROMPT(article.blog_slug || ''),
       messages: [{
         role: 'user',
         content: `Сделай email-версию этой статьи:\n\nЗаголовок: ${article.title}\n\n${textOnly.slice(0, 5000)}`,

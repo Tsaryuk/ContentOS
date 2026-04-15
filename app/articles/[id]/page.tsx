@@ -52,6 +52,7 @@ export default function ArticleEditorPage() {
   const [showImageDialog, setShowImageDialog] = useState(false)
   const [imagePrompt, setImagePrompt] = useState('')
   const [genImage, setGenImage] = useState(false)
+  const [formatting, setFormatting] = useState(false)
   const savedRangeRef = useRef<Range | null>(null)
   const [showWhitePaper, setShowWhitePaper] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -167,6 +168,46 @@ export default function ArticleEditorPage() {
     if (sel && sel.rangeCount > 0) {
       savedRangeRef.current = sel.getRangeAt(0).cloneRange()
     }
+  }
+
+  async function handleFormat(): Promise<void> {
+    if (!article || formatting) return
+    const currentHtml = editorRef.current?.innerHTML ?? article.body_html
+    // Convert current HTML to plain text to re-format from scratch (paragraphs preserved)
+    const plain = currentHtml
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    if (!plain) return
+    if (!confirm('AI-оформитель переразметит текст: добавит H2, цитаты, инсайты, вопросы. Слова автора не меняются. Продолжить?')) return
+    setFormatting(true)
+    try {
+      const res = await fetch('/api/articles/structure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: plain }),
+      })
+      if (!res.ok) {
+        const t = await res.text().catch(() => '')
+        alert(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
+        return
+      }
+      const data = await res.json()
+      if (data.error) { alert(data.error); return }
+      if (data.html) {
+        pushUndo()
+        updateLocal({ body_html: data.html })
+        if (editorRef.current) editorRef.current.innerHTML = data.html
+      }
+    } catch (e) {
+      alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
+    } finally { setFormatting(false) }
   }
 
   function openImageDialog() {
@@ -514,6 +555,11 @@ export default function ArticleEditorPage() {
               <button onClick={openImageDialog} title="AI картинка в тексте"
                 className="p-1.5 text-dim hover:text-accent hover:bg-white/5 rounded">
                 <Image className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={handleFormat} disabled={formatting} title="AI-оформитель: добавит H2, цитаты, инсайты, вопросы"
+                className="px-2 py-1 text-[10px] text-accent hover:bg-accent/10 rounded font-medium flex items-center gap-1 disabled:opacity-40">
+                {formatting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Оформить AI
               </button>
               <div className="w-px h-4 bg-border mx-1" />
               {[
