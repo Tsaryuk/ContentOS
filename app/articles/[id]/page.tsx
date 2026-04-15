@@ -46,6 +46,7 @@ export default function ArticleEditorPage() {
   const [preview, setPreview] = useState<Preview>('editor')
   const [genCover, setGenCover] = useState(false)
   const [coverOptions, setCoverOptions] = useState<string[]>([])
+  const [selectedCoverIdx, setSelectedCoverIdx] = useState<number | null>(null)
   const [coverPrompt, setCoverPrompt] = useState('')
   const [showCoverSettings, setShowCoverSettings] = useState(false)
   const [persistingCover, setPersistingCover] = useState(false)
@@ -280,6 +281,7 @@ export default function ArticleEditorPage() {
         alert('Ошибка: ' + data.error)
       } else if (data.urls?.length) {
         setCoverOptions(data.urls)
+        setSelectedCoverIdx(0)
         await selectCover(data.urls[0])
       } else {
         alert('Модель не вернула изображений')
@@ -479,13 +481,17 @@ export default function ArticleEditorPage() {
                   {coverOptions.length > 0 && (
                     <div className="flex gap-2">
                       {coverOptions.map((url, i) => (
-                        <button key={i} onClick={() => selectCover(url)}
+                        <button key={i}
+                          onClick={async () => {
+                            setSelectedCoverIdx(i)
+                            await selectCover(url)
+                          }}
                           disabled={persistingCover}
-                          className={`relative rounded-lg overflow-hidden border-2 disabled:opacity-60 ${article.cover_url === url || (article.cover_url?.includes('articles/') && i === 0) ? 'border-accent' : 'border-border'}`}>
-                          <img src={url} className="w-24 h-14 object-cover" alt="" />
-                          {persistingCover && article.cover_url !== url && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                              <Loader2 className="w-3 h-3 animate-spin text-white" />
+                          className={`relative rounded-lg overflow-hidden border-2 transition-colors ${selectedCoverIdx === i ? 'border-accent' : 'border-border hover:border-muted'} disabled:cursor-wait`}>
+                          <img src={url} className="w-28 h-16 object-cover" alt={`Вариант ${i + 1}`} />
+                          {selectedCoverIdx === i && (
+                            <div className="absolute top-1 right-1 bg-accent text-white text-[9px] px-1.5 py-0.5 rounded">
+                              {persistingCover ? '...' : '✓'}
                             </div>
                           )}
                         </button>
