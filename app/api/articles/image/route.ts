@@ -9,7 +9,9 @@ import { compressArticleImage } from '@/lib/articles/image-compress'
 
 export const maxDuration = 120
 
-const STYLE_PREFIX = `Black and white woodcut engraving illustration. Extreme full-bleed composition, image extends beyond the frame on all sides, content is cropped by the edges. NO white borders, NO white margins, NO vignette, NO rounded corners, NO frame, NO signature, NO watermark, NO text, NO letters. Dense detailed crosshatching, fine parallel line work, deep shadows, high contrast. Editorial illustration style of classic book engravings like Gustave Doré.`
+const STYLE_PREFIX = `black and white woodcut engraving illustration, dense crosshatching, fine parallel line work, high contrast ink art, contemplative serene mood, soft natural light, elegant editorial illustration style, inspired by vintage botanical prints and classic book engravings, peaceful composition, edge-to-edge filling entire canvas, absolutely no text or writing anywhere`
+
+const INLINE_NEGATIVE = `text, letters, words, numbers, typography, captions, writing, labels, logo, signature, watermark, white border, white frame, white margins, vignette, rounded corners, paper texture, horror, scary, creepy, dark evil, gore, blood, skull, demon, monster, faceless hooded figure, cult imagery, occult symbols, gothic horror`
 
 interface ImageRequest {
   article_id: string
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'article_id обязателен' }, { status: 400 })
     }
 
-    const fullPrompt = `${prompt}, ${STYLE_PREFIX} NEGATIVE: white border, white frame, white margins, vignette, rounded corners, signature, watermark, text, letters, logo, paper texture, decorative border`
+    const fullPrompt = `${prompt}, ${STYLE_PREFIX} NEGATIVE: ${INLINE_NEGATIVE}`
 
     const result = await fal.subscribe('fal-ai/nano-banana', {
       input: {
