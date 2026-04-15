@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fal } from '@fal-ai/client'
+import { compressArticleImage } from '@/lib/articles/image-compress'
 
 export const maxDuration = 120
 
@@ -51,7 +52,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Download from fal.ai and upload to Supabase storage
     const imgRes = await fetch(falUrl)
     if (!imgRes.ok) throw new Error(`Download failed: ${imgRes.status}`)
-    const buffer = Buffer.from(await imgRes.arrayBuffer())
+    const rawBuffer = Buffer.from(await imgRes.arrayBuffer())
+    const buffer = await compressArticleImage(rawBuffer)
+    console.log(`[inline] compressed: ${(rawBuffer.length/1024).toFixed(0)}KB → ${(buffer.length/1024).toFixed(0)}KB`)
 
     const fileName = `articles/${article_id}/inline_${Date.now()}.jpg`
 
