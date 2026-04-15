@@ -33,13 +33,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const fullPrompt = `${prompt}, ${STYLE_PREFIX} NEGATIVE: white border, white frame, white margins, vignette, rounded corners, signature, watermark, text, letters, logo, paper texture, decorative border`
 
-    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
+    const result = await fal.subscribe('fal-ai/nano-banana', {
       input: {
         prompt: fullPrompt,
         aspect_ratio: '16:9',
-        resolution: '2K',
         num_images: 1,
-        safety_tolerance: 5,
       } as any,
     }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }
 

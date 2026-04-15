@@ -34,25 +34,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const scene = customPrompt?.trim() || `${description || title}, wide cinematic composition, contemplative philosophical mood, abstract symbolism`
     const prompt = `${scene}, ${stylePrefix}, edge-to-edge composition filling entire canvas`
 
-    // Using nano-banana (same model as YouTube thumbnails) — follows prompts
-    // precisely, handles full-bleed cleanly, no spurious white borders
-    const runNano = () => fal.subscribe('fal-ai/nano-banana-2/edit', {
+    // Using nano-banana (text-to-image, not edit variant)
+    const runNano = () => fal.subscribe('fal-ai/nano-banana', {
       input: {
         prompt: `${prompt} NEGATIVE: ${NEGATIVE_PROMPT}`,
         aspect_ratio: '16:9',
-        resolution: '2K',
         num_images: 1,
-        safety_tolerance: 5,
       } as any,
     }) as Promise<{ data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }>
 
     const results = await Promise.allSettled([runNano(), runNano()])
     const falUrls: string[] = []
+    const errors: string[] = []
     for (const r of results) {
       if (r.status === 'fulfilled') {
         const imgs = r.value?.data?.images ?? r.value?.images ?? []
         for (const img of imgs) if (img.url) falUrls.push(img.url)
+      } else {
+        errors.push(r.reason?.message ?? String(r.reason))
       }
+    }
+
+    if (falUrls.length === 0) {
+      console.error('[cover] all generations failed:', errors)
+      return NextResponse.json({ error: `Генерация не удалась: ${errors[0] ?? 'unknown'}` }, { status: 500 })
     }
 
     return NextResponse.json({ urls: falUrls, prompt })

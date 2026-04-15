@@ -220,11 +220,17 @@ export default function ArticleEditorPage() {
         }),
       })
       const data = await res.json()
-      if (data.urls?.length) {
+      if (data.error) {
+        alert('Ошибка генерации обложки: ' + data.error)
+      } else if (data.urls?.length) {
         setCoverOptions(data.urls)
         // Auto-select first and persist to our storage
         await selectCover(data.urls[0])
+      } else {
+        alert('Генерация не вернула изображений')
       }
+    } catch (e) {
+      alert('Ошибка соединения: ' + (e instanceof Error ? e.message : String(e)))
     } finally { setGenCover(false) }
   }
 
