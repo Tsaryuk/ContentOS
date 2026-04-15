@@ -1,5 +1,5 @@
-// Inline image generation for articles
-// Generates image via fal.ai, downloads to Supabase storage, returns permanent URL
+// Inline image generation for articles.
+// Uses nano-banana-2/edit with the same reference as cover for consistent style.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
@@ -8,10 +8,16 @@ import { fal } from '@fal-ai/client'
 import { compressArticleImage } from '@/lib/articles/image-compress'
 
 export const maxDuration = 120
+export const dynamic = 'force-dynamic'
 
-const STYLE_PREFIX = `black and white woodcut engraving illustration, dense crosshatching, fine parallel line work, high contrast ink art, deep shadows, contemplative philosophical mood, elegant editorial illustration style, classic book engraving technique. FULL-BLEED: image extends edge-to-edge filling the entire canvas with zero white space, zero border, zero margin, zero frame — illustration goes all the way to the pixel boundaries on every side`
+const STYLE_REF_URL = process.env.COVER_STYLE_REF_URL
+  || 'https://alrdksqdiubcnodqssnr.supabase.co/storage/v1/object/public/articles/_style/cover-reference.jpg'
 
-const INLINE_NEGATIVE = `white border, white frame, white margins, white space around image, vignette, rounded corners, paper texture, torn edges, frame within frame, decorative border, text, letters, words, numbers, typography, captions, writing, labels, logo, signature, watermark, horror, scary, creepy, evil, gore, blood, skull, demon, monster, grotesque, faceless hooded figure, cult imagery, gothic horror`
+const STYLE_INSTRUCTIONS = `Match the exact visual style of the reference image: dense black and white woodcut engraving, extreme crosshatching, fine parallel ink lines, high contrast pure black and pure white (no grey). Classical antiquity imagery.
+
+CRITICAL: Full-bleed composition. Image must fill the entire canvas edge-to-edge with ZERO white borders, ZERO white margins, ZERO frames, ZERO rounded corners, ZERO paper texture. Black ink extends to every pixel edge.
+
+Do NOT include text, letters, numbers, captions, signatures, watermarks, horror imagery, hooded figures, gore, or skulls.`
 
 interface ImageRequest {
   article_id: string
@@ -33,35 +39,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'article_id обязателен' }, { status: 400 })
     }
 
-    const fullPrompt = `${prompt}, ${STYLE_PREFIX} NEGATIVE: ${INLINE_NEGATIVE}`
+    const fullPrompt = `${prompt}\n\n${STYLE_INSTRUCTIONS}`
 
-    const result = await fal.subscribe('fal-ai/nano-banana', {
+    console.log('[inline] starting nano-banana with prompt:', prompt.slice(0, 80))
+    const start = Date.now()
+
+    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', {
       input: {
         prompt: fullPrompt,
+        image_urls: [STYLE_REF_URL],
         aspect_ratio: '16:9',
+        resolution: '2K',
         num_images: 1,
+        safety_tolerance: 5,
       } as any,
     }) as { data?: { images?: Array<{ url: string }> }; images?: Array<{ url: string }> }
 
-    const images = result?.data?.images ?? result?.images ?? []
-    const falUrl = images[0]?.url
+    console.log(`[inline] done in ${((Date.now()-start)/1000).toFixed(1)}s`)
+
+    const falUrl = (result?.data?.images ?? result?.images ?? [])[0]?.url
     if (!falUrl) {
-      return NextResponse.json({ error: 'Генерация не вернула изображение' }, { status: 500 })
+      return NextResponse.json({ error: 'Модель не вернула изображения' }, { status: 500 })
     }
 
-    // Download from fal.ai and upload to Supabase storage
+    // Download, compress, upload
     const imgRes = await fetch(falUrl)
     if (!imgRes.ok) throw new Error(`Download failed: ${imgRes.status}`)
     const rawBuffer = Buffer.from(await imgRes.arrayBuffer())
     const buffer = await compressArticleImage(rawBuffer)
-    console.log(`[inline] compressed: ${(rawBuffer.length/1024).toFixed(0)}KB → ${(buffer.length/1024).toFixed(0)}KB`)
+    console.log(`[inline] ${(rawBuffer.length/1024).toFixed(0)}KB → ${(buffer.length/1024).toFixed(0)}KB`)
 
     const fileName = `articles/${article_id}/inline_${Date.now()}.jpg`
-
-    const { data: buckets } = await supabaseAdmin.storage.listBuckets()
-    if (!buckets?.some(b => b.name === 'articles')) {
-      await supabaseAdmin.storage.createBucket('articles', { public: true })
-    }
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('articles')
@@ -73,7 +81,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .from('articles')
       .getPublicUrl(fileName)
 
-    // Track in DB for management
+    // Track in DB
     await supabaseAdmin.from('nl_article_images').insert({
       article_id,
       url: publicUrl,
@@ -83,6 +91,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ url: publicUrl })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Ошибка генерации'
+    console.error('[inline] error:', msg)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

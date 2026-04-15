@@ -210,11 +210,6 @@ export default function ArticleEditorPage() {
   async function generateCover() {
     if (!article?.title.trim()) return
     setGenCover(true); setCoverOptions([])
-
-    // 180s timeout
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 180000)
-
     try {
       const res = await fetch('/api/articles/cover', {
         method: 'POST',
@@ -224,32 +219,25 @@ export default function ArticleEditorPage() {
           description: article.subtitle,
           customPrompt: coverPrompt.trim() || undefined,
         }),
-        signal: controller.signal,
       })
-      clearTimeout(timeoutId)
 
       if (!res.ok) {
         const text = await res.text().catch(() => '')
-        alert(`Ошибка сервера: ${res.status} ${text.slice(0, 200)}`)
+        alert(`Ошибка сервера ${res.status}: ${text.slice(0, 200)}`)
         return
       }
 
       const data = await res.json()
       if (data.error) {
-        alert('Ошибка генерации: ' + data.error)
+        alert('Ошибка: ' + data.error)
       } else if (data.urls?.length) {
         setCoverOptions(data.urls)
         await selectCover(data.urls[0])
       } else {
-        alert('Генерация не вернула изображений')
+        alert('Модель не вернула изображений')
       }
     } catch (e) {
-      clearTimeout(timeoutId)
-      if (e instanceof Error && e.name === 'AbortError') {
-        alert('Генерация превысила 3 минуты. Попробуйте ещё раз или задайте проще промпт.')
-      } else {
-        alert('Ошибка соединения: ' + (e instanceof Error ? e.message : String(e)))
-      }
+      alert('Не удалось загрузить: ' + (e instanceof Error ? e.message : String(e)))
     } finally { setGenCover(false) }
   }
 
