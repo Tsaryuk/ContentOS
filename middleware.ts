@@ -4,10 +4,14 @@ import { sessionOptions, type SessionData } from '@/lib/session'
 
 const PUBLIC_PATHS = [
   '/login',
+  '/forgot-password',
+  '/reset-password',
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/callback',
   '/api/auth/start',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
   '/api/youtube/oauth/start',
   '/api/youtube/oauth/callback',
   '/letters',

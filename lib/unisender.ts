@@ -186,3 +186,39 @@ export async function getMessage(messageId: number): Promise<MessageResult> {
   const result = await call<MessageResult | MessageResult[]>('getMessage', { id: messageId })
   return Array.isArray(result) ? result[0] : result
 }
+
+// --- Transactional email (single send, no campaign) ---
+
+interface SendEmailResult {
+  index: number
+  id: string
+  email: string
+}
+
+/**
+ * Send a one-off transactional email via Unisender's sendEmail method.
+ * No campaign created; recipient is not subscribed to any list as a side
+ * effect of this call (list_id is required by the API but only used for
+ * unsubscribe-link context).
+ *
+ * Requires env: UNISENDER_SENDER_EMAIL, UNISENDER_SENDER_NAME.
+ */
+export async function sendTransactionalEmail(opts: {
+  to: string
+  subject: string
+  bodyHtml: string
+}): Promise<void> {
+  const senderEmail = process.env.UNISENDER_SENDER_EMAIL
+  const senderName  = process.env.UNISENDER_SENDER_NAME ?? 'ContentOS'
+  if (!senderEmail) throw new Error('UNISENDER_SENDER_EMAIL not configured')
+
+  await call<SendEmailResult[]>('sendEmail', {
+    email:        opts.to,
+    sender_name:  senderName,
+    sender_email: senderEmail,
+    subject:      opts.subject,
+    body:         opts.bodyHtml,
+    list_id:      getListId(),
+    lang:         'ru',
+  })
+}
