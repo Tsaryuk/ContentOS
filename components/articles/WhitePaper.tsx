@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, X, Loader2, ArrowRight } from 'lucide-react'
+import { Sparkles, X, Loader2, ArrowRight, Maximize2, Minimize2 } from 'lucide-react'
 
 interface WhitePaperProps {
   articleId: string
@@ -17,12 +17,35 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
   const [instruction, setInstruction] = useState('')
   const [showInstruction, setShowInstruction] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
+
+  // Sync isFullscreen with browser fullscreen state (handles Esc press).
+  useEffect(() => {
+    function onChange(): void {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  async function toggleFullscreen(): Promise<void> {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+      } else if (containerRef.current) {
+        await containerRef.current.requestFullscreen()
+      }
+    } catch {
+      // Fullscreen may be blocked (iframes, permissions) — noop.
+    }
+  }
 
   // Track last saved text so we don't resave identical content
   const lastSavedRef = useRef(initialText ?? '')
@@ -135,16 +158,24 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div ref={containerRef} className="fixed inset-0 z-50 bg-bg flex flex-col">
       {/* Minimal header */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-border/40">
         <div>
           <div className="text-[11px] text-dim tracking-[0.2em] uppercase">Белый лист</div>
-          <div className="text-[10px] text-dim/70 mt-0.5">Черновик независим от редактора. В редактор — только по твоей команде.</div>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-dim">
           <span>{wordCount} слов</span>
           {saving && <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> сохранение...</span>}
+
+          <button
+            onClick={toggleFullscreen}
+            className="p-1.5 text-dim hover:text-cream transition-colors"
+            title={isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'}
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
 
           <button
             onClick={() => setShowInstruction(v => !v)}
