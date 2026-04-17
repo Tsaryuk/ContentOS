@@ -11,6 +11,10 @@ import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from './lib/ai-models'
 import { decryptSecret } from './lib/crypto-secrets'
+import { initWorkerSentry, captureWorkerError } from './lib/worker-sentry'
+
+// Initialize Sentry once at process start — safe no-op if SENTRY_DSN is unset.
+initWorkerSentry()
 import { writeFile, unlink, mkdir, rm } from 'fs/promises'
 import { createReadStream, existsSync, statSync, mkdirSync, readdirSync } from 'fs'
 import { execFileSync } from 'child_process'
@@ -30,10 +34,12 @@ import { join } from 'path'
 
 process.on('unhandledRejection', (reason) => {
   console.error('[worker] Unhandled rejection:', reason)
+  captureWorkerError(reason, { jobName: 'unhandled_rejection' })
 })
 
 process.on('uncaughtException', (err) => {
   console.error('[worker] Uncaught exception:', err.message)
+  captureWorkerError(err, { jobName: 'uncaught_exception' })
   process.exit(1)
 })
 
@@ -1581,6 +1587,12 @@ const worker = new Worker(
       await handler(videoId, job.data)
     } catch (err: any) {
       console.error(`[worker] ${job.name} crashed for ${jobId}:`, err.message)
+      captureWorkerError(err, {
+        jobId: job.id,
+        jobName: job.name,
+        videoId,
+        attempt: job.attemptsMade,
+      })
       if (videoId) {
         try {
           await updateStatus(videoId, 'error', err.message?.slice(0, 500) ?? 'Unknown error')
