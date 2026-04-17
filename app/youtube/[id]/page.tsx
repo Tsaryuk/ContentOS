@@ -620,6 +620,7 @@ export default function VideoDetailPage() {
                   savedPhotos={po.saved_photos}
                   savedReference={po.saved_reference}
                   thumbnailGenerating={po.thumbnail_generating}
+                  contentType={video.content_type ?? null}
                   onSelect={selectThumbnailByUrl}
                 />
               </div>
