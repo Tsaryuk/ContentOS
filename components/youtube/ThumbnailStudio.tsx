@@ -252,11 +252,18 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                 className="w-full aspect-video object-cover"
                 loading="eager"
                 onError={e => {
+                  // Exponential backoff retry — Supabase Storage CDN warmup can
+                  // take longer for larger images (duo template vs solo), and the
+                  // single 2s retry wasn't enough. Retries at 1.5s, 4s, 9s.
                   const img = e.target as HTMLImageElement
-                  // Retry once after 2s (CDN cache might not be warm yet)
-                  if (!img.dataset.retried) {
-                    img.dataset.retried = '1'
-                    setTimeout(() => { img.src = r.url + (r.url.includes('?') ? '&' : '?') + 'v=' + Date.now() }, 2000)
+                  const attempt = Number(img.dataset.attempt ?? '0') + 1
+                  img.dataset.attempt = String(attempt)
+                  const delays = [1500, 4000, 9000]
+                  const delay = delays[attempt - 1]
+                  if (delay !== undefined) {
+                    setTimeout(() => {
+                      img.src = r.url + (r.url.includes('?') ? '&' : '?') + 'v=' + Date.now()
+                    }, delay)
                   }
                 }}
               />
