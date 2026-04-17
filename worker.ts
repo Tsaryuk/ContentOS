@@ -886,46 +886,6 @@ async function handlePublish(videoId: string, overrides?: { title?: string; thum
 // --- Produce (Master Producer Agent) ---
 
 import { buildProducerSystemPrompt, buildProducerUserPrompt } from './lib/process/prompts'
-import { generateThumbnail, pickColor } from './lib/process/thumbnail-generator'
-
-async function generateThumbnails(
-  videoId: string,
-  spec: any,
-  video: any,
-): Promise<string[]> {
-  const urls: string[] = []
-  const textVariants = spec.text_overlay_variants ?? ['']
-  const guestName = video.producer_output?.guest_info?.name ?? spec.guest_name ?? ''
-  const duration = video.duration_seconds
-    ? `${Math.floor(video.duration_seconds / 3600)}:${String(Math.floor((video.duration_seconds % 3600) / 60)).padStart(2, '0')}:${String(video.duration_seconds % 60).padStart(2, '0')}`
-    : ''
-
-  for (let i = 0; i < Math.min(textVariants.length, 3); i++) {
-    try {
-      const thumbnailBuf = await generateThumbnail({
-        title: textVariants[i] || video.current_title,
-        guestName,
-        duration,
-        bgColor: pickColor(i),
-        guestPhotoUrl: video.current_thumbnail, // use YouTube thumbnail as guest photo
-        accentColor: i === 0 ? '#FFD700' : i === 1 ? '#00BFFF' : '#FF6B6B',
-      })
-
-      const fileName = `${videoId}_${i}.jpg`
-      await supabase.storage.from('thumbnails').upload(fileName, thumbnailBuf, {
-        contentType: 'image/jpeg', upsert: true,
-      })
-      const { data: pub } = supabase.storage.from('thumbnails').getPublicUrl(fileName)
-      urls.push(pub.publicUrl)
-
-      console.log(`[produce] Thumbnail ${i}: ${pub.publicUrl}`)
-    } catch (err: any) {
-      console.error(`[produce] Thumbnail ${i} error:`, err.message)
-    }
-  }
-
-  return urls
-}
 
 async function handleProduce(videoId: string) {
   const video = await getVideo(videoId)
@@ -1011,17 +971,15 @@ async function handleProduce(videoId: string) {
       updated_at: new Date().toISOString(),
     }).eq('id', videoId)
 
-    // Step 5: Save social drafts
+    // Step 5: Save social drafts (bulk upsert, relies on UNIQUE(video_id,platform) from migration 006)
     if (output.social_drafts?.length) {
-      for (const draft of output.social_drafts) {
-        await supabase.from('yt_social_drafts').upsert({
-          video_id: videoId,
-          platform: draft.platform,
-          content: draft.content,
-          status: 'draft',
-        }, { onConflict: 'video_id,platform' }).select()
-        // If upsert fails due to no unique constraint, just insert
-      }
+      const rows = output.social_drafts.map((draft: any) => ({
+        video_id: videoId,
+        platform: draft.platform,
+        content: draft.content,
+        status: 'draft',
+      }))
+      await supabase.from('yt_social_drafts').upsert(rows, { onConflict: 'video_id,platform' })
     }
 
     await updateStatus(videoId, 'review')
