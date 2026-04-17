@@ -3,6 +3,7 @@
 
 import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from 'fs'
 import { join, resolve } from 'path'
+import { sanitizeArticleHtml } from '@/lib/sanitize'
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,100}$/
 
@@ -77,6 +78,10 @@ export async function publishArticleFiles(
     ? `<img class="article-cover" src="${article.cover_url}" alt="${article.title.replace(/"/g, '&quot;')}">`
     : ''
 
+  // Sanitize body_html before static publish — blocks stored XSS
+  // from landing in /var/www/letters/articles/<slug>.html on public blog.
+  const safeBodyHtml = sanitizeArticleHtml(article.body_html)
+
   // Body already contains YouTube embed if inserted via editor; don't duplicate
   const html = template
     .replace(/\{\{TITLE\}\}/g, article.title)
@@ -88,7 +93,7 @@ export async function publishArticleFiles(
     .replace(/\{\{DATE\}\}/g, date)
     .replace(/\{\{NUMBER\}\}/g, '')
     .replace(/\{\{SLUG\}\}/g, article.blog_slug || '')
-    .replace(/\{\{BODY_HTML\}\}/g, article.body_html)
+    .replace(/\{\{BODY_HTML\}\}/g, safeBodyHtml)
 
   // Only write on server (not dev machine)
   if (!existsSync('/var/www/letters')) {

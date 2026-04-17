@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizeNewsletterHtml } from '@/lib/sanitize'
 
 const ISSUE_ALLOWED_FIELDS = new Set([
   'title', 'subtitle', 'body_html', 'cover_url', 'campaign_id',
@@ -53,6 +54,11 @@ export async function PATCH(
   try {
     const raw = await req.json()
     const update: Record<string, unknown> = pickAllowed(raw, ISSUE_ALLOWED_FIELDS)
+
+    // Sanitize newsletter body_html at write-time (blocks stored XSS + email payload tampering)
+    if (typeof update.body_html === 'string') {
+      update.body_html = sanitizeNewsletterHtml(update.body_html)
+    }
 
     // Save version history before update (internal fields, not from user)
     if (update.body_html !== undefined) {

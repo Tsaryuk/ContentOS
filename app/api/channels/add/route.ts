@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { decryptSecret } from '@/lib/crypto-secrets'
 
 // POST /api/channels/add — add YouTube channel by ID
 export async function POST(req: NextRequest) {
@@ -38,14 +39,15 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single()
 
-    if (accounts?.refresh_token) {
+    const plainRefresh = accounts?.refresh_token ? decryptSecret(accounts.refresh_token) : null
+    if (plainRefresh) {
       // Get fresh access token
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
-          refresh_token: accounts.refresh_token,
+          refresh_token: plainRefresh,
           client_id: process.env.YOUTUBE_CLIENT_ID!,
           client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
         }),

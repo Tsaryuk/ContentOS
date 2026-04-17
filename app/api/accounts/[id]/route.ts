@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { requireAuth } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth'
 
-// DELETE /api/accounts/[id] — disconnect Google account
+// DELETE /api/accounts/[id] — disconnect Google account (destructive, admin only)
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await requireAuth()
+  const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
 
   const { id } = params

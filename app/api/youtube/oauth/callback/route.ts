@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { consumeOauthStateCookie } from '@/lib/oauth-state'
+import { encryptSecret } from '@/lib/crypto-secrets'
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
       .upsert({
         yt_channel_id:  channel.id,
         title:          channel.snippet?.title ?? channel.id,
-        refresh_token:  tokens.refresh_token,
+        refresh_token:  encryptSecret(tokens.refresh_token),
         needs_reauth:   false,
         updated_at:     new Date().toISOString(),
       }, { onConflict: 'yt_channel_id' })

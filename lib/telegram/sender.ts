@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { decryptSecret } from '@/lib/crypto-secrets'
 import { TelegramClient } from 'telegram'
 import { StringSession } from 'telegram/sessions'
 import { Api } from 'telegram'
@@ -40,8 +41,13 @@ export async function sendTelegramPost(postId: string): Promise<void> {
     return
   }
 
-  // 2. Create client and connect
-  const session = new StringSession(account.session_string)
+  // 2. Create client and connect — decrypt session_string (handles legacy plaintext)
+  const plainSession = decryptSecret(account.session_string) ?? ''
+  if (!plainSession) {
+    await markFailed(postId, 'Telegram-аккаунт: не удалось расшифровать сессию')
+    return
+  }
+  const session = new StringSession(plainSession)
   const client = new TelegramClient(session, API_ID, API_HASH, {
     connectionRetries: 3,
   })

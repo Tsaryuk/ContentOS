@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizeArticleHtml } from '@/lib/sanitize'
 
 // Only these fields may be updated via PATCH — anything else is ignored
 // to prevent mass-assignment (status spoofing, slug injection, created_by tamper).
@@ -61,6 +62,11 @@ export async function PATCH(
           { status: 400 },
         )
       }
+    }
+
+    // Sanitize body_html at write-time — blocks stored XSS from landing in DB
+    if (typeof update.body_html === 'string') {
+      update.body_html = sanitizeArticleHtml(update.body_html)
     }
 
     update.updated_at = new Date().toISOString()

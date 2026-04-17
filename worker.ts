@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from './lib/ai-models'
+import { decryptSecret } from './lib/crypto-secrets'
 import { writeFile, unlink, mkdir, rm } from 'fs/promises'
 import { createReadStream, existsSync, statSync, mkdirSync, readdirSync } from 'fs'
 import { execFileSync } from 'child_process'
@@ -343,8 +344,9 @@ async function getChannelAccessToken(channelUuid: string): Promise<string> {
   const { data: ch } = await supabase.from('yt_channels')
     .select('refresh_token').eq('id', channelUuid).single()
 
-  if (ch?.refresh_token) {
-    return getAccessToken(ch.refresh_token, channelUuid)
+  const plain = ch?.refresh_token ? decryptSecret(ch.refresh_token) : null
+  if (plain) {
+    return getAccessToken(plain, channelUuid)
   }
 
   const envToken = process.env.YOUTUBE_REFRESH_TOKEN
