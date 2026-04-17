@@ -206,6 +206,24 @@ async function markGenerating(supabase: ReturnType<typeof getSupabase>, videoId:
   }).eq('id', videoId)
 }
 
+// Pick channel style prompt for a specific content_type. Channels may store
+// either a single string (legacy — used for all types) or an object keyed by
+// content_type. We fall back to the legacy string if the type-specific entry
+// is empty, so old configs keep working.
+function pickStylePrompt(
+  rules: Record<string, unknown> | null | undefined,
+  contentType: string,
+): string | null {
+  if (!rules) return null
+  const raw = (rules as { thumbnail_style_prompt?: unknown }).thumbnail_style_prompt
+  if (typeof raw === 'string') return raw || null
+  if (raw && typeof raw === 'object') {
+    const obj = raw as Record<string, string | undefined>
+    return obj[contentType] || obj.podcast || null
+  }
+  return null
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
@@ -218,7 +236,8 @@ export async function POST(req: NextRequest) {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })
     const body = await req.json()
     videoId = body.videoId
-    const { channelId, photos, text, referenceUrl, refinement, guestInfo } = body
+    const { channelId, photos, text, referenceUrl, refinement, guestInfo, contentType: contentTypeOverride } = body
+    const dryRun: boolean = body.dryRun === true
     template = body.template ?? 'solo'
 
     if (!videoId || !text) {
@@ -235,17 +254,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'referenceUrl not in allow-list' }, { status: 400 })
     }
 
-    // Mark generation in progress — survives page navigation
-    await markGenerating(supabase, videoId, template)
+    // Resolve content_type: explicit override > DB value > 'podcast'
+    const { data: videoRow } = await supabase
+      .from('yt_videos')
+      .select('content_type')
+      .eq('id', videoId)
+      .single()
+    const contentType: string =
+      (typeof contentTypeOverride === 'string' && contentTypeOverride) ||
+      videoRow?.content_type ||
+      'podcast'
 
-    // Respond immediately — client can navigate away
-    // Generation continues server-side
-
-    // Load per-channel thumbnail style prompt if channelId provided
+    // Load per-channel thumbnail style prompt (may be per-content-type)
     let channelStylePrompt: string | null = null
     if (channelId) {
       const { data: ch } = await supabase.from('yt_channels').select('rules').eq('id', channelId).single()
-      channelStylePrompt = ch?.rules?.thumbnail_style_prompt ?? null
+      channelStylePrompt = pickStylePrompt(ch?.rules, contentType)
     }
 
     const { line1, line2 } = splitText(text)
@@ -254,7 +278,52 @@ export async function POST(req: NextRequest) {
     const imageUrls: string[] = [...safePhotos, ...(safeReference ? [safeReference] : [])].filter(Boolean)
     const hasStyleRef = !!safeReference
 
-    console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images | channelPrompt=${!!channelStylePrompt} | 4 variants...`)
+    // B-03: dryRun mode — return the final prompt and image URLs without calling fal.
+    // Used by UI to preview what will actually be sent to the model.
+    if (dryRun) {
+      const previewPrompt = buildMasterPrompt({
+        textLine1: line1,
+        textLine2: line2,
+        guestName: guestInfo,
+        emotion: VARIANTS[0].emotion,       // show the Shock variant as the representative sample
+        template: template as Template,
+        photoCount: safePhotos.length,
+        hasStyleRef,
+        refinement,
+        channelStylePrompt,
+      })
+      return NextResponse.json({
+        dryRun: true,
+        contentType,
+        template,
+        textLine1: line1,
+        textLine2: line2,
+        facePhotos: safePhotos.length,
+        styleReference: hasStyleRef,
+        channelStylePrompt,
+        refinement: refinement ?? null,
+        sampleEmotion: VARIANTS[0].name,
+        sampleFullPrompt: previewPrompt,
+        imageUrls,
+        variants: VARIANTS.map(v => v.name),
+      })
+    }
+
+    // Persist user-selected content_type override so it sticks across reloads.
+    if (typeof contentTypeOverride === 'string' && contentTypeOverride !== videoRow?.content_type) {
+      await supabase
+        .from('yt_videos')
+        .update({ content_type: contentTypeOverride, updated_at: new Date().toISOString() })
+        .eq('id', videoId)
+    }
+
+    // Mark generation in progress — survives page navigation
+    await markGenerating(supabase, videoId, template)
+
+    // Respond immediately — client can navigate away
+    // Generation continues server-side
+
+    console.log(`[thumb] template=${template} type=${contentType} "${line1} / ${line2}" | ${imageUrls.length} images | channelPrompt=${!!channelStylePrompt} | 4 variants...`)
 
     const settled = await Promise.allSettled(
       VARIANTS.map(v =>

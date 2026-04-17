@@ -33,7 +33,9 @@ export async function POST(req: NextRequest) {
 
     const ytVideos = await fetchChannelVideos(channelId)
 
-    // Build rows for bulk upsert
+    // Build rows for bulk upsert — we deliberately do NOT include content_type
+    // here, so manual UI overrides (saved in DB) survive re-sync. content_type
+    // is backfilled after the upsert only for rows where it's NULL (new videos).
     const rows = ytVideos.map(v => ({
       channel_id:          channel.id,
       yt_video_id:         v.id,
@@ -85,6 +87,29 @@ export async function POST(req: NextRequest) {
         await supabaseAdmin.from('yt_videos').delete().in('id', ids)
         removed = toDelete.length
         console.log(`[sync] Removed ${removed} deleted videos`)
+      }
+    }
+
+    // Backfill content_type for freshly-inserted rows that lack one.
+    // Manual overrides are preserved because we target only NULL.
+    // ≤60s → short, ≤3000s (50 min) → video, else podcast.
+    // Matches the CHECK constraint in migration 022.
+    const { data: missingType } = await supabaseAdmin
+      .from('yt_videos')
+      .select('id, duration_seconds')
+      .eq('channel_id', channel.id)
+      .is('content_type', null)
+
+    if (missingType && missingType.length > 0) {
+      const buckets: Record<'short' | 'video' | 'podcast', string[]> = { short: [], video: [], podcast: [] }
+      for (const v of missingType) {
+        const d = v.duration_seconds ?? 0
+        const t = d > 0 && d <= 60 ? 'short' : d > 0 && d <= 3000 ? 'video' : 'podcast'
+        buckets[t].push(v.id)
+      }
+      for (const t of ['short', 'video', 'podcast'] as const) {
+        if (buckets[t].length === 0) continue
+        await supabaseAdmin.from('yt_videos').update({ content_type: t }).in('id', buckets[t])
       }
     }
 
