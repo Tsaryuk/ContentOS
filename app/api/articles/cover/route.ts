@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fal } from '@fal-ai/client'
 import { compressArticleImage } from '@/lib/articles/image-compress'
 import { isAllowedUrl } from '@/lib/url-whitelist'
+import { trackUsage } from '@/lib/cost'
 
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
@@ -62,6 +63,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (falUrls.length === 0) {
       return NextResponse.json({ error: 'Модель не вернула изображений' }, { status: 500 })
     }
+
+    trackUsage({
+      provider: 'fal',
+      model: 'fal-ai/flux/dev',
+      task: 'cover',
+      units: falUrls.length,
+    })
 
     return NextResponse.json({ urls: falUrls, prompt: scene })
   } catch (err: unknown) {

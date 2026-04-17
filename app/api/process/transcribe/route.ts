@@ -18,7 +18,13 @@ export async function POST(req: NextRequest) {
     }
 
     await updateVideoStatus(videoId, 'transcribing')
-    await getQueue().add('transcribe', { videoId }, { attempts: 1 })
+    const queue = getQueue()
+    const jobId = `transcribe:${videoId}`
+    const existing = await queue.getJob(jobId)
+    if (existing && ['active', 'waiting', 'delayed'].includes(await existing.getState())) {
+      return NextResponse.json({ success: true, status: 'already_queued' })
+    }
+    await queue.add('transcribe', { videoId }, { jobId, attempts: 1 })
 
     return NextResponse.json({ success: true, status: 'queued' })
   } catch (err: any) {

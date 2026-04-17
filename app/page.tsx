@@ -1,20 +1,12 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react'
 import { HeroMetrics } from '@/components/dashboard/HeroMetrics'
 import { FilterTabs } from '@/components/dashboard/FilterTabs'
 import { ChannelGrid } from '@/components/dashboard/ChannelGrid'
 import { AiInsightsBar } from '@/components/dashboard/AiInsightsBar'
 import { NewsletterWidget } from '@/components/dashboard/NewsletterWidget'
-import { Channel, PLATFORM_LABELS, getUniquePlatforms, aggregateMetrics } from '@/lib/channels'
-
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) return null
-  return createClient(url, key)
-}
+import { Channel, PLATFORM_LABELS, getUniquePlatforms } from '@/lib/channels'
 
 function fmtNumber(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
@@ -22,93 +14,79 @@ function fmtNumber(n: number): string {
   return n.toLocaleString('ru-RU')
 }
 
-export default function DashboardPage() {
-  const supabaseRef = useRef<SupabaseClient | null>(null)
-  if (!supabaseRef.current && typeof window !== 'undefined') {
-    supabaseRef.current = getSupabase()
+interface DashboardMetrics {
+  channels: Array<{
+    id: string
+    title: string
+    handle: string | null
+    thumbnail_url: string | null
+    subscribers: number
+    views: number
+    videos: number
+    engagement: number | null
+  }>
+  totals: {
+    subscribers: number
+    views: number
+    likes: number
+    videos: number
+    engagement: number | null
   }
+  growth: {
+    viewsPct: number | null
+    videosDelta: number
+  }
+}
 
-  const [channels, setChannels] = useState<Channel[]>([])
+export default function DashboardPage() {
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [projectName, setProjectName] = useState('Дашборд')
   const [activeTab, setActiveTab] = useState('all')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
+    let cancelled = false
+    async function load(): Promise<void> {
       setLoading(true)
       try {
-        const [{ projects, channels: dbChannels }, session] = await Promise.all([
+        const [metricsRes, projectsRes, sessionRes] = await Promise.all([
+          fetch('/api/dashboard/metrics').then(r => r.json()),
           fetch('/api/projects').then(r => r.json()),
           fetch('/api/auth/session').then(r => r.json()),
         ])
+        if (cancelled) return
 
-        const activeProjectId: string | null = session?.activeProjectId ?? projects?.[0]?.id ?? null
-        const activeProject = projects?.find((p: any) => p.id === activeProjectId)
+        const activeProjectId: string | null = sessionRes?.activeProjectId ?? projectsRes?.projects?.[0]?.id ?? null
+        const activeProject = projectsRes?.projects?.find((p: { id: string; name: string }) => p.id === activeProjectId)
         if (activeProject) setProjectName(activeProject.name)
 
-        // Filter YouTube channels by active project
-        const ytChs: any[] = (dbChannels ?? []).filter((c: any) =>
-          !activeProjectId || c.project_id === activeProjectId
-        )
-
-        if (ytChs.length === 0) {
-          setChannels([])
-          setLoading(false)
-          return
-        }
-
-        const channelIds = ytChs.map((c: any) => c.id)
-
-        // Load video stats aggregated per channel
-        const supabase = supabaseRef.current
-        let videoStats: Record<string, { views: number; likes: number; count: number }> = {}
-
-        if (supabase) {
-          const { data: videos } = await supabase
-            .from('yt_videos')
-            .select('channel_id, view_count, like_count')
-            .in('channel_id', channelIds)
-
-          for (const v of videos ?? []) {
-            if (!videoStats[v.channel_id]) videoStats[v.channel_id] = { views: 0, likes: 0, count: 0 }
-            videoStats[v.channel_id].views += v.view_count ?? 0
-            videoStats[v.channel_id].likes += v.like_count ?? 0
-            videoStats[v.channel_id].count += 1
-          }
-        }
-
-        // Build Channel[] from real yt_channels data
-        const realChannels: Channel[] = ytChs.map((ch: any) => {
-          const stats = videoStats[ch.id] ?? { views: 0, likes: 0, count: 0 }
-          const engagement = stats.views > 0 ? (stats.likes / stats.views) * 100 : undefined
-          return {
-            id: ch.id,
-            name: ch.title,
-            platform: 'youtube' as const,
-            slug: ch.handle ?? ch.id,
-            icon: ch.thumbnail_url ?? undefined,
-            connected: true,
-            metrics: {
-              subscribers: ch.subscriber_count ?? 0,
-              views: stats.views,
-              contentCount: ch.video_count ?? stats.count,
-              growthPercent: 0,
-              engagement,
-            },
-            href: '/youtube',
-          }
-        })
-
-        setChannels(realChannels)
-      } catch (e) {
-        console.error('Dashboard load error:', e)
+        setMetrics(metricsRes)
+      } catch (err) {
+        console.error('Dashboard load error:', err)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
-
     load()
+    return () => { cancelled = true }
   }, [])
+
+  const channels: Channel[] = (metrics?.channels ?? []).map(c => ({
+    id: c.id,
+    name: c.title,
+    platform: 'youtube' as const,
+    slug: c.handle ?? c.id,
+    icon: c.thumbnail_url ?? undefined,
+    connected: true,
+    metrics: {
+      subscribers: c.subscribers,
+      views: c.views,
+      contentCount: c.videos,
+      growthPercent: 0,
+      engagement: c.engagement ?? undefined,
+    },
+    href: '/youtube',
+  }))
 
   const platforms = getUniquePlatforms(channels)
   const tabs = [
@@ -130,29 +108,33 @@ export default function DashboardPage() {
           : c.platform === activeTab
       )
 
-  const agg = aggregateMetrics(channels)
+  const growth = metrics?.growth
+  const viewsGrowth = growth?.viewsPct !== null && growth?.viewsPct !== undefined
+    ? { value: `${growth.viewsPct > 0 ? '+' : ''}${growth.viewsPct}%`, positive: growth.viewsPct >= 0 }
+    : undefined
 
   const heroMetrics = [
     {
       label: 'Подписчики',
-      value: loading ? '...' : fmtNumber(agg.subscribers),
+      value: loading ? '...' : fmtNumber(metrics?.totals.subscribers ?? 0),
       color: 'var(--accent)',
-      growth: agg.subscribers > 0 ? { value: '+2.3%', positive: true } : undefined,
     },
     {
       label: 'Просмотры',
-      value: loading ? '...' : fmtNumber(agg.views),
+      value: loading ? '...' : fmtNumber(metrics?.totals.views ?? 0),
       color: 'var(--purple)',
-      growth: agg.views > 0 ? { value: '+4.1%', positive: true } : undefined,
+      growth: viewsGrowth,
     },
     {
       label: 'Контент',
-      value: loading ? '...' : fmtNumber(agg.contentCount),
+      value: loading ? '...' : fmtNumber(metrics?.totals.videos ?? 0),
       color: 'var(--text-primary)',
     },
     {
       label: 'Engagement',
-      value: loading ? '...' : agg.engagement != null ? agg.engagement.toFixed(1) + '%' : '--',
+      value: loading
+        ? '...'
+        : metrics?.totals.engagement != null ? metrics.totals.engagement.toFixed(2) + '%' : '--',
       color: 'var(--green)',
     },
   ]
@@ -176,12 +158,10 @@ export default function DashboardPage() {
 
       {channels.length > 0 && (
         <>
-          {/* Filter Tabs */}
           <div className="mb-5">
             <FilterTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           </div>
 
-          {/* Channel Grid */}
           <div className="mb-6">
             <ChannelGrid channels={filteredChannels} />
           </div>

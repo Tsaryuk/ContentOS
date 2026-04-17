@@ -4,6 +4,7 @@ import sharp from 'sharp'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
 import { filterAllowedUrls, isAllowedUrl } from '@/lib/url-whitelist'
+import { trackUsage } from '@/lib/cost'
 
 function getSupabase() {
   return supabaseAdmin
@@ -176,6 +177,16 @@ async function runNanoBanana(
       result?.data?.images?.[0]?.url ??
       result?.images?.[0]?.url ??
       null
+
+    if (url) {
+      trackUsage({
+        provider: 'fal',
+        model: 'fal-ai/nano-banana-2/edit',
+        task: 'thumbnail',
+        units: 1,
+        metadata: { variant: name },
+      })
+    }
 
     console.log(`[thumb] ${name}: ${url ? 'OK' : 'no image'}`)
     return { url, name }
