@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
+import { consumeOauthStateCookie } from '@/lib/oauth-state'
+import { encryptSecret } from '@/lib/crypto-secrets'
 
 export async function GET(req: NextRequest) {
   const proto = req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(':', '')
@@ -8,12 +10,21 @@ export async function GET(req: NextRequest) {
   const origin = `${proto}://${host}`
   const code  = req.nextUrl.searchParams.get('code')
   const error = req.nextUrl.searchParams.get('error')
+  const state = req.nextUrl.searchParams.get('state')
 
   if (error) {
     return NextResponse.redirect(`${origin}/settings?oauth_error=${encodeURIComponent(error)}`)
   }
   if (!code) {
     return NextResponse.redirect(`${origin}/settings?oauth_error=no_code`)
+  }
+
+  // CSRF guard — verify state matches cookie set at /api/auth/start
+  {
+    const errRes = NextResponse.redirect(`${origin}/settings?oauth_error=state_mismatch`)
+    if (!consumeOauthStateCookie(req, errRes, 'auth', state)) {
+      return errRes
+    }
   }
 
   const redirectUri = `${origin}/api/auth/callback`
@@ -43,6 +54,8 @@ export async function GET(req: NextRequest) {
   })
   const profile = await profileRes.json()
 
+  const encryptedRefresh = encryptSecret(tokens.refresh_token)
+
   // 3. Save Google account (upsert)
   const { data: googleAccount, error: gaErr } = await supabaseAdmin
     .from('google_accounts')
@@ -51,7 +64,7 @@ export async function GET(req: NextRequest) {
       email:         profile.email,
       name:          profile.name,
       picture:       profile.picture,
-      refresh_token: tokens.refresh_token,
+      refresh_token: encryptedRefresh,
       updated_at:    new Date().toISOString(),
     }, { onConflict: 'google_id' })
     .select('id')
@@ -81,7 +94,7 @@ export async function GET(req: NextRequest) {
         subscriber_count: parseInt(ch.statistics?.subscriberCount || '0'),
         video_count:      parseInt(ch.statistics?.videoCount || '0'),
         google_account_id: googleAccount.id,
-        refresh_token:    tokens.refresh_token,
+        refresh_token:    encryptedRefresh,
         updated_at:       new Date().toISOString(),
       }, { onConflict: 'yt_channel_id' })
   }
@@ -95,7 +108,9 @@ export async function GET(req: NextRequest) {
   }
 
   const count = channels.length
-  return NextResponse.redirect(
+  const successRes = NextResponse.redirect(
     `${origin}/settings?oauth_ok=1&email=${encodeURIComponent(profile.email)}&channels=${count}`
   )
+  successRes.cookies.delete('contentos_oauth_state_auth')
+  return successRes
 }

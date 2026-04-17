@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL ?? '',
-      process.env.SUPABASE_SERVICE_KEY ?? '',
-    )
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
 
+  try {
     const { videoId, photos, reference } = await req.json()
     if (!videoId) return NextResponse.json({ error: 'videoId required' }, { status: 400 })
 

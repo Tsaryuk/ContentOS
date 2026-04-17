@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
+import { encryptSecret } from '@/lib/crypto-secrets'
 import { Api } from 'telegram'
 import { computeCheck } from 'telegram/Password'
 import { getPendingAuth, removePendingAuth } from '@/lib/telegram/auth-store'
@@ -63,13 +64,13 @@ export async function POST(req: NextRequest) {
     const session = await getSession()
     const projectId = session.activeProjectId ?? null
 
-    // Upsert account
+    // Upsert account — session_string is an MTProto credential, encrypt at rest
     const { data: account, error: accError } = await supabaseAdmin
       .from('tg_accounts')
       .upsert(
         {
           phone,
-          session_string: sessionString,
+          session_string: encryptSecret(sessionString),
           first_name: firstName,
           username,
           project_id: projectId,

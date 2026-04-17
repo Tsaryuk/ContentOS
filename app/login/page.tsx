@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 
 function LoginForm() {
@@ -79,6 +80,13 @@ function LoginForm() {
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Войти
           </button>
+
+          <Link
+            href="/forgot-password"
+            className="block text-center text-muted text-xs hover:text-cream transition-colors mt-4"
+          >
+            Забыли пароль?
+          </Link>
         </form>
       </div>
     </div>

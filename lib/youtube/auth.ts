@@ -3,6 +3,7 @@
 // При invalid_grant помечаем канал needs_reauth = true, чтобы UI показал баннер
 
 import { supabaseAdmin } from '@/lib/supabase'
+import { decryptSecret } from '@/lib/crypto-secrets'
 
 export type YouTubeAuthErrorCode =
   | 'needs_reauth'    // refresh_token отозван / истёк → нужно переподключение
@@ -109,7 +110,8 @@ export async function getYouTubeToken(channelRef?: ChannelRef | string): Promise
 
     if (data?.refresh_token) {
       channelUuid = data.id
-      refresh = data.refresh_token
+      // Token may be encrypted (enc:v1:...) or legacy plaintext — decrypt handles both.
+      refresh = decryptSecret(data.refresh_token)
     }
   }
 

@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { getSession } from '@/lib/session'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
+  // 10 login attempts per IP per minute. Brute-force protection.
+  const rl = await rateLimit('login', clientIp(req), 10, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
+
   try {
     const { email, password } = await req.json()
 

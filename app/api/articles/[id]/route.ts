@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizeArticleHtml } from '@/lib/sanitize'
+
+// Only these fields may be updated via PATCH — anything else is ignored
+// to prevent mass-assignment (status spoofing, slug injection, created_by tamper).
+const ARTICLE_ALLOWED_FIELDS = new Set([
+  'title', 'subtitle', 'body_html', 'cover_url', 'youtube_url',
+  'category', 'seo_title', 'seo_description', 'blog_slug',
+  'status', 'published_at', 'show_cover_in_article',
+])
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,100}$/
+
+function pickAllowed<T extends Record<string, unknown>>(
+  body: T,
+  allowed: Set<string>,
+): Partial<T> {
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(body)) {
+    if (allowed.has(key)) out[key] = body[key]
+  }
+  return out as Partial<T>
+}
 
 export async function GET(
   req: NextRequest,
@@ -29,8 +51,25 @@ export async function PATCH(
   const { id } = await params
 
   try {
-    const body = await req.json()
-    body.updated_at = new Date().toISOString()
+    const raw = await req.json()
+    const update: Record<string, unknown> = pickAllowed(raw, ARTICLE_ALLOWED_FIELDS)
+
+    // Validate slug if present — protects static HTML writer against path traversal
+    if (typeof update.blog_slug === 'string' && update.blog_slug.length > 0) {
+      if (!SLUG_RE.test(update.blog_slug)) {
+        return NextResponse.json(
+          { error: 'blog_slug invalid — allowed: lowercase letters, digits, hyphens' },
+          { status: 400 },
+        )
+      }
+    }
+
+    // Sanitize body_html at write-time — blocks stored XSS from landing in DB
+    if (typeof update.body_html === 'string') {
+      update.body_html = sanitizeArticleHtml(update.body_html)
+    }
+
+    update.updated_at = new Date().toISOString()
 
     // Fetch current article to detect slug changes and track version
     const { data: current } = await supabaseAdmin
@@ -39,13 +78,13 @@ export async function PATCH(
     const previousSlug = current?.blog_slug ?? null
 
     // Increment version on body_html changes
-    if (body.body_html !== undefined) {
-      body.version = (current?.version ?? 1) + 1
+    if (update.body_html !== undefined) {
+      update.version = (current?.version ?? 1) + 1
     }
 
     const { data, error } = await supabaseAdmin
       .from('nl_articles')
-      .update(body)
+      .update(update)
       .eq('id', id)
       .select()
       .single()

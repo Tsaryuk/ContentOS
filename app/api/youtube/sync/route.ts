@@ -5,12 +5,16 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 import { fetchChannelVideos } from '@/lib/youtube/videos'
 import { youtubeErrorResponse } from '@/lib/youtube/errors'
 
 const BATCH_SIZE = 50
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   try {
     const { channelId } = await req.json()
     if (!channelId) {

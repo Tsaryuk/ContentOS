@@ -2,7 +2,26 @@
 // Called from publish route (first-time) and auto-republish on save
 
 import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
+import { sanitizeArticleHtml } from '@/lib/sanitize'
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,100}$/
+
+function assertSafeSlug(slug: string, label = 'blog_slug'): void {
+  if (!SLUG_RE.test(slug)) {
+    throw new Error(`${label} invalid — allowed: lowercase letters, digits, hyphens`)
+  }
+}
+
+function safeJoinArticle(slug: string): string {
+  assertSafeSlug(slug)
+  const filePath = join(ARTICLES_DIR, `${slug}.html`)
+  const resolved = resolve(filePath)
+  if (!resolved.startsWith(resolve(ARTICLES_DIR) + '/')) {
+    throw new Error('path traversal detected')
+  }
+  return resolved
+}
 
 interface Article {
   id: string
@@ -59,6 +78,10 @@ export async function publishArticleFiles(
     ? `<img class="article-cover" src="${article.cover_url}" alt="${article.title.replace(/"/g, '&quot;')}">`
     : ''
 
+  // Sanitize body_html before static publish — blocks stored XSS
+  // from landing in /var/www/letters/articles/<slug>.html on public blog.
+  const safeBodyHtml = sanitizeArticleHtml(article.body_html)
+
   // Body already contains YouTube embed if inserted via editor; don't duplicate
   const html = template
     .replace(/\{\{TITLE\}\}/g, article.title)
@@ -70,7 +93,7 @@ export async function publishArticleFiles(
     .replace(/\{\{DATE\}\}/g, date)
     .replace(/\{\{NUMBER\}\}/g, '')
     .replace(/\{\{SLUG\}\}/g, article.blog_slug || '')
-    .replace(/\{\{BODY_HTML\}\}/g, article.body_html)
+    .replace(/\{\{BODY_HTML\}\}/g, safeBodyHtml)
 
   // Only write on server (not dev machine)
   if (!existsSync('/var/www/letters')) {
@@ -78,16 +101,18 @@ export async function publishArticleFiles(
   }
 
   if (!existsSync(ARTICLES_DIR)) mkdirSync(ARTICLES_DIR, { recursive: true })
-  const filePath = join(ARTICLES_DIR, `${article.blog_slug}.html`)
+  const filePath = safeJoinArticle(article.blog_slug)
   writeFileSync(filePath, html, 'utf-8')
 
   // Remove old HTML file if slug changed
   const prev = opts.previousSlug
   if (prev && prev !== article.blog_slug) {
-    const oldPath = join(ARTICLES_DIR, `${prev}.html`)
-    if (existsSync(oldPath)) {
-      try { unlinkSync(oldPath) } catch { /* ignore */ }
-    }
+    try {
+      const oldPath = safeJoinArticle(prev)
+      if (existsSync(oldPath)) {
+        try { unlinkSync(oldPath) } catch { /* ignore */ }
+      }
+    } catch { /* invalid previous slug — skip cleanup */ }
   }
 
   // Update articles/index.json
@@ -119,7 +144,12 @@ export async function publishArticleFiles(
 export async function unpublishArticleFiles(slug: string): Promise<void> {
   if (!existsSync('/var/www/letters')) return
 
-  const filePath = join(ARTICLES_DIR, `${slug}.html`)
+  let filePath: string
+  try {
+    filePath = safeJoinArticle(slug)
+  } catch {
+    return
+  }
   if (existsSync(filePath)) {
     try { unlinkSync(filePath) } catch { /* ignore */ }
   }

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getQueue } from '@/lib/queue'
 import { updateVideoStatus, getVideoWithChannel } from '@/lib/process/helpers'
+import { requireAuth } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   try {
     const { videoId, title, thumbnailUrl } = await req.json()
     if (!videoId) return NextResponse.json({ error: 'videoId required' }, { status: 400 })

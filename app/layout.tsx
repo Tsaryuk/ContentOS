@@ -7,23 +7,32 @@ export const metadata: Metadata = {
   description: 'Content management system',
 }
 
+// suppressHydrationWarning is needed because the inline theme script below
+// mutates the <html> class before React hydrates. Without it React logs a
+// mismatch warning even though the behaviour is correct.
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="ru" className="dark">
+    <html lang="ru" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;600;700;900&family=Manrope:wght@400;500;600;700;800&family=Fraunces:wght@300;400;700;900&family=Outfit:wght@400;500;600;700&family=Lora:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+        {/* Runs synchronously before first paint — no light-theme flash on reload. */}
         <script dangerouslySetInnerHTML={{ __html: `
           try {
             var t = localStorage.getItem('theme');
-            if (t === 'light') document.documentElement.classList.remove('dark');
-            else document.documentElement.classList.add('dark');
-          } catch(e) {}
+            if (t === 'light') {
+              document.documentElement.classList.remove('dark');
+            } else {
+              document.documentElement.classList.add('dark');
+            }
+          } catch (e) {
+            document.documentElement.classList.add('dark');
+          }
         ` }} />
       </head>
       <LayoutShell>{children}</LayoutShell>

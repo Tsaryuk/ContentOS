@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   const videoId = req.nextUrl.searchParams.get('videoId')
   if (!videoId) {
     return NextResponse.json({ error: 'videoId required' }, { status: 400 })

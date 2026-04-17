@@ -1,27 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getIronSession } from 'iron-session'
+import { sessionOptions, type SessionData } from '@/lib/session'
 
-const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/logout', '/letters', '/api/newsletter/subscribe']
+const PUBLIC_PATHS = [
+  '/login',
+  '/forgot-password',
+  '/reset-password',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/callback',
+  '/api/auth/start',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/youtube/oauth/start',
+  '/api/youtube/oauth/callback',
+  '/letters',
+  '/api/newsletter/subscribe',
+  '/api/health',
+]
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (
-    PUBLIC_PATHS.some(p => pathname.startsWith(p)) ||
+    PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/')) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon')
   ) {
     return NextResponse.next()
   }
 
-  // Check iron-session cookie (encrypted, signed)
-  const session = req.cookies.get('contentos_session')?.value
-  if (session) {
-    return NextResponse.next()
+  // Validate iron-session cookie — actually decrypt, not just check existence.
+  const res = NextResponse.next()
+  const session = await getIronSession<SessionData>(req, res, sessionOptions)
+
+  if (!session.userId) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Не авторизован' }, { status: 401 })
+    }
+    const loginUrl = new URL('/login', req.url)
+    loginUrl.searchParams.set('from', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
-  const loginUrl = new URL('/login', req.url)
-  loginUrl.searchParams.set('from', pathname)
-  return NextResponse.redirect(loginUrl)
+  return res
 }
 
 export const config = {

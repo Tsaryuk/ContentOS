@@ -9,7 +9,7 @@ export interface SessionData {
   activeChannelId?: string
 }
 
-const sessionOptions = {
+export const sessionOptions = {
   password: process.env.SESSION_SECRET!,
   cookieName: 'contentos_session',
   cookieOptions: {
