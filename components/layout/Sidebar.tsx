@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutGrid, Mail, Globe, Settings, Scissors, FileText,
-  Play, Send, Camera, GalleryHorizontalEnd, CheckSquare
+  Play, Send, Camera, GalleryHorizontalEnd, CheckSquare, Calendar
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
@@ -83,6 +83,7 @@ export function Sidebar() {
   const isClips = pathname.startsWith('/clips')
   const isCarousels = pathname.startsWith('/carousels')
   const isTasks = pathname.startsWith('/tasks')
+  const isCalendar = pathname.startsWith('/calendar')
   const isTelegram = pathname.startsWith('/telegram')
   const isNewsletter = pathname.startsWith('/newsletter')
   const isArticles = pathname.startsWith('/articles')
@@ -123,6 +124,17 @@ export function Sidebar() {
       >
         <CheckSquare className="w-4 h-4 shrink-0" />
         <span className="text-xs font-medium">Задачи</span>
+      </Link>
+
+      {/* Calendar */}
+      <Link
+        href="/calendar"
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
+          isCalendar ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+        }`}
+      >
+        <Calendar className="w-4 h-4 shrink-0" />
+        <span className="text-xs font-medium">Календарь</span>
       </Link>
 
       {/* YouTube — dynamic channels from DB */}

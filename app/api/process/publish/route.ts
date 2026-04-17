@@ -21,10 +21,21 @@ export async function POST(req: NextRequest) {
     }
 
     await updateVideoStatus(videoId, 'publishing')
-    await getQueue().add('publish', {
+
+    // BullMQ uses jobId as natural idempotency key — adding a job with the
+    // same id while the previous one is queued/active/completed is a no-op.
+    // Prevents double-publish when the UI fires the request twice (double
+    // click, network retry).
+    const queue = getQueue()
+    const jobId = `publish:${videoId}`
+    const existing = await queue.getJob(jobId)
+    if (existing && ['active', 'waiting', 'delayed'].includes(await existing.getState())) {
+      return NextResponse.json({ success: true, status: 'already_queued' })
+    }
+    await queue.add('publish', {
       videoId,
       overrides: { title, thumbnailUrl },
-    }, { attempts: 1, priority: 1 })
+    }, { jobId, attempts: 1, priority: 1 })
 
     return NextResponse.json({ success: true, status: 'queued' })
   } catch (err: any) {

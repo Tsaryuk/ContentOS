@@ -12,6 +12,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from './lib/ai-models'
 import { decryptSecret } from './lib/crypto-secrets'
 import { initWorkerSentry, captureWorkerError } from './lib/worker-sentry'
+import { logger } from './lib/logger'
+import { trackUsage, type Task } from './lib/cost'
 
 // Initialize Sentry once at process start — safe no-op if SENTRY_DSN is unset.
 initWorkerSentry()
@@ -68,21 +70,40 @@ const supabase = createClient(
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
+interface ClaudeCostCtx {
+  task?: Task
+  videoId?: string | null
+}
+
 // Retry wrapper for Claude API (handles 529 overloaded, 429 rate limit, timeouts)
+// `costCtx` is optional — when passed, the call is recorded in ai_usage.
 async function claudeWithRetry(
   params: Parameters<typeof anthropic.messages.create>[0],
   maxRetries = 4,
   timeoutMs = 180000, // 3 min timeout per attempt
   onRetry?: (attempt: number, maxRetries: number, reason: string) => void,
+  costCtx?: ClaudeCostCtx,
 ): Promise<any> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const result = await Promise.race([
+      const result: any = await Promise.race([
         anthropic.messages.create(params),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
         ),
       ])
+      // Track usage — non-blocking. Claude response shape: { usage: { input_tokens, output_tokens } }
+      if (costCtx) {
+        trackUsage({
+          provider: 'anthropic',
+          model: String(params.model),
+          task: costCtx.task ?? null,
+          inputTokens: result?.usage?.input_tokens,
+          outputTokens: result?.usage?.output_tokens,
+          videoId: costCtx.videoId ?? null,
+          metadata: { attempt },
+        })
+      }
       return result
     } catch (err: any) {
       const status = err?.status ?? err?.error?.status
@@ -121,6 +142,7 @@ async function updateStatus(videoId: string, status: string, errorMessage?: stri
   if (errorMessage !== undefined) update.error_message = errorMessage
   if (status !== 'error') update.error_message = null
   await supabase.from('yt_videos').update(update).eq('id', videoId)
+  logger.info({ videoId, status, errorMessage: errorMessage?.slice(0, 120) }, 'video status transition')
 }
 
 async function updateProgress(videoId: string, message: string) {
@@ -128,7 +150,7 @@ async function updateProgress(videoId: string, message: string) {
     error_message: `progress:${message}`,
     updated_at: new Date().toISOString(),
   }).eq('id', videoId)
-  console.log(`[progress] ${message}`)
+  logger.debug({ videoId, message }, 'progress')
 }
 
 /** Periodically touch updated_at so cleanup cron doesn't kill long-running tasks */
@@ -472,7 +494,7 @@ function splitAudio(audioPath: string, ytVideoId: string): string[] {
     .map(f => join(chunkDir, f))
 }
 
-async function transcribeChunk(chunkPath: string, offset: number) {
+async function transcribeChunk(chunkPath: string, offset: number, videoId?: string) {
   const MAX_RETRIES = 2
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -483,6 +505,18 @@ async function transcribeChunk(chunkPath: string, offset: number) {
         timestamp_granularities: ['segment'],
         language: 'ru',
       })
+      // Whisper is priced per audio-minute. `res.duration` is total seconds.
+      const durationSec = Number((res as any).duration ?? 0)
+      if (durationSec > 0) {
+        trackUsage({
+          provider: 'openai',
+          model: 'whisper-1',
+          task: 'transcribe',
+          units: Math.ceil(durationSec / 60),
+          videoId: videoId ?? null,
+          metadata: { attempt },
+        })
+      }
       return ((res as any).segments ?? [])
         .map((s: any) => ({ start: Math.round(s.start + offset), end: Math.round(s.end + offset), text: s.text.trim() }))
         .filter((s: any) => s.text.length > 0)
@@ -498,7 +532,11 @@ async function transcribeChunk(chunkPath: string, offset: number) {
   throw new Error('transcribeChunk: unreachable')
 }
 
-async function proofread(segments: { start: number; end: number; text: string }[], title: string) {
+async function proofread(
+  segments: { start: number; end: number; text: string }[],
+  title: string,
+  videoId?: string,
+) {
   const BATCH = 50
   const result: typeof segments = []
 
@@ -529,7 +567,7 @@ async function proofread(segments: { start: number; end: number; text: string }[
 Формат: номер|текст
 Контекст видео: "${title}"`,
       messages: [{ role: 'user', content: `Исправь. Верни РОВНО ${batch.length} строк:\n\n${numbered}` }],
-    })
+    }, undefined, undefined, undefined, { task: 'proofread', videoId: videoId ?? null })
 
     const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
     const lines = text.trim().split('\n').filter((l: string) => l.includes('|'))
@@ -604,13 +642,13 @@ async function handleTranscribe(videoId: string) {
 
       for (let i = 0; i < chunks.length; i++) {
         await updateProgress(videoId, `Расшифровка Whisper${chunks.length > 1 ? ` (${i + 1} из ${chunks.length})` : ''}...`)
-        allSegs.push(...await transcribeChunk(chunks[i], i * CHUNK_MINUTES * 60))
+        allSegs.push(...await transcribeChunk(chunks[i], i * CHUNK_MINUTES * 60, videoId))
       }
       if (allSegs.length === 0) throw new Error('Whisper returned empty transcript')
     }
 
     await updateProgress(videoId, 'Проверка и исправление транскрипта...')
-    const corrected = await proofread(allSegs, video.current_title)
+    const corrected = await proofread(allSegs, video.current_title, videoId)
     const transcript = corrected.map(s => `[${fmtTime(s.start)}]\n${s.text}`).join('\n')
     const transcriptChunks = corrected.map(s => ({ start: s.start, end: s.end, text: s.text }))
 
@@ -687,7 +725,7 @@ async function handleGenerate(videoId: string) {
         role: 'user',
         content: `## Видео\n**Заголовок:** ${video.current_title}\n**Длительность:** ${durationMin} мин\n**Описание:** ${video.current_description || '(пусто)'}\n\n## Транскрипт\n${transcript}\n\n---\nСгенерируй JSON.`,
       }],
-    })
+    }, undefined, undefined, undefined, { task: 'generate', videoId })
 
     const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
     const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -938,6 +976,7 @@ async function handleProduce(videoId: string) {
       (attempt, max, reason) => {
         updateProgress(videoId, `AI анализ (попытка ${attempt}/${max}, ${reason})...`)
       },
+      { task: 'produce', videoId },
     )
 
     const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
@@ -1069,7 +1108,7 @@ async function handleAnalyzeClips(videoId: string) {
       role: 'user',
       content: `Видео: "${video.current_title}"\n\nТРАНСКРИПТ:\n${video.transcript.slice(0, 80000)}`,
     }],
-  })
+  }, undefined, undefined, undefined, { task: 'clip_scoring', videoId })
 
   const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
   const jsonMatch = text.match(/\[[\s\S]*\]/)
@@ -1413,6 +1452,15 @@ ${parentTitle ? `Родительский подкаст: "${parentTitle}"` : ''
     messages: [{ role: 'user', content: prompt }],
   })
 
+  trackUsage({
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-20250514',
+    task: 'short_title',
+    inputTokens: (response as any)?.usage?.input_tokens,
+    outputTokens: (response as any)?.usage?.output_tokens,
+    videoId,
+  })
+
   const text = response.content[0].type === 'text' ? response.content[0].text : ''
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Claude returned no JSON')
@@ -1483,7 +1531,7 @@ OUTPUT: JSON only (no markdown fences):
         role: 'user',
         content: `Video duration: ${durationMin} min.\n\nTranscript:\n${transcript}\n\nReturn JSON with ${timecodesCount} timecodes.`,
       }],
-    })
+    }, undefined, undefined, undefined, { task: 'other', videoId })
 
     const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
     const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -1582,11 +1630,21 @@ const worker = new Worker(
     if (!handler) throw new Error(`Unknown job: ${job.name}`)
     const videoId = job.data.videoId
     const jobId = videoId ?? job.data.postId ?? 'unknown'
-    console.log(`[worker] Processing ${job.name} for ${jobId}`)
+    const jobLog = logger.child({
+      module: 'worker',
+      jobName: job.name,
+      bullmqJobId: job.id,
+      videoId,
+      attempt: job.attemptsMade,
+    })
+    const started = Date.now()
+    jobLog.info('job start')
     try {
       await handler(videoId, job.data)
+      jobLog.info({ duration_ms: Date.now() - started }, 'job done')
     } catch (err: any) {
-      console.error(`[worker] ${job.name} crashed for ${jobId}:`, err.message)
+      const msg = err.message ?? 'Unknown error'
+      jobLog.error({ err: msg, duration_ms: Date.now() - started }, 'job failed')
       captureWorkerError(err, {
         jobId: job.id,
         jobName: job.name,
@@ -1595,7 +1653,7 @@ const worker = new Worker(
       })
       if (videoId) {
         try {
-          await updateStatus(videoId, 'error', err.message?.slice(0, 500) ?? 'Unknown error')
+          await updateStatus(videoId, 'error', msg.slice(0, 500))
         } catch {}
       }
       throw err

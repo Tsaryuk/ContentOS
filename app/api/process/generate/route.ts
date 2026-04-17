@@ -21,7 +21,13 @@ export async function POST(req: NextRequest) {
     }
 
     await updateVideoStatus(videoId, 'generating')
-    await getQueue().add('generate', { videoId }, { attempts: 1 })
+    const queue = getQueue()
+    const jobId = `generate:${videoId}`
+    const existing = await queue.getJob(jobId)
+    if (existing && ['active', 'waiting', 'delayed'].includes(await existing.getState())) {
+      return NextResponse.json({ success: true, status: 'already_queued' })
+    }
+    await queue.add('generate', { videoId }, { jobId, attempts: 1 })
 
 
     return NextResponse.json({ success: true, status: 'queued' })
