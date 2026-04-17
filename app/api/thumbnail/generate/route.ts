@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fal } from '@fal-ai/client'
-import { createClient } from '@supabase/supabase-js'
 import sharp from 'sharp'
+import { supabaseAdmin } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth'
+import { filterAllowedUrls, isAllowedUrl } from '@/lib/url-whitelist'
 
 function getSupabase() {
-  return createClient(
-    process.env.SUPABASE_URL ?? '',
-    process.env.SUPABASE_SERVICE_KEY ?? '',
-  )
+  return supabaseAdmin
 }
 
 export const maxDuration = 180
@@ -197,6 +196,9 @@ async function markGenerating(supabase: ReturnType<typeof getSupabase>, videoId:
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   const supabase = getSupabase()
   let videoId = ''
   let template = 'solo'
@@ -210,6 +212,16 @@ export async function POST(req: NextRequest) {
 
     if (!videoId || !text) {
       return NextResponse.json({ error: 'videoId and text required' }, { status: 400 })
+    }
+
+    // SSRF guard: only allow URLs from our trusted hosts
+    const safePhotos = filterAllowedUrls(photos)
+    const safeReference = isAllowedUrl(referenceUrl) ? referenceUrl : null
+    if (Array.isArray(photos) && safePhotos.length !== photos.length) {
+      return NextResponse.json({ error: 'photos contain disallowed URLs' }, { status: 400 })
+    }
+    if (referenceUrl && !safeReference) {
+      return NextResponse.json({ error: 'referenceUrl not in allow-list' }, { status: 400 })
     }
 
     // Mark generation in progress — survives page navigation
@@ -228,8 +240,8 @@ export async function POST(req: NextRequest) {
     const { line1, line2 } = splitText(text)
 
     // Face photos first, then optional style reference (for any template type).
-    const imageUrls: string[] = [...(photos ?? []), ...(referenceUrl ? [referenceUrl] : [])].filter(Boolean)
-    const hasStyleRef = !!referenceUrl
+    const imageUrls: string[] = [...safePhotos, ...(safeReference ? [safeReference] : [])].filter(Boolean)
+    const hasStyleRef = !!safeReference
 
     console.log(`[thumb] template=${template} "${line1} / ${line2}" | ${imageUrls.length} images | channelPrompt=${!!channelStylePrompt} | 4 variants...`)
 
@@ -260,6 +272,10 @@ export async function POST(req: NextRequest) {
       if (r.status !== 'fulfilled' || !r.value.url) continue
 
       try {
+        if (!isAllowedUrl(r.value.url)) {
+          console.error(`[thumb] ${r.value.name}: fal response URL not in allow-list, skipping`)
+          continue
+        }
         const imgRes = await fetch(r.value.url)
         const rawBuf = Buffer.from(await imgRes.arrayBuffer())
 

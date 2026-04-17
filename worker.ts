@@ -11,8 +11,18 @@ import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from './lib/ai-models'
 import { writeFile, unlink, mkdir, rm } from 'fs/promises'
-import { createReadStream, existsSync, statSync } from 'fs'
-import { execSync } from 'child_process'
+import { createReadStream, existsSync, statSync, mkdirSync, readdirSync } from 'fs'
+import { execFileSync } from 'child_process'
+
+// YouTube video IDs are exactly 11 chars: [A-Za-z0-9_-]. Validate before any
+// value flows into a child-process call, so a crafted yt_video_id stored in DB
+// cannot inject shell metacharacters (fix for worker command injection).
+const YT_VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/
+function assertYtVideoId(id: string, label = 'ytVideoId'): void {
+  if (!YT_VIDEO_ID_RE.test(id)) {
+    throw new Error(`${label} invalid — expected 11-char YouTube ID`)
+  }
+}
 import { join } from 'path'
 
 // --- Graceful shutdown & unhandled errors ---
@@ -406,16 +416,22 @@ async function fetchYouTubeCaptions(
 }
 
 async function downloadAudio(ytVideoId: string): Promise<string> {
+  assertYtVideoId(ytVideoId)
   const outPath = join(TMP_DIR, `${ytVideoId}.mp3`)
   const url = `https://www.youtube.com/watch?v=${ytVideoId}`
-  const proxyArg = PROXY_URL ? `--proxy "${PROXY_URL}"` : ''
-  const cmd = `yt-dlp ${proxyArg} -x --audio-format mp3 --postprocessor-args "ffmpeg:-ac 1 -ab 48k" -o "${outPath}" "${url}"`
+  const args = [
+    ...(PROXY_URL ? ['--proxy', PROXY_URL] : []),
+    '-x', '--audio-format', 'mp3',
+    '--postprocessor-args', 'ffmpeg:-ac 1 -ab 48k',
+    '-o', outPath,
+    url,
+  ]
 
   const MAX_RETRIES = 3
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       console.log(`[download] yt-dlp${PROXY_URL ? ' +proxy' : ''} for ${ytVideoId}${attempt > 1 ? ` (attempt ${attempt}/${MAX_RETRIES})` : ''}`)
-      execSync(cmd, { timeout: 600000, stdio: 'pipe' })
+      execFileSync('yt-dlp', args, { timeout: 600000, stdio: 'pipe' })
       if (!existsSync(outPath)) throw new Error(`Audio file not created: ${outPath}`)
       console.log(`[download] OK: ${(statSync(outPath).size / 1024 / 1024).toFixed(1)}MB`)
       return outPath
@@ -431,14 +447,21 @@ async function downloadAudio(ytVideoId: string): Promise<string> {
 }
 
 function splitAudio(audioPath: string, ytVideoId: string): string[] {
+  assertYtVideoId(ytVideoId)
   if (statSync(audioPath).size <= MAX_FILE_SIZE) return [audioPath]
   const chunkDir = join(TMP_DIR, `${ytVideoId}-chunks`)
-  if (!existsSync(chunkDir)) execSync(`mkdir -p "${chunkDir}"`)
-  execSync(
-    `ffmpeg -i "${audioPath}" -f segment -segment_time ${CHUNK_MINUTES * 60} -ac 1 -ab 48k -y "${chunkDir}/chunk_%03d.mp3"`,
-    { timeout: 120000, stdio: 'pipe' },
-  )
-  return execSync(`ls -1 "${chunkDir}"/chunk_*.mp3`).toString().trim().split('\n').filter(Boolean).sort()
+  mkdirSync(chunkDir, { recursive: true })
+  execFileSync('ffmpeg', [
+    '-i', audioPath,
+    '-f', 'segment',
+    '-segment_time', String(CHUNK_MINUTES * 60),
+    '-ac', '1', '-ab', '48k', '-y',
+    join(chunkDir, 'chunk_%03d.mp3'),
+  ], { timeout: 120000, stdio: 'pipe' })
+  return readdirSync(chunkDir)
+    .filter(f => /^chunk_\d+\.mp3$/.test(f))
+    .sort()
+    .map(f => join(chunkDir, f))
 }
 
 async function transcribeChunk(chunkPath: string, offset: number) {
@@ -1167,17 +1190,20 @@ async function handleProcessClip(_videoId: string, data?: any) {
     // Step 1: Download full video once, cache it, then cut fragment with FFmpeg
     const fullVideoFile = join(tmpDir, `${candidate.video_id}_full.mp4`)
 
+    assertYtVideoId(ytVideoId)
+
     if (!existsSync(fullVideoFile)) {
       console.log(`[clips] Downloading full video ${ytVideoId}...`)
 
       // yt-dlp downloads public videos without auth; proxy handles geo-blocks
-      execSync(
-        `yt-dlp -f "bestvideo[height<=720]+bestaudio/best[height<=720]" ` +
-        `-o "${fullVideoFile}" --merge-output-format mp4 --no-warnings ` +
-        `${PROXY_URL ? `--proxy "${PROXY_URL}"` : ''} ` +
-        `"https://youtube.com/watch?v=${ytVideoId}"`,
-        { timeout: 600000 }
-      )
+      execFileSync('yt-dlp', [
+        '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]',
+        '-o', fullVideoFile,
+        '--merge-output-format', 'mp4',
+        '--no-warnings',
+        ...(PROXY_URL ? ['--proxy', PROXY_URL] : []),
+        `https://youtube.com/watch?v=${ytVideoId}`,
+      ], { timeout: 600000 })
 
       if (!existsSync(fullVideoFile)) throw new Error('yt-dlp download failed')
       console.log(`[clips] Full video: ${(statSync(fullVideoFile).size / 1024 / 1024).toFixed(0)}MB`)
@@ -1189,12 +1215,14 @@ async function handleProcessClip(_videoId: string, data?: any) {
     const startSec = Math.max(0, Math.floor(candidate.start_time) - 1)
     const duration = Math.ceil(candidate.end_time - candidate.start_time) + 2
 
-    execSync(
-      `ffmpeg -y -ss ${startSec} -i "${fullVideoFile}" -t ${duration} ` +
-      `-c:v libx264 -crf 22 -preset fast -c:a aac -b:a 128k ` +
-      `"${rawFile}"`,
-      { timeout: 120000 }
-    )
+    execFileSync('ffmpeg', [
+      '-y', '-ss', String(startSec),
+      '-i', fullVideoFile,
+      '-t', String(duration),
+      '-c:v', 'libx264', '-crf', '22', '-preset', 'fast',
+      '-c:a', 'aac', '-b:a', '128k',
+      rawFile,
+    ], { timeout: 120000 })
 
     if (!existsSync(rawFile)) throw new Error('yt-dlp download failed')
     const rawSize = statSync(rawFile).size
@@ -1202,13 +1230,13 @@ async function handleProcessClip(_videoId: string, data?: any) {
 
     // Step 2: Crop to 9:16 vertical
     console.log(`[clips] Cropping to 9:16...`)
-    execSync(
-      `ffmpeg -y -i "${rawFile}" ` +
-      `-vf "crop=ih*(9/16):ih,scale=1080:1920" ` +
-      `-c:v libx264 -crf 20 -preset fast -c:a aac -b:a 128k ` +
-      `"${vertFile}"`,
-      { timeout: 300000 }
-    )
+    execFileSync('ffmpeg', [
+      '-y', '-i', rawFile,
+      '-vf', 'crop=ih*(9/16):ih,scale=1080:1920',
+      '-c:v', 'libx264', '-crf', '20', '-preset', 'fast',
+      '-c:a', 'aac', '-b:a', '128k',
+      vertFile,
+    ], { timeout: 300000 })
 
     if (!existsSync(vertFile)) throw new Error('FFmpeg crop failed')
 

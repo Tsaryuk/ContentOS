@@ -6,6 +6,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fal } from '@fal-ai/client'
 import { compressArticleImage } from '@/lib/articles/image-compress'
+import { isAllowedUrl } from '@/lib/url-whitelist'
 
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
@@ -80,6 +81,9 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     const { fal_url, article_id }: { fal_url: string; article_id: string } = await req.json()
     if (!fal_url || !article_id) {
       return NextResponse.json({ error: 'fal_url и article_id обязательны' }, { status: 400 })
+    }
+    if (!isAllowedUrl(fal_url)) {
+      return NextResponse.json({ error: 'fal_url not in allow-list' }, { status: 400 })
     }
 
     const imgRes = await fetch(fal_url)

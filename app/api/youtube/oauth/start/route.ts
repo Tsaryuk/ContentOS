@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { generateState } from '@/lib/oauth-state'
 
 export async function GET(req: NextRequest) {
   const clientId = process.env.YOUTUBE_CLIENT_ID
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
   const origin = `${proto}://${host}`
   const redirectUri = `${origin}/api/youtube/oauth/callback`
 
+  const state = generateState()
+
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
   url.searchParams.set('client_id', clientId)
   url.searchParams.set('redirect_uri', redirectUri)
@@ -18,6 +21,15 @@ export async function GET(req: NextRequest) {
   url.searchParams.set('scope', 'https://www.googleapis.com/auth/youtube')
   url.searchParams.set('access_type', 'offline')
   url.searchParams.set('prompt', 'consent select_account')
+  url.searchParams.set('state', state)
 
-  return NextResponse.redirect(url.toString())
+  const res = NextResponse.redirect(url.toString())
+  res.cookies.set('contentos_oauth_state_youtube', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600,
+  })
+  return res
 }

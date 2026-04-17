@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
+import { consumeOauthStateCookie } from '@/lib/oauth-state'
 
 export async function GET(req: NextRequest) {
   const proto = req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(':', '')
@@ -8,12 +9,21 @@ export async function GET(req: NextRequest) {
   const origin = `${proto}://${host}`
   const code  = req.nextUrl.searchParams.get('code')
   const error = req.nextUrl.searchParams.get('error')
+  const state = req.nextUrl.searchParams.get('state')
 
   if (error) {
     return NextResponse.redirect(`${origin}/settings?oauth_error=${encodeURIComponent(error)}`)
   }
   if (!code) {
     return NextResponse.redirect(`${origin}/settings?oauth_error=no_code`)
+  }
+
+  // CSRF guard — verify state matches cookie set at /api/auth/start
+  {
+    const errRes = NextResponse.redirect(`${origin}/settings?oauth_error=state_mismatch`)
+    if (!consumeOauthStateCookie(req, errRes, 'auth', state)) {
+      return errRes
+    }
   }
 
   const redirectUri = `${origin}/api/auth/callback`
@@ -95,7 +105,9 @@ export async function GET(req: NextRequest) {
   }
 
   const count = channels.length
-  return NextResponse.redirect(
+  const successRes = NextResponse.redirect(
     `${origin}/settings?oauth_ok=1&email=${encodeURIComponent(profile.email)}&channels=${count}`
   )
+  successRes.cookies.delete('contentos_oauth_state_auth')
+  return successRes
 }

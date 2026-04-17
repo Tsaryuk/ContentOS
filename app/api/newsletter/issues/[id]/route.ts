@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
+const ISSUE_ALLOWED_FIELDS = new Set([
+  'title', 'subtitle', 'body_html', 'cover_url', 'campaign_id',
+  'status', 'scheduled_at', 'sent_at', 'mail_template',
+  'seo_title', 'seo_description',
+])
+
+function pickAllowed<T extends Record<string, unknown>>(
+  body: T,
+  allowed: Set<string>,
+): Partial<T> {
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(body)) {
+    if (allowed.has(key)) out[key] = body[key]
+  }
+  return out as Partial<T>
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,10 +51,11 @@ export async function PATCH(
   const { id } = await params
 
   try {
-    const body = await req.json()
+    const raw = await req.json()
+    const update: Record<string, unknown> = pickAllowed(raw, ISSUE_ALLOWED_FIELDS)
 
-    // Save version history before update
-    if (body.body_html !== undefined) {
+    // Save version history before update (internal fields, not from user)
+    if (update.body_html !== undefined) {
       const { data: current } = await supabaseAdmin
         .from('nl_issues')
         .select('body_html, version, versions_history')
@@ -53,16 +71,16 @@ export async function PATCH(
         })
         // Keep last 10 versions
         const trimmed = history.slice(-10)
-        body.versions_history = trimmed
-        body.version = (current.version ?? 1) + 1
+        update.versions_history = trimmed
+        update.version = (current.version ?? 1) + 1
       }
     }
 
-    body.updated_at = new Date().toISOString()
+    update.updated_at = new Date().toISOString()
 
     const { data, error } = await supabaseAdmin
       .from('nl_issues')
-      .update(body)
+      .update(update)
       .eq('id', id)
       .select('*, campaign:nl_campaigns(*)')
       .single()

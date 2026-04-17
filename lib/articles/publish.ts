@@ -2,7 +2,25 @@
 // Called from publish route (first-time) and auto-republish on save
 
 import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from 'fs'
-import { join } from 'path'
+import { join, resolve } from 'path'
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,100}$/
+
+function assertSafeSlug(slug: string, label = 'blog_slug'): void {
+  if (!SLUG_RE.test(slug)) {
+    throw new Error(`${label} invalid — allowed: lowercase letters, digits, hyphens`)
+  }
+}
+
+function safeJoinArticle(slug: string): string {
+  assertSafeSlug(slug)
+  const filePath = join(ARTICLES_DIR, `${slug}.html`)
+  const resolved = resolve(filePath)
+  if (!resolved.startsWith(resolve(ARTICLES_DIR) + '/')) {
+    throw new Error('path traversal detected')
+  }
+  return resolved
+}
 
 interface Article {
   id: string
@@ -78,16 +96,18 @@ export async function publishArticleFiles(
   }
 
   if (!existsSync(ARTICLES_DIR)) mkdirSync(ARTICLES_DIR, { recursive: true })
-  const filePath = join(ARTICLES_DIR, `${article.blog_slug}.html`)
+  const filePath = safeJoinArticle(article.blog_slug)
   writeFileSync(filePath, html, 'utf-8')
 
   // Remove old HTML file if slug changed
   const prev = opts.previousSlug
   if (prev && prev !== article.blog_slug) {
-    const oldPath = join(ARTICLES_DIR, `${prev}.html`)
-    if (existsSync(oldPath)) {
-      try { unlinkSync(oldPath) } catch { /* ignore */ }
-    }
+    try {
+      const oldPath = safeJoinArticle(prev)
+      if (existsSync(oldPath)) {
+        try { unlinkSync(oldPath) } catch { /* ignore */ }
+      }
+    } catch { /* invalid previous slug — skip cleanup */ }
   }
 
   // Update articles/index.json
@@ -119,7 +139,12 @@ export async function publishArticleFiles(
 export async function unpublishArticleFiles(slug: string): Promise<void> {
   if (!existsSync('/var/www/letters')) return
 
-  const filePath = join(ARTICLES_DIR, `${slug}.html`)
+  let filePath: string
+  try {
+    filePath = safeJoinArticle(slug)
+  } catch {
+    return
+  }
   if (existsSync(filePath)) {
     try { unlinkSync(filePath) } catch { /* ignore */ }
   }

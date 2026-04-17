@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
+import { requireAuth, requireAdmin } from '@/lib/auth'
 
 // GET /api/projects — projects with channels
 // ?all=true returns all channels (for settings), otherwise filters by active project
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
   const showAll = req.nextUrl.searchParams.get('all') === 'true'
   const session = await getSession()
 
@@ -38,8 +42,11 @@ export async function GET(req: NextRequest) {
   })
 }
 
-// POST /api/projects — create new project
+// POST /api/projects — create new project (admin only)
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
+
   const { name, color } = await req.json()
   const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
   const { data, error } = await supabaseAdmin

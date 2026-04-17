@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { consumeOauthStateCookie } from '@/lib/oauth-state'
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
   const error = req.nextUrl.searchParams.get('error')
+  const state = req.nextUrl.searchParams.get('state')
 
   const proto = req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(':', '')
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? req.nextUrl.host
   const origin = `${proto}://${host}`
 
   if (error) {
-    return NextResponse.redirect(`${origin}/settings?oauth_error=${error}`)
+    return NextResponse.redirect(`${origin}/settings?oauth_error=${encodeURIComponent(error)}`)
   }
 
   if (!code) {
     return NextResponse.redirect(`${origin}/settings?oauth_error=no_code`)
+  }
+
+  // CSRF guard — verify state matches cookie set at /api/youtube/oauth/start
+  {
+    const errRes = NextResponse.redirect(`${origin}/settings?oauth_error=state_mismatch`)
+    if (!consumeOauthStateCookie(req, errRes, 'youtube', state)) {
+      return errRes
+    }
   }
 
   const redirectUri = `${origin}/api/youtube/oauth/callback`
@@ -61,7 +71,9 @@ export async function GET(req: NextRequest) {
   }
 
   const channelTitle = channel?.snippet?.title ?? channel?.id ?? 'unknown'
-  return NextResponse.redirect(
-    `${origin}/settings?oauth_ok=1&channel=${encodeURIComponent(channelTitle)}&channel_id=${channel?.id ?? ''}`
+  const successRes = NextResponse.redirect(
+    `${origin}/settings?oauth_ok=1&channel=${encodeURIComponent(channelTitle)}&channel_id=${encodeURIComponent(channel?.id ?? '')}`
   )
+  successRes.cookies.delete('contentos_oauth_state_youtube')
+  return successRes
 }
