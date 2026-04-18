@@ -8,13 +8,28 @@ import { AiInsightsBar } from '@/components/dashboard/AiInsightsBar'
 import { NewsletterWidget } from '@/components/dashboard/NewsletterWidget'
 import { Channel, PLATFORM_LABELS, getUniquePlatforms } from '@/lib/channels'
 
+type Period = 'day' | 'week' | 'month'
+
+const PERIOD_LABELS: Record<Period, string> = {
+  day:   'Сутки',
+  week:  'Неделя',
+  month: 'Месяц',
+}
+
 function fmtNumber(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000) return Math.round(n / 1_000).toLocaleString('ru-RU') + 'K'
   return n.toLocaleString('ru-RU')
 }
 
+function fmtDelta(n: number): string {
+  const sign = n > 0 ? '+' : ''
+  return `${sign}${fmtNumber(n)}`
+}
+
 interface DashboardMetrics {
+  period: Period
+  periodDays: number
   channels: Array<{
     id: string
     title: string
@@ -24,6 +39,7 @@ interface DashboardMetrics {
     views: number
     videos: number
     engagement: number | null
+    growth: { subsDelta: number; viewsDelta: number } | null
   }>
   totals: {
     subscribers: number
@@ -33,15 +49,24 @@ interface DashboardMetrics {
     engagement: number | null
   }
   growth: {
-    viewsPct: number | null
-    videosDelta: number
+    subscribersDelta: number | null
+    subscribersPct:   number | null
+    viewsDelta:       number | null
+    viewsPct:         number | null
+  }
+  newsletter: {
+    subscribers: number | null
+    subscribersDelta: number | null
+    subscribersPct:   number | null
   }
 }
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [projectName, setProjectName] = useState('Дашборд')
+  const [projectId, setProjectId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('all')
+  const [period, setPeriod] = useState<Period>('week')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -50,13 +75,14 @@ export default function DashboardPage() {
       setLoading(true)
       try {
         const [metricsRes, projectsRes, sessionRes] = await Promise.all([
-          fetch('/api/dashboard/metrics').then(r => r.json()),
+          fetch(`/api/dashboard/metrics?period=${period}`).then(r => r.json()),
           fetch('/api/projects').then(r => r.json()),
           fetch('/api/auth/session').then(r => r.json()),
         ])
         if (cancelled) return
 
         const activeProjectId: string | null = sessionRes?.activeProjectId ?? projectsRes?.projects?.[0]?.id ?? null
+        setProjectId(activeProjectId)
         const activeProject = projectsRes?.projects?.find((p: { id: string; name: string }) => p.id === activeProjectId)
         if (activeProject) setProjectName(activeProject.name)
 
@@ -69,7 +95,7 @@ export default function DashboardPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [period])
 
   const channels: Channel[] = (metrics?.channels ?? []).map(c => ({
     id: c.id,
@@ -82,7 +108,7 @@ export default function DashboardPage() {
       subscribers: c.subscribers,
       views: c.views,
       contentCount: c.videos,
-      growthPercent: 0,
+      growthPercent: c.growth?.subsDelta ?? 0,
       engagement: c.engagement ?? undefined,
     },
     href: '/youtube',
@@ -108,9 +134,14 @@ export default function DashboardPage() {
           : c.platform === activeTab
       )
 
-  const growth = metrics?.growth
-  const viewsGrowth = growth?.viewsPct !== null && growth?.viewsPct !== undefined
-    ? { value: `${growth.viewsPct > 0 ? '+' : ''}${growth.viewsPct}%`, positive: growth.viewsPct >= 0 }
+  const g = metrics?.growth
+
+  const subsGrowth = g?.subscribersDelta != null
+    ? { value: fmtDelta(g.subscribersDelta) + (g.subscribersPct != null ? ` (${g.subscribersPct > 0 ? '+' : ''}${g.subscribersPct}%)` : ''), positive: g.subscribersDelta >= 0 }
+    : undefined
+
+  const viewsGrowth = g?.viewsDelta != null
+    ? { value: fmtDelta(g.viewsDelta) + (g.viewsPct != null ? ` (${g.viewsPct > 0 ? '+' : ''}${g.viewsPct}%)` : ''), positive: g.viewsDelta >= 0 }
     : undefined
 
   const heroMetrics = [
@@ -118,6 +149,7 @@ export default function DashboardPage() {
       label: 'Подписчики',
       value: loading ? '...' : fmtNumber(metrics?.totals.subscribers ?? 0),
       color: 'var(--accent)',
+      growth: subsGrowth,
     },
     {
       label: 'Просмотры',
@@ -139,6 +171,11 @@ export default function DashboardPage() {
     },
   ]
 
+  const nl = metrics?.newsletter
+  const nlGrowthLabel = nl?.subscribersDelta != null
+    ? `${nl.subscribersDelta > 0 ? '+' : ''}${nl.subscribersDelta}${nl.subscribersPct != null ? ` (${nl.subscribersPct > 0 ? '+' : ''}${nl.subscribersPct}%)` : ''}`
+    : '—'
+
   return (
     <div className="px-6 py-5 max-w-7xl mx-auto">
       {/* Header */}
@@ -149,12 +186,47 @@ export default function DashboardPage() {
             {loading ? 'Загрузка...' : `${channels.length} каналов`}
           </p>
         </div>
+        {/* Period selector */}
+        <div className="flex gap-1 rounded-lg bg-surface border border-border p-0.5">
+          {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                period === p ? 'bg-accent text-white' : 'text-muted hover:text-cream'
+              }`}
+            >
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Hero Metrics */}
       <div className="mb-6">
         <HeroMetrics metrics={heroMetrics} />
       </div>
+
+      {/* Newsletter delta banner */}
+      {nl && nl.subscribers != null && (
+        <div className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 flex items-center gap-4">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-dim">Подписчики рассылки</div>
+            <div className="text-xl font-semibold text-cream tabular-nums">{nl.subscribers.toLocaleString('ru-RU')}</div>
+          </div>
+          <div className="flex-1" />
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-wider text-dim">За {PERIOD_LABELS[period].toLowerCase()}</div>
+            <div className={`text-sm font-medium tabular-nums ${
+              nl.subscribersDelta != null && nl.subscribersDelta < 0 ? 'text-red-400' :
+              nl.subscribersDelta != null && nl.subscribersDelta > 0 ? 'text-emerald-400' :
+              'text-muted'
+            }`}>
+              {nlGrowthLabel}
+            </div>
+          </div>
+        </div>
+      )}
 
       {channels.length > 0 && (
         <>
@@ -175,9 +247,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Newsletter Widget */}
+      {/* Newsletter Widget (campaigns scoped to active project) */}
       <div className="mb-6">
-        <NewsletterWidget />
+        <NewsletterWidget projectId={projectId} />
       </div>
 
       {/* AI Insights */}

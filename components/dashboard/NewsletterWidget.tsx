@@ -19,21 +19,25 @@ interface StatsData {
   campaigns: CampaignSummary[]
 }
 
-export function NewsletterWidget() {
+export function NewsletterWidget({ projectId }: { projectId?: string | null } = {}) {
   const [data, setData] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setData(null)
     async function load() {
       try {
         const res = await fetch('/api/newsletter/stats')
         const json = await res.json()
-        if (!json.error) setData(json)
+        if (!cancelled && !json.error) setData(json)
       } catch { /* ignore if not configured */ }
-      setLoading(false)
+      if (!cancelled) setLoading(false)
     }
     load()
-  }, [])
+    return () => { cancelled = true }
+  }, [projectId])
 
   if (loading || !data) return null
 

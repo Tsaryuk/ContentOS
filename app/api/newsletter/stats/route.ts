@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getSession } from '@/lib/session'
 import { getCampaignStats, getContactCount } from '@/lib/unisender'
 
 export async function GET(req: NextRequest) {
@@ -41,18 +42,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ stats, open_rate: openRate, click_rate: clickRate })
     }
 
-    // Dashboard overview
-    const subscriberCount = await getContactCount()
+    // Dashboard overview — scope campaigns to active project via nl_issues.project_id.
+    // Subscriber count is global (one Unisender list per account); we return it
+    // but the widget knows it's global and labels it accordingly.
+    const session = await getSession()
+    const projectId = session.activeProjectId ?? null
 
-    const { data: campaigns } = await supabaseAdmin
+    const subscriberCount = await getContactCount().catch(() => 0)
+
+    let q = supabaseAdmin
       .from('nl_campaigns')
-      .select('*, issue:nl_issues(subject, issue_number, sent_at)')
+      .select('*, issue:nl_issues!inner(subject, issue_number, sent_at, project_id)')
       .eq('status', 'sent')
       .order('created_at', { ascending: false })
       .limit(10)
 
+    if (projectId) q = q.eq('issue.project_id', projectId)
+
+    const { data: campaigns } = await q
+
     return NextResponse.json({
       subscriber_count: subscriberCount,
+      subscriber_count_is_global: true,
+      project_id: projectId,
       campaigns: campaigns ?? [],
     })
   } catch (err) {
