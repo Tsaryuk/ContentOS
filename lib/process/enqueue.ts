@@ -20,7 +20,9 @@ export async function enqueueProcessJob(
   opts: JobsOptions = { attempts: 1 },
 ): Promise<EnqueueResult> {
   const queue = getQueue()
-  const jobId = `${task}:${videoId}`
+  // BullMQ v5 rejects ':' in custom job ids ("Custom Id cannot contain :").
+  // Use '--' as the separator instead.
+  const jobId = `${task}--${videoId}`
   const existing = await queue.getJob(jobId)
 
   if (existing) {
