@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { updateVideoStatus, getVideoWithChannel } from '@/lib/process/helpers'
 import { requireAuth } from '@/lib/auth'
 import { enqueueProcessJob } from '@/lib/process/enqueue'
+import { handleApiError } from '@/lib/api-error'
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
@@ -21,8 +22,7 @@ export async function POST(req: NextRequest) {
     const { status } = await enqueueProcessJob('transcribe', videoId, { videoId })
 
     return NextResponse.json({ success: true, status })
-  } catch (err: any) {
-    console.error('[api/process/transcribe]', err?.message, err?.stack)
-    return NextResponse.json({ error: err.message ?? 'Ошибка сервера' }, { status: 500 })
+  } catch (err: unknown) {
+    return handleApiError(err, { route: '/api/process/transcribe', userId: auth.userId })
   }
 }
