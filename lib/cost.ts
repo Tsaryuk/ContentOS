@@ -34,26 +34,37 @@ export interface UsageEvent {
   metadata?: Record<string, unknown>
 }
 
-// USD per 1M tokens (input / output), per image, per minute etc.
-// Update when provider pricing changes.
-const PRICING: Record<string, { inPer1M?: number; outPer1M?: number; perUnit?: number }> = {
-  // Anthropic Claude — 2025 pricing
-  'claude-opus-4-5': { inPer1M: 15, outPer1M: 75 },
-  'claude-sonnet-4-5': { inPer1M: 3, outPer1M: 15 },
-  'claude-sonnet-4-6': { inPer1M: 3, outPer1M: 15 },
-  'claude-haiku-4-5': { inPer1M: 0.8, outPer1M: 4 },
+/**
+ * Price table — matched by regex against the model name so both canonical
+ * aliases (`claude-sonnet-4-5`) and API-specific IDs (`claude-sonnet-4-20250514`)
+ * resolve to the same row. Order matters — first match wins.
+ */
+const PRICING: Array<{
+  match: RegExp
+  inPer1M?: number
+  outPer1M?: number
+  perUnit?: number
+}> = [
+  // Anthropic Claude 4.x
+  { match: /^claude-opus-4/,     inPer1M: 15,  outPer1M: 75 },
+  { match: /^claude-sonnet-4/,   inPer1M: 3,   outPer1M: 15 },
+  { match: /^claude-haiku-4/,    inPer1M: 0.8, outPer1M: 4  },
+  // Claude 3.5 legacy aliases
+  { match: /^claude-3-5-sonnet/, inPer1M: 3,   outPer1M: 15 },
+  { match: /^claude-3-5-haiku/,  inPer1M: 0.8, outPer1M: 4  },
+  { match: /^claude-3-opus/,     inPer1M: 15,  outPer1M: 75 },
 
-  // OpenAI
-  'whisper-1': { perUnit: 0.006 }, // $0.006 / minute of audio
-  'gpt-4o-transcribe': { perUnit: 0.006 },
+  // OpenAI audio (priced per audio minute)
+  { match: /^whisper/,           perUnit: 0.006 },
+  { match: /^gpt-4o-transcribe/, perUnit: 0.006 },
 
-  // fal.ai (approximate per-image pricing)
-  'fal-ai/nano-banana-2/edit': { perUnit: 0.039 },
-  'fal-ai/flux/dev': { perUnit: 0.025 },
+  // fal.ai image models
+  { match: /^fal-ai\/nano-banana-2\/edit/, perUnit: 0.039 },
+  { match: /^fal-ai\/flux\/dev/,           perUnit: 0.025 },
 
   // Recraft
-  'recraft-v3': { perUnit: 0.04 },
-}
+  { match: /^recraft/, perUnit: 0.04 },
+]
 
 export function estimateCost(
   model: string,
@@ -61,12 +72,12 @@ export function estimateCost(
   outputTokens?: number,
   units?: number,
 ): number | null {
-  const p = PRICING[model]
+  const p = PRICING.find(row => row.match.test(model))
   if (!p) return null
   let cost = 0
-  if (p.inPer1M !== undefined && inputTokens) cost += (inputTokens / 1_000_000) * p.inPer1M
+  if (p.inPer1M  !== undefined && inputTokens)  cost += (inputTokens / 1_000_000) * p.inPer1M
   if (p.outPer1M !== undefined && outputTokens) cost += (outputTokens / 1_000_000) * p.outPer1M
-  if (p.perUnit !== undefined && units)   cost += units * p.perUnit
+  if (p.perUnit  !== undefined && units)        cost += units * p.perUnit
   return Number(cost.toFixed(6))
 }
 
