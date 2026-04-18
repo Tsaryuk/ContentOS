@@ -1612,6 +1612,10 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const { captureMetricSnapshots } = await import('./lib/process/metrics-snapshot')
     await captureMetricSnapshots()
   },
+  channels_refresh: async () => {
+    const { refreshAllChannels } = await import('./lib/youtube/refresh-channel')
+    await refreshAllChannels()
+  },
 }
 
 // --- Stale job cleanup ---
@@ -1746,5 +1750,20 @@ async function scheduleMetricsSnapshot() {
   } catch {}
 }
 scheduleMetricsSnapshot()
+
+// Daily YouTube channel stats refresh — fetches fresh subscriber/view/video
+// counts via YouTube Data API per channel, then re-snapshots metric_snapshots
+// so the Dashboard shows real growth instead of stale values.
+// Runs 1 hour after metrics_snapshot so the new numbers land in today's row.
+async function scheduleChannelsRefresh() {
+  try {
+    await nlQueue.add('channels_refresh', {}, {
+      repeat: { every: 24 * 60 * 60 * 1000 },
+      jobId: 'channels_refresh_cron',
+    })
+    console.log('[worker] YouTube channels refresh cron scheduled (every 24h)')
+  } catch {}
+}
+scheduleChannelsRefresh()
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')
