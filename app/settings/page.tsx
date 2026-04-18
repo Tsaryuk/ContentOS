@@ -2,10 +2,11 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import {
   Save, Loader2, Plus, X, ChevronDown, ChevronUp,
   Play, FolderOpen, User, Users, Check, LogOut, Trash2, RotateCcw, Shield,
-  Activity, CheckCircle, AlertCircle, XCircle, RefreshCw
+  Activity, CheckCircle, AlertCircle, XCircle, RefreshCw, Cog
 } from 'lucide-react'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -262,6 +263,16 @@ export default function SettingsPage() {
           <span className="font-medium">Настройки</span>
         </div>
         <div className="flex items-center gap-2">
+          {sessionRole === 'admin' && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted hover:text-cream hover:border-accent/40 text-xs font-medium transition-colors"
+              title="Админка"
+            >
+              <Cog className="w-3.5 h-3.5" />
+              Админка
+            </Link>
+          )}
           <a
             href="/api/auth/start"
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition-colors"
