@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getQueue } from '@/lib/queue'
 import { updateVideoStatus, getVideoWithChannel } from '@/lib/process/helpers'
 import { requireAuth } from '@/lib/auth'
+import { enqueueProcessJob } from '@/lib/process/enqueue'
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
@@ -16,29 +16,24 @@ export async function POST(req: NextRequest) {
     if (!video.is_approved) {
       return NextResponse.json({ error: 'Video must be approved' }, { status: 403 })
     }
-    if (!['review', 'error', 'done'].includes(video.status)) {
+    // 'publishing' is intentionally allowed — if a previous request errored
+    // after updating status but before enqueueing, the user must be able to
+    // retry. enqueueProcessJob dedups at the queue level.
+    if (!['review', 'error', 'done', 'publishing'].includes(video.status)) {
       return NextResponse.json({ error: `Cannot publish: status "${video.status}"` }, { status: 400 })
     }
 
     await updateVideoStatus(videoId, 'publishing')
-
-    // BullMQ uses jobId as natural idempotency key — adding a job with the
-    // same id while the previous one is queued/active/completed is a no-op.
-    // Prevents double-publish when the UI fires the request twice (double
-    // click, network retry).
-    const queue = getQueue()
-    const jobId = `publish:${videoId}`
-    const existing = await queue.getJob(jobId)
-    if (existing && ['active', 'waiting', 'delayed'].includes(await existing.getState())) {
-      return NextResponse.json({ success: true, status: 'already_queued' })
-    }
-    await queue.add('publish', {
+    const { status } = await enqueueProcessJob(
+      'publish',
       videoId,
-      overrides: { title, thumbnailUrl },
-    }, { jobId, attempts: 1, priority: 1 })
+      { videoId, overrides: { title, thumbnailUrl } },
+      { attempts: 1, priority: 1 },
+    )
 
-    return NextResponse.json({ success: true, status: 'queued' })
+    return NextResponse.json({ success: true, status })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error('[api/process/publish]', err?.message, err?.stack)
+    return NextResponse.json({ error: err.message ?? 'Ошибка сервера' }, { status: 500 })
   }
 }

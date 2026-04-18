@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getQueue } from '@/lib/queue'
 import { updateVideoStatus, getVideoWithChannel } from '@/lib/process/helpers'
 import { requireAuth } from '@/lib/auth'
+import { enqueueProcessJob } from '@/lib/process/enqueue'
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
@@ -18,16 +18,11 @@ export async function POST(req: NextRequest) {
     }
 
     await updateVideoStatus(videoId, 'transcribing')
-    const queue = getQueue()
-    const jobId = `transcribe:${videoId}`
-    const existing = await queue.getJob(jobId)
-    if (existing && ['active', 'waiting', 'delayed'].includes(await existing.getState())) {
-      return NextResponse.json({ success: true, status: 'already_queued' })
-    }
-    await queue.add('transcribe', { videoId }, { jobId, attempts: 1 })
+    const { status } = await enqueueProcessJob('transcribe', videoId, { videoId })
 
-    return NextResponse.json({ success: true, status: 'queued' })
+    return NextResponse.json({ success: true, status })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error('[api/process/transcribe]', err?.message, err?.stack)
+    return NextResponse.json({ error: err.message ?? 'Ошибка сервера' }, { status: 500 })
   }
 }
