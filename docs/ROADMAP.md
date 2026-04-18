@@ -5,33 +5,99 @@
 Операционная система для контент-продюсера: one video in → entire content universe out
 (YouTube + Telegram + Newsletter + Blog + Carousels). Человек в петле, AI делает ремесло.
 
-## Sprint 1 — Observability & Cost (текущий)
+---
 
-Цель: увидеть систему. Без этого все остальные улучшения — вслепую.
+## Закрыто до 2026-04-18
 
-- [ ] **1.1 Sentry** — error reporting в `contentos` и `worker`. Breadcrumbs для BullMQ jobs.
-- [ ] **1.2 pino structured logger** — заменить `console.log` в worker.ts и hot-path в API на JSON-логи с level/module/videoId/traceId.
-- [ ] **1.3 Cost tracking** — таблица `ai_usage(model, input_tokens, output_tokens, cost_usd, video_id, task, created_at)`. Обёртки в claudeWithRetry / openai.audio / fal.subscribe / Recraft. `/admin/costs` страница: день/неделя/месяц × модель × задача.
-- [ ] **1.4 Calendar view** — `/calendar` объединяет video.published_at, tg_posts.scheduled_at, nl_issues.scheduled_at на одной timeline.
-- [ ] **1.5 Dashboard metrics** — SQL-агрегация view_count / like_count / subscriber_count по каналам и периодам вместо хардкода в app/page.tsx.
-- [ ] **1.6 Idempotency на publish** — ключ в BullMQ job payload, дубли отбрасываются.
+### Security + Infra
+- Middleware actual session decrypt, requireAuth на всех API routes
+- OAuth CSRF guard (state parameter), SSRF URL whitelist
+- Path-traversal guard для blog_slug, mass-assignment allowlist
+- execFile вместо execSync в worker (+ yt_video_id validation)
+- IDOR — destructive actions → requireAdmin
+- HTML sanitize server-side (sanitize-html)
+- Rate limiting (Redis) на login / subscribe / telegram_auth_start
+- Security headers (XFO, nosniff, HSTS, Referrer-Policy, Permissions-Policy)
+- AES-256-GCM шифрование refresh_token + Telegram session_string
+- Password recovery flow + hide app shell на auth страницах
+- VPS upgraded 2GB → 4GB / 2 vCPU
+
+### Sprint 1 — Observability & Cost
+- Sentry (client/server/edge/worker) с тегами route / video.id / user.id
+- pino structured logger в worker hot-path
+- BullMQ idempotency (`enqueueProcessJob` helper, jobId `<task>--<uuid>`)
+- Pipeline-order guard в updateStatus (без отката назад)
+- handleApiError + global-error.tsx для надёжных stacktrace'ов
+- ai_usage table + regex price table + Russian labels + project split
+- `/admin/costs` + `/admin` landing + admin layout guard
+- `/calendar` объединённый view (video + tg + nl_issues + nl_articles)
+- Dashboard metrics server aggregation + metric_snapshots daily cron
+- Growth deltas: Сутки / Неделя / Месяц toggle
+- Newsletter widget scope по project + delta banner
+
+### Sprint 2.2 — Longform multiplication
+- content_pieces table (threads / video_script / telegram / newsletter_summary)
+- Threads generator в стиле @thedankoe (5-7 candidates, без эмодзи)
+- Video script generator для «Денис Царюк / Личная стратегия» с блоками по ~2 мин
+- UI на /articles/[id] → Distribute tab
+
+### YouTube channels auto-refresh
+- Ежедневный refresh subscriber_count / video_count через YouTube Data API
+- Worker cron + on-demand admin endpoint
+- Snapshot'ы получают актуальные views от YT API
+
+---
+
+## Следующая сессия — приоритеты
+
+### 1. Deep link к выпускам (tapthe.link-like, запрос user'а)
+
+Референс — https://app.tapthe.link
+
+Проблема: ссылка на YouTube, расшаренная в Instagram/Threads/Telegram, открывается
+во встроенном браузере, а не в нативном приложении YouTube. Deep link
+с user-agent detection это решает.
+
+Архитектура:
+- Таблица `short_links(slug, kind, target_url, video_id, clicks, created_at)`
+- Route `app/v/[slug]/route.ts` — user-agent sniff:
+  - Instagram / FB / Messenger in-app → HTML с `youtube://` scheme attempt + web fallback
+  - Прямо в YouTube app / обычный browser → 302 на youtube.com/watch?v=...
+- Короткий URL вида `huuman.ru/v/<slug>`
+- UI на странице видео: кнопка «Получить deep link» + QR-код для sharing
+- Аналитика по кликам (counter в short_links.clicks)
+
+### 2. Per-account re-auth UX в Settings
+
+5 brand-аккаунтов Google, каждый канал = отдельный. UI должен показывать
+список каналов с last_refresh и `needs_reauth` badge, кнопка «Переподключить»
+прицельно на канал. ЭКСПЕДИЦИЯ-канал пока без project_id — нужен селектор проекта.
+
+### 3. Новые видео / комментарии без ручных кликов
+
+- Video sync cron — запускает `/api/youtube/sync` для каждого канала раз в сутки
+- Comments sync cron — `/api/comments/sync` раз в сутки
+
+---
 
 ## Sprint 2 — Growth
 
-- [ ] A/B тесты заголовков/обложек через YouTube thumbnail tests API
-- [ ] AI ideation — "Что снимать?" из best-performing + transkripts гостей + trends
-- [ ] Multi-user + real RBAC с approval workflow
-- [ ] Podcast pipeline — RSS + Apple/Spotify
-- [ ] Competitor tracker — еженедельный snapshot + AI анализ стратегии
+- A/B тесты заголовков/обложек через YouTube thumbnail tests API
+- AI ideation — «Что снимать?» из best-performing + transcripts гостей
+- Multi-user + real RBAC с approval workflow
+- Carousel-генератор из статьи
+- Telegram-пост из статьи
+- Podcast pipeline — RSS + Apple/Spotify
+- Competitor tracker — еженедельный snapshot + AI анализ
 
 ## Sprint 3 — Quality
 
-- [ ] Playwright E2E для критических путей (login, publish, transcribe)
-- [ ] Staging environment (VPS + отдельный Supabase проект или branch)
-- [ ] Мигрировать iron-session → Supabase Auth когда появится потребность в RLS для клиента
+- Playwright E2E для критических путей (login, publish, transcribe)
+- Staging environment
+- Мигрировать iron-session → Supabase Auth когда появится потребность в RLS
 
 ## Долгосрочно (продуктовые решения)
 
-- [ ] SaaS-пивот — multi-tenant, биллинг, onboarding для русскоязычных YouTube-авторов
-- [ ] Mobile companion — быстрый capture идей / voice notes → drafts в Articles
-- [ ] Voice agent — Telegram-бот с разговорным интерфейсом к ContentOS
+- SaaS-пивот — multi-tenant, биллинг, onboarding
+- Mobile companion — быстрый capture идей / voice notes
+- Voice agent — Telegram-бот с разговорным интерфейсом
