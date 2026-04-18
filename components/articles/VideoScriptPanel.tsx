@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react'
 import { Play, Loader2, Copy, Check, RefreshCw, Sparkles, Download } from 'lucide-react'
 
+interface Chunk {
+  title: string
+  text: string
+  estimated_minutes: number
+}
+
 interface Piece {
   id: string
   content: string | null
@@ -11,6 +17,7 @@ interface Piece {
     closing_line?: string
     estimated_minutes?: number
     word_count?: number
+    chunks?: Chunk[]
     generated_at?: string
   } | null
   created_at: string
@@ -27,7 +34,7 @@ export function VideoScriptPanel({ articleId, articleTitle, hasBody }: Props) {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<'all' | number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -61,8 +68,18 @@ export function VideoScriptPanel({ articleId, articleTitle, hasBody }: Props) {
     if (!piece?.content) return
     try {
       await navigator.clipboard.writeText(piece.content)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      setCopied('all')
+      setTimeout(() => setCopied(prev => prev === 'all' ? null : prev), 1500)
+    } catch {
+      setError('Не удалось скопировать')
+    }
+  }
+
+  async function copyChunk(text: string, idx: number): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(idx)
+      setTimeout(() => setCopied(prev => prev === idx ? null : prev), 1500)
     } catch {
       setError('Не удалось скопировать')
     }
@@ -119,9 +136,10 @@ export function VideoScriptPanel({ articleId, articleTitle, hasBody }: Props) {
             <span>≈ {meta.estimated_minutes ?? '?'} мин речи</span>
             <span>·</span>
             <span>{meta.word_count ?? '?'} слов</span>
+            {meta.chunks && meta.chunks.length > 0 && (<><span>·</span><span>{meta.chunks.length} блок{meta.chunks.length === 1 ? '' : meta.chunks.length < 5 ? 'а' : 'ов'}</span></>)}
             <div className="flex-1" />
             <button onClick={copyAll} className="px-2 py-1 text-dim hover:text-cream flex items-center gap-1">
-              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />} Скопировать
+              {copied === 'all' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />} Скопировать
             </button>
             <button onClick={downloadTxt} className="px-2 py-1 text-dim hover:text-cream flex items-center gap-1">
               <Download className="w-3 h-3" /> .txt
@@ -135,9 +153,42 @@ export function VideoScriptPanel({ articleId, articleTitle, hasBody }: Props) {
             </details>
           )}
 
-          <pre className="p-3 bg-bg rounded-lg border border-border/60 text-xs text-cream leading-relaxed whitespace-pre-wrap font-sans max-h-96 overflow-y-auto">
-            {piece.content}
-          </pre>
+          {/* Chunk-per-card rendering — 2-min blocks with titles for teleprompter.
+              Falls back to single-block when metadata.chunks is missing (legacy pieces). */}
+          {meta.chunks && meta.chunks.length > 0 ? (
+            <div className="space-y-3">
+              {meta.chunks.map((chunk, idx) => {
+                const words = chunk.text.split(/\s+/).filter(Boolean).length
+                return (
+                  <div key={idx} className="rounded-lg border border-border/60 bg-bg overflow-hidden">
+                    <div className="px-3 py-2 border-b border-border/60 flex items-center gap-2 bg-surface/40">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-accent tabular-nums shrink-0">
+                        Блок {idx + 1}
+                      </span>
+                      <span className="text-xs text-cream truncate flex-1">{chunk.title}</span>
+                      <span className="text-[10px] text-dim tabular-nums shrink-0">
+                        ≈ {chunk.estimated_minutes} мин · {words} слов
+                      </span>
+                      <button
+                        onClick={() => copyChunk(chunk.text, idx)}
+                        className="p-1 rounded text-dim hover:text-cream"
+                        title="Скопировать блок"
+                      >
+                        {copied === idx ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      </button>
+                    </div>
+                    <pre className="p-3 text-sm text-cream leading-7 whitespace-pre-wrap font-sans max-h-72 overflow-y-auto">
+                      {chunk.text}
+                    </pre>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <pre className="p-3 bg-bg rounded-lg border border-border/60 text-xs text-cream leading-relaxed whitespace-pre-wrap font-sans max-h-96 overflow-y-auto">
+              {piece.content}
+            </pre>
+          )}
         </div>
       )}
 
