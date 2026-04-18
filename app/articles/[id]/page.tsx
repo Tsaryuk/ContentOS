@@ -9,6 +9,8 @@ import {
   ExternalLink, Smartphone, Monitor, Upload, Undo2, Redo2, FileText
 } from 'lucide-react'
 import { WhitePaper } from '@/components/articles/WhitePaper'
+import { ThreadsPanel } from '@/components/articles/ThreadsPanel'
+import { VideoScriptPanel } from '@/components/articles/VideoScriptPanel'
 
 interface Article {
   id: string; title: string; subtitle: string; body_html: string
@@ -706,18 +708,12 @@ export default function ArticleEditorPage() {
                 </div>
                 <p className="text-[11px] text-dim mt-2">AI сократит статью до email-формата и добавит ссылку на полную версию</p>
               </div>
-              <div className="p-4 bg-surface border border-border rounded-xl opacity-60">
-                <div className="flex items-center gap-2"><Play className="w-4 h-4 text-red-400" /><span className="text-xs font-medium text-cream">Сценарий для YouTube</span></div>
-                <p className="text-[11px] text-dim mt-2">Скоро: генерация сценария для видео из статьи</p>
-              </div>
+              <VideoScriptPanel articleId={article.id} articleTitle={article.title} hasBody={Boolean(article.body_html?.trim())} />
               <div className="p-4 bg-surface border border-border rounded-xl opacity-60">
                 <div className="flex items-center gap-2"><Image className="w-4 h-4 text-purple-400" /><span className="text-xs font-medium text-cream">Карусель</span></div>
                 <p className="text-[11px] text-dim mt-2">Скоро: генерация карусели для Instagram/Telegram</p>
               </div>
-              <div className="p-4 bg-surface border border-border rounded-xl opacity-60">
-                <div className="flex items-center gap-2"><Send className="w-4 h-4 text-gray-400" /><span className="text-xs font-medium text-cream">Threads</span></div>
-                <p className="text-[11px] text-dim mt-2">Скоро: генерация тредов из ключевых мыслей</p>
-              </div>
+              <ThreadsPanel articleId={article.id} hasBody={Boolean(article.body_html?.trim())} />
             </div>
           )}
         </div>
