@@ -20,9 +20,16 @@ import {
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
+interface Chunk {
+  title: string
+  text: string
+  estimated_minutes: number
+}
+
 interface VideoScript {
   hook: string
-  script: string
+  chunks?: Chunk[]
+  script?: string     // legacy single-block fallback
   closing_line: string
   estimated_minutes: number
 }
@@ -83,18 +90,29 @@ export async function POST(
       return NextResponse.json({ error: 'Не удалось распарсить ответ модели' }, { status: 500 })
     }
 
+    // Backward-compat: older prompt variants returned a single `script` field.
+    // New prompt returns `chunks[]`. Normalize both so downstream code can rely
+    // on content = full script and metadata.chunks = array.
+    const chunks = result.chunks ?? (result.script
+      ? [{ title: 'Сценарий', text: result.script, estimated_minutes: result.estimated_minutes }]
+      : [])
+
+    const fullScript = chunks.map(c => c.text).join('\n\n')
+    const totalWords = fullScript.split(/\s+/).filter(Boolean).length
+
     const { data: piece, error: pieceErr } = await supabaseAdmin
       .from('content_pieces')
       .insert({
         article_id: articleId,
         kind: 'video_script',
         status: 'draft',
-        content: result.script,
+        content: fullScript,
         metadata: {
           hook: result.hook,
           closing_line: result.closing_line,
           estimated_minutes: result.estimated_minutes,
-          word_count: result.script?.split(/\s+/).filter(Boolean).length ?? 0,
+          word_count: totalWords,
+          chunks,
           generated_at: new Date().toISOString(),
         },
         created_by: auth.userId,
