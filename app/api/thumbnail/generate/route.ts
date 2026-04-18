@@ -157,6 +157,7 @@ async function runNanoBanana(
   prompt: string,
   imageUrls: string[],
   name: string,
+  videoId?: string,
 ): Promise<{ url: string | null; name: string }> {
   try {
     console.log(`[thumb] ${name}: starting with ${imageUrls.length} ref images...`)
@@ -184,6 +185,7 @@ async function runNanoBanana(
         model: 'fal-ai/nano-banana-2/edit',
         task: 'thumbnail',
         units: 1,
+        videoId: videoId ?? null,
         metadata: { variant: name },
       })
     }
@@ -341,6 +343,7 @@ export async function POST(req: NextRequest) {
           }),
           imageUrls,
           v.name,
+          videoId,
         )
       )
     )
