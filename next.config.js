@@ -16,6 +16,9 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   env: { NEXT_PUBLIC_BUILD_SHA: gitSha },
+  experimental: {
+    serverComponentsExternalPackages: ['ssh2', 'ssh2-sftp-client'],
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'i.ytimg.com' },
