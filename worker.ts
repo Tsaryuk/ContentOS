@@ -14,6 +14,7 @@ import { decryptSecret } from './lib/crypto-secrets'
 import { initWorkerSentry, captureWorkerError } from './lib/worker-sentry'
 import { logger } from './lib/logger'
 import { trackUsage, type Task } from './lib/cost'
+import { enqueueProcessJob } from './lib/process/enqueue'
 
 // Initialize Sentry once at process start — safe no-op if SENTRY_DSN is unset.
 initWorkerSentry()
@@ -137,7 +138,41 @@ const redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: null })
 
 // --- DB Helpers ---
 
+// Pipeline order for idempotency: higher number = later stage.
+// A stale worker job must never drag a video backward from a later stage.
+// 'error' and 'done' are terminal (but error can be manually retried).
+// 'publishing' can only come from review/error/done (see /api/process/publish).
+const STATUS_ORDER: Record<string, number> = {
+  pending:      0,
+  transcribing: 1,
+  generating:   2,
+  producing:    2,
+  thumbnail:    3,
+  review:       4,
+  publishing:   5,
+  done:         6,
+}
+
 async function updateStatus(videoId: string, status: string, errorMessage?: string) {
+  // Guard against race: stale/slow jobs must not overwrite a later status.
+  // Allowed transitions: forward-or-equal, OR → error (terminal retriable).
+  if (status !== 'error') {
+    const { data: curr } = await supabase
+      .from('yt_videos')
+      .select('status')
+      .eq('id', videoId)
+      .single()
+    const currentOrder = STATUS_ORDER[curr?.status ?? ''] ?? -1
+    const nextOrder    = STATUS_ORDER[status] ?? -1
+    if (currentOrder > nextOrder && curr?.status !== 'error') {
+      logger.warn(
+        { videoId, attempted: status, current: curr?.status },
+        'updateStatus skipped — would go backwards',
+      )
+      return
+    }
+  }
+
   const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() }
   if (errorMessage !== undefined) update.error_message = errorMessage
   if (status !== 'error') update.error_message = null
@@ -941,14 +976,14 @@ async function handleProduce(videoId: string) {
   const stopHeartbeat = startHeartbeat(videoId)
 
   try {
-    // Step 1: If no transcript, queue transcribe + delayed re-produce
+    // Step 1: If no transcript, queue transcribe + delayed re-produce.
+    // Uses enqueueProcessJob so multiple user clicks don't fan out into
+    // parallel transcribe+produce jobs that race on updateStatus.
     if (!video.transcript) {
       console.log('[produce] No transcript, queueing transcribe first...')
       await updateProgress(videoId, 'Транскрипт не найден, запускаем расшифровку...')
-      const q = new Queue('contentos', { connection: redis })
-      await q.add('transcribe', { videoId }, { attempts: 1 })
-      await q.add('produce', { videoId }, { delay: 120000, attempts: 1 }) // retry produce in 2 min
-      await q.close()
+      await enqueueProcessJob('transcribe', videoId, { videoId }, { attempts: 1 })
+      await enqueueProcessJob('produce', videoId, { videoId }, { attempts: 1, delay: 120000 })
       return
     }
 
