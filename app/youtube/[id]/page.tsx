@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Clock, Eye, ThumbsUp, Sparkles, ExternalLink,
   Loader2, FileText, Tag, Scissors, MessageSquare, Image,
-  User, Rocket, Check, Copy, Save, GalleryHorizontalEnd
+  User, Rocket, Check, Copy, Save, GalleryHorizontalEnd, Link as LinkIcon
 } from 'lucide-react'
 import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
@@ -16,6 +16,7 @@ import { ClipList } from '@/components/youtube/ClipList'
 import { SocialPreview } from '@/components/youtube/SocialPreview'
 import { GuestInfo } from '@/components/youtube/GuestInfo'
 import { CommentsList } from '@/components/youtube/CommentsList'
+import { ShortLinkModal } from '@/components/youtube/ShortLinkModal'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -51,6 +52,7 @@ export default function VideoDetailPage() {
   const [regenTimecodes, setRegenTimecodes] = useState(false)
   const [guestLinks, setGuestLinks] = useState<string | null>(null)
   const [guestLinksSaved, setGuestLinksSaved] = useState(false)
+  const [shortLinkOpen, setShortLinkOpen] = useState(false)
   const descTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadVideo = useCallback(async () => {
@@ -258,6 +260,13 @@ export default function VideoDetailPage() {
               )}
             </div>
           </div>
+          <button
+            onClick={() => setShortLinkOpen(true)}
+            title="Deep link"
+            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+          >
+            <LinkIcon className="w-4 h-4" />
+          </button>
           <a href={`https://youtube.com/watch?v=${video.yt_video_id}`} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
             <ExternalLink className="w-4 h-4" />
           </a>
@@ -664,6 +673,10 @@ export default function VideoDetailPage() {
           </div>
         </div>
       </div>
+
+      {shortLinkOpen && (
+        <ShortLinkModal videoId={videoId} onClose={() => setShortLinkOpen(false)} />
+      )}
     </div>
   )
 }
