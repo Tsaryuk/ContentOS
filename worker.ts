@@ -1608,6 +1608,10 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   newsletter_stats: () => handleNewsletterStats(),
   generate_short_title: handleGenerateShortTitle,
   regenerate_timecodes: handleRegenerateTimecodes,
+  metrics_snapshot: async () => {
+    const { captureMetricSnapshots } = await import('./lib/process/metrics-snapshot')
+    await captureMetricSnapshots()
+  },
 }
 
 // --- Stale job cleanup ---
@@ -1729,5 +1733,18 @@ async function scheduleNewsletterStats() {
   } catch {}
 }
 scheduleNewsletterStats()
+
+// Daily metric snapshot — captures yt_channels + Unisender subscribers once
+// per day. UNIQUE(captured_at, source, entity_id) makes re-runs harmless.
+async function scheduleMetricsSnapshot() {
+  try {
+    await nlQueue.add('metrics_snapshot', {}, {
+      repeat: { every: 24 * 60 * 60 * 1000 },
+      jobId: 'metrics_snapshot_cron',
+    })
+    console.log('[worker] Metrics snapshot cron scheduled (every 24h)')
+  } catch {}
+}
+scheduleMetricsSnapshot()
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')
