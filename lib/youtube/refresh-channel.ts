@@ -98,9 +98,10 @@ export async function refreshChannel(channelUuid: string): Promise<RefreshResult
   const title       = item.snippet?.title
   const thumbnail   = item.snippet?.thumbnails?.default?.url
 
+  // yt_channels has subscriber_count + video_count but NOT view_count —
+  // total views are a sum of yt_videos.view_count and live only in snapshots.
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (subscribers !== null) update.subscriber_count = subscribers
-  if (views       !== null) update.view_count       = views
   if (videos      !== null) update.video_count      = videos
   if (title)                update.title            = title
   if (thumbnail)            update.thumbnail_url    = thumbnail
