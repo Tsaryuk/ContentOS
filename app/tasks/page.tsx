@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, LayoutGrid, List } from 'lucide-react'
+import { Plus, LayoutGrid, List, Loader2 } from 'lucide-react'
 import { TaskWithRelations, TaskStatus, TaskPriority } from '@/lib/tasks/types'
 import { TaskBoard } from '@/components/tasks/TaskBoard'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { TaskDrawer, TaskFormData } from '@/components/tasks/TaskDrawer'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
+import { Button } from '@/components/ui/button'
 
 type ViewMode = 'kanban' | 'table'
 
@@ -116,7 +117,7 @@ export default function TasksPage() {
 
   async function handleStatusChange(taskId: string, newStatus: TaskStatus) {
     setTasks(prev =>
-      prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t)
+      prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t),
     )
     const res = await fetch(`/api/tasks/${taskId}`, {
       method: 'PATCH',
@@ -130,46 +131,54 @@ export default function TasksPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-xs text-dim">Загрузка...</div>
+      <div className="flex items-center justify-center h-full py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4 p-6 h-full">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-cream">Задачи</h1>
+    <div className="flex flex-col gap-5 p-6 md:p-10 h-full max-w-[1600px] mx-auto">
+      <header className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
+            <span>ContentOS</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span className="normal-case tracking-normal">Рабочий процесс</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight">Задачи</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            {tasks.length === 0
+              ? 'Задач пока нет — создай первую'
+              : `${tasks.length} ${tasks.length === 1 ? 'задача' : tasks.length < 5 ? 'задачи' : 'задач'} в активных проектах`}
+          </p>
+        </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center border border-border rounded-lg overflow-hidden">
+          {/* View toggle */}
+          <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-card border border-border">
             <button
               onClick={() => switchView('kanban')}
-              className={`p-1.5 transition-colors ${
-                view === 'kanban' ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'
-              }`}
+              data-active={view === 'kanban' || undefined}
+              className="relative p-1.5 rounded-md transition-colors text-muted-foreground hover:text-foreground data-[active]:bg-muted data-[active]:text-foreground"
               title="Kanban"
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => switchView('table')}
-              className={`p-1.5 transition-colors ${
-                view === 'table' ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'
-              }`}
+              data-active={view === 'table' || undefined}
+              className="relative p-1.5 rounded-md transition-colors text-muted-foreground hover:text-foreground data-[active]:bg-muted data-[active]:text-foreground"
               title="Таблица"
             >
               <List className="w-4 h-4" />
             </button>
           </div>
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-1.5 bg-accent hover:bg-accent/90 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
+          <Button variant="brand" onClick={openCreate}>
+            <Plus />
             Задача
-          </button>
+          </Button>
         </div>
-      </div>
+      </header>
 
       <TaskFilters
         status={filterStatus}
