@@ -68,16 +68,16 @@ async function main() {
     }
   }
 
-  // ── Telegram session strings ────────────────────────────────────────────
+  // ── Telegram session strings (live in tg_accounts, not tg_channels) ─────
   const { data: tgRows, error: tgErr } = await supabase
-    .from('tg_channels')
-    .select('id, title, session_string')
+    .from('tg_accounts')
+    .select('id, phone, session_string')
     .not('session_string', 'is', null)
 
   let tgEncrypted = 0
   let tgSkipped = 0
   if (tgErr) {
-    console.warn('[tg_channels] fetch error (skipping):', tgErr.message)
+    console.warn('[tg_accounts] fetch error (skipping):', tgErr.message)
   } else {
     for (const row of tgRows ?? []) {
       const s = row.session_string as string | null
@@ -88,20 +88,20 @@ async function main() {
       if (!encrypted) { tgSkipped += 1; continue }
 
       const { error: updErr } = await supabase
-        .from('tg_channels')
+        .from('tg_accounts')
         .update({ session_string: encrypted })
         .eq('id', row.id)
 
       if (updErr) {
-        console.error(`[tg_channels] ${row.title ?? row.id} update failed:`, updErr.message)
+        console.error(`[tg_accounts] ${row.phone ?? row.id} update failed:`, updErr.message)
       } else {
         tgEncrypted += 1
-        console.log(`[tg_channels] encrypted ${row.title ?? row.id}`)
+        console.log(`[tg_accounts] encrypted ${row.phone ?? row.id}`)
       }
     }
   }
 
-  console.log(`\nDone. yt_channels encrypted=${ytEncrypted} skipped=${ytSkipped}, tg_channels encrypted=${tgEncrypted} skipped=${tgSkipped}`)
+  console.log(`\nDone. yt_channels encrypted=${ytEncrypted} skipped=${ytSkipped}, tg_accounts encrypted=${tgEncrypted} skipped=${tgSkipped}`)
 }
 
 main().catch(err => {
