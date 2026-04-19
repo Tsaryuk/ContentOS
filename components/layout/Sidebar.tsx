@@ -6,12 +6,22 @@ import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutGrid, Mail, Globe, Settings, Scissors, FileText,
-  Play, Send, Camera, GalleryHorizontalEnd, CheckSquare, Calendar
+  Play, Send, Camera, GalleryHorizontalEnd, CheckSquare, Calendar,
+  LogOut, Shield, ChevronDown,
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
 import { ThemeToggle } from './ThemeToggle'
 import { ProjectSwitcher } from './ProjectSwitcher'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuPage,
+} from '@/components/ui/dropdown-menu'
 
 const TikTokIcon = () => (
   <svg width="18" height="18" viewBox="0 0 16 18" fill="currentColor">
@@ -33,13 +43,48 @@ interface YtChannel {
   project_id: string | null
 }
 
-// Non-YouTube platforms use static config
+interface SessionUser {
+  userId: string | null
+  userName: string | null
+  userRole: 'admin' | 'manager' | null
+}
+
 const OTHER_PLATFORMS: { platform: Platform; label: string; icon: React.ReactNode }[] = [
   { platform: 'instagram', label: 'Instagram', icon: <Camera className="w-4 h-4" /> },
   { platform: 'tiktok',   label: 'TikTok',    icon: <TikTokIcon /> },
   { platform: 'threads',  label: 'Threads',   icon: <ThreadsIcon /> },
   { platform: 'website',  label: 'Сайт',       icon: <Globe className="w-4 h-4" /> },
 ]
+
+function NavItem({
+  href,
+  icon,
+  label,
+  active,
+}: {
+  href: string
+  icon: React.ReactNode
+  label: string
+  active: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      data-active={active || undefined}
+      className="group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors
+        text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent
+        data-[active]:bg-sidebar-accent data-[active]:text-sidebar-foreground"
+    >
+      {active && (
+        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-accent" />
+      )}
+      <span className={`shrink-0 ${active ? 'text-accent' : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80'}`}>
+        {icon}
+      </span>
+      <span>{label}</span>
+    </Link>
+  )
+}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -49,20 +94,24 @@ export function Sidebar() {
   const router = useRouter()
   const [hovered, setHovered] = useState<string | null>(null)
   const [ytChannels, setYtChannels] = useState<YtChannel[]>([])
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  const [session, setSession] = useState<SessionUser>({ userId: null, userName: null, userRole: null })
 
   useEffect(() => {
     async function load() {
-      const [{ projects, channels }, session] = await Promise.all([
+      const [{ projects, channels }, sessionRes] = await Promise.all([
         fetch('/api/projects').then(r => r.json()),
         fetch('/api/auth/session').then(r => r.json()),
       ])
-      const projId = session.activeProjectId ?? projects?.[0]?.id ?? null
-      setActiveProjectId(projId)
+      const projId = sessionRes.activeProjectId ?? projects?.[0]?.id ?? null
       const yt = (channels ?? []).filter((c: YtChannel) =>
-        !projId || c.project_id === projId
+        !projId || c.project_id === projId,
       )
       setYtChannels(yt)
+      setSession({
+        userId: sessionRes.userId ?? null,
+        userName: sessionRes.userName ?? null,
+        userRole: sessionRes.userRole ?? null,
+      })
     }
     load()
   }, [])
@@ -78,6 +127,11 @@ export function Sidebar() {
     router.refresh()
   }
 
+  async function signOut() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login'
+  }
+
   const isDashboard = pathname === '/'
   const isYoutube = pathname.startsWith('/youtube')
   const isClips = pathname.startsWith('/clips')
@@ -88,202 +142,193 @@ export function Sidebar() {
   const isNewsletter = pathname.startsWith('/newsletter')
   const isArticles = pathname.startsWith('/articles')
 
-  // Static channels for non-YT platforms
   const staticChannelsByPlatform = (platform: Platform) =>
     CHANNELS.filter(c => c.platform === platform)
 
+  const userInitial = (session.userName ?? '?').trim().charAt(0).toUpperCase()
+  const firstName = (session.userName ?? '').split(/\s+/)[0] ?? ''
+
   return (
-    <aside className="w-[168px] bg-bg-sidebar border-r border-border flex flex-col items-center py-4 gap-1 flex-shrink-0">
-      {/* Logo */}
-      <Link
-        href="/"
-        className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-purple flex items-center justify-center text-white font-bold text-sm mb-2 shadow-lg shadow-accent/20"
-      >
-        C
-      </Link>
-
-      {/* Project switcher */}
-      <ProjectSwitcher />
-
-      <div className="w-full px-4 my-2"><div className="h-px bg-border" /></div>
-
-      {/* Dashboard */}
-      <Link
-        href="/"
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isDashboard ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
-        }`}
-      >
-        <LayoutGrid className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-medium">Дашборд</span>
-      </Link>
-
-      {/* Tasks */}
-      <Link
-        href="/tasks"
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isTasks ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
-        }`}
-      >
-        <CheckSquare className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-medium">Задачи</span>
-      </Link>
-
-      {/* Calendar */}
-      <Link
-        href="/calendar"
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isCalendar ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
-        }`}
-      >
-        <Calendar className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-medium">Календарь</span>
-      </Link>
-
-      {/* YouTube — dynamic channels from DB */}
-      <div
-        className="relative w-full"
-        onMouseEnter={() => setHovered('youtube')}
-        onMouseLeave={() => setHovered(null)}
-      >
-        <div className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
-          isYoutube ? 'bg-accent/15 text-accent border border-accent/25' : hovered === 'youtube' ? 'text-cream' : 'text-muted hover:text-cream'
-        }`}>
-          <Play className="w-4 h-4 shrink-0" />
-          <span className="text-xs font-medium">YouTube</span>
-        </div>
-        <AnimatePresence>
-          {hovered === 'youtube' && (
-            <motion.div
-              initial={{ opacity: 0, x: -4 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -4 }}
-              transition={{ duration: 0.15 }}
-              className="absolute left-full top-0 z-50 w-52 border border-border rounded-xl py-2 bg-white dark:bg-[#161618]"
-              style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
-            >
-              <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-dim mb-1">YouTube</div>
-              {ytChannels.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-dim">
-                  Нет каналов.{' '}
-                  <a href="/settings" className="text-accent underline">Настройки</a>
-                </div>
-              ) : (
-                ytChannels.map(ch => (
-                  <button
-                    key={ch.id}
-                    onClick={() => switchYtChannel(ch.yt_channel_id)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors text-left"
-                  >
-                    {ch.thumbnail_url
-                      ? <img src={ch.thumbnail_url} className="w-5 h-5 rounded-full shrink-0" alt="" />
-                      : <div className="w-5 h-5 rounded-full bg-red-500/20 shrink-0" />
-                    }
-                    <span className="text-xs text-muted hover:text-cream truncate">{ch.title}</span>
-                  </button>
-                ))
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+    <aside className="w-[180px] bg-sidebar border-r border-sidebar-border flex flex-col py-3 gap-0.5 flex-shrink-0 text-sidebar-foreground">
+      {/* Brand + project */}
+      <div className="px-3 flex items-center gap-2 mb-2">
+        <Link
+          href="/"
+          aria-label="ContentOS"
+          className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-purple flex items-center justify-center text-white font-bold text-sm shadow-md shadow-accent/30 shrink-0"
+        >
+          C
+        </Link>
+        <div className="text-[11px] font-semibold tracking-tight text-sidebar-foreground">ContentOS</div>
       </div>
 
-      {/* Clips */}
-      <Link
-        href="/clips"
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isClips ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
-        }`}
-      >
-        <Scissors className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-medium">Клипы</span>
-      </Link>
+      <div className="px-2">
+        <ProjectSwitcher />
+      </div>
 
-      {/* Carousels */}
-      <Link
-        href="/carousels"
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isCarousels ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
-        }`}
-      >
-        <GalleryHorizontalEnd className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-medium">Карусели</span>
-      </Link>
+      <div className="px-3 my-2"><div className="h-px bg-sidebar-border" /></div>
 
-      {/* Telegram */}
-      <Link
-        href="/telegram"
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isTelegram ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
-        }`}
-      >
-        <Send className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-medium">Telegram</span>
-      </Link>
+      {/* Main nav */}
+      <nav className="flex flex-col gap-0.5 px-2">
+        <NavItem href="/" icon={<LayoutGrid className="w-4 h-4" />} label="Дашборд" active={isDashboard} />
+        <NavItem href="/tasks" icon={<CheckSquare className="w-4 h-4" />} label="Задачи" active={isTasks} />
+        <NavItem href="/calendar" icon={<Calendar className="w-4 h-4" />} label="Календарь" active={isCalendar} />
+      </nav>
 
-      {/* Articles */}
-      <Link
-        href="/articles"
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isArticles ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
-        }`}
-      >
-        <FileText className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-medium">Статьи</span>
-      </Link>
+      <div className="px-3 my-2">
+        <div className="text-[9px] uppercase tracking-[0.12em] font-semibold text-sidebar-foreground/40 px-1">Каналы</div>
+      </div>
 
-      {/* Newsletter */}
-      <Link
-        href="/newsletter"
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isNewsletter ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
-        }`}
-      >
-        <Mail className="w-4 h-4 shrink-0" />
-        <span className="text-xs font-medium">Рассылка</span>
-      </Link>
-
-      {/* Other platforms */}
-      {OTHER_PLATFORMS.map(({ platform, label, icon }) => {
-        const staticChs = staticChannelsByPlatform(platform)
-        return (
+      <nav className="flex flex-col gap-0.5 px-2">
+        {/* YouTube (dynamic channels) */}
+        <div
+          className="relative w-full"
+          onMouseEnter={() => setHovered('youtube')}
+          onMouseLeave={() => setHovered(null)}
+        >
           <div
-            key={platform}
-            className="relative w-full"
-            onMouseEnter={() => setHovered(platform)}
-            onMouseLeave={() => setHovered(null)}
+            data-active={isYoutube || undefined}
+            className="group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer
+              text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent
+              data-[active]:bg-sidebar-accent data-[active]:text-sidebar-foreground"
           >
-            <div className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
-              hovered === platform ? 'text-cream' : 'text-muted hover:text-cream'
-            }`}>
-              <span className="shrink-0">{icon}</span>
-              <span className="text-xs font-medium">{label}</span>
-            </div>
-            <AnimatePresence>
-              {hovered === platform && staticChs.length > 0 && (
-                <SidebarFlyout platform={platform} channels={staticChs} />
-              )}
-            </AnimatePresence>
+            {isYoutube && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-accent" />}
+            <Play className={`w-4 h-4 shrink-0 ${isYoutube ? 'text-accent' : 'text-sidebar-foreground/50'}`} />
+            <span>YouTube</span>
           </div>
-        )
-      })}
+          <AnimatePresence>
+            {hovered === 'youtube' && (
+              <motion.div
+                initial={{ opacity: 0, x: -4 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -4 }}
+                transition={{ duration: 0.15 }}
+                className="absolute left-full top-0 z-50 w-56 border border-border rounded-xl py-2 bg-popover shadow-pop"
+              >
+                <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">YouTube</div>
+                {ytChannels.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    Нет каналов.{' '}
+                    <a href="/settings" className="text-accent underline">Настройки</a>
+                  </div>
+                ) : (
+                  ytChannels.map(ch => (
+                    <button
+                      key={ch.id}
+                      onClick={() => switchYtChannel(ch.yt_channel_id)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-accent-surface transition-colors text-left"
+                    >
+                      {ch.thumbnail_url
+                        ? <img src={ch.thumbnail_url} className="w-5 h-5 rounded-full shrink-0" alt="" />
+                        : <div className="w-5 h-5 rounded-full bg-red-500/20 shrink-0" />
+                      }
+                      <span className="text-xs text-foreground truncate">{ch.title}</span>
+                    </button>
+                  ))
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <NavItem href="/clips" icon={<Scissors className="w-4 h-4" />} label="Клипы" active={isClips} />
+        <NavItem href="/carousels" icon={<GalleryHorizontalEnd className="w-4 h-4" />} label="Карусели" active={isCarousels} />
+        <NavItem href="/telegram" icon={<Send className="w-4 h-4" />} label="Telegram" active={isTelegram} />
+        <NavItem href="/articles" icon={<FileText className="w-4 h-4" />} label="Статьи" active={isArticles} />
+        <NavItem href="/newsletter" icon={<Mail className="w-4 h-4" />} label="Рассылка" active={isNewsletter} />
+
+        {/* Other platforms (hover flyout) */}
+        {OTHER_PLATFORMS.map(({ platform, label, icon }) => {
+          const staticChs = staticChannelsByPlatform(platform)
+          return (
+            <div
+              key={platform}
+              className="relative w-full"
+              onMouseEnter={() => setHovered(platform)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <div className="group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent">
+                <span className="shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80">{icon}</span>
+                <span>{label}</span>
+              </div>
+              <AnimatePresence>
+                {hovered === platform && staticChs.length > 0 && (
+                  <SidebarFlyout platform={platform} channels={staticChs} />
+                )}
+              </AnimatePresence>
+            </div>
+          )
+        })}
+      </nav>
 
       <div className="flex-1" />
 
-      <div className="w-full px-1.5 flex items-center justify-between">
-        <ThemeToggle />
-        <Link
-          href="/settings"
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-            pathname === '/settings' ? 'bg-accent/15 text-accent border border-accent/25' : 'text-dim hover:text-muted'
-          }`}
-          title="Настройки"
-        >
-          <Settings className="w-4 h-4" />
-        </Link>
-      </div>
-      <div className="w-full px-2 pb-1 text-[9px] text-dim/40 text-center font-mono">
-        {process.env.NEXT_PUBLIC_BUILD_SHA ?? 'dev'}
+      {/* Bottom: theme + settings + account */}
+      <div className="px-2 pt-2">
+        <div className="flex items-center justify-between gap-1 mb-1 px-1">
+          <ThemeToggle />
+          <Link
+            href="/settings"
+            data-active={pathname === '/settings' || undefined}
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors
+              text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent
+              data-[active]:text-accent data-[active]:bg-sidebar-accent"
+            title="Настройки"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {session.userId && (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-sidebar-accent transition-colors">
+              <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/30 text-accent flex items-center justify-center text-[11px] font-semibold shrink-0">
+                {userInitial}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="text-[11px] font-semibold text-sidebar-foreground truncate">{firstName || 'Аккаунт'}</div>
+                {session.userRole === 'admin' && (
+                  <div className="text-[9px] uppercase tracking-wider text-accent/70 flex items-center gap-1">
+                    <Shield className="w-2.5 h-2.5" /> admin
+                  </div>
+                )}
+              </div>
+              <ChevronDown className="w-3 h-3 text-sidebar-foreground/50 shrink-0" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 rounded-xl" align="end" side="top" sideOffset={6}>
+              <DropdownMenuPage id="main">
+                <DropdownMenuLabel>{session.userName ?? 'Пользователь'}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">
+                    <Settings className="w-4 h-4 text-muted-foreground" />
+                    <span>Настройки</span>
+                  </Link>
+                </DropdownMenuItem>
+                {session.userRole === 'admin' && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin">
+                      <Shield className="w-4 h-4 text-muted-foreground" />
+                      <span>Админка</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:bg-destructive/10"
+                  onSelect={(e) => { e.preventDefault(); void signOut() }}
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Выйти</span>
+                </DropdownMenuItem>
+              </DropdownMenuPage>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        <div className="pt-1.5 pb-0.5 text-[9px] text-sidebar-foreground/30 text-center font-mono">
+          {process.env.NEXT_PUBLIC_BUILD_SHA ?? 'dev'}
+        </div>
       </div>
     </aside>
   )
