@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Save, Loader2, Plus, X, ChevronDown, ChevronUp,
   Play, FolderOpen, User, Check, LogOut, Trash2, RotateCcw,
-  AlertCircle, Cog,
+  AlertCircle, Cog, Mic, Copy,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,26 @@ interface Channel {
   rules?: ChannelRules
 }
 interface TgChannel { id: string; title: string; username: string | null; project_id: string | null }
+interface PodcastShow {
+  id: string
+  channel_id: string | null
+  slug: string
+  title: string
+  description: string | null
+  author: string | null
+  owner_email: string | null
+  owner_name: string | null
+  language: string
+  category: string | null
+  subcategory: string | null
+  cover_url: string | null
+  cover_style_prompt: string | null
+  explicit: boolean
+  default_trim_start_sec: number
+  default_trim_end_sec: number
+  auto_publish: boolean
+  is_active: boolean
+}
 interface GoogleAccount { id: string; email: string; name: string; picture: string | null }
 interface ChannelRules {
   title_format: string; description_template: string
@@ -71,7 +91,7 @@ export default function SettingsPage() {
   const [tgChannels, setTgChannels] = useState<TgChannel[]>([])
   const [accounts, setAccounts] = useState<GoogleAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeSection, setActiveSection] = useState<'accounts' | 'projects' | 'channels'>('accounts')
+  const [activeSection, setActiveSection] = useState<'accounts' | 'projects' | 'channels' | 'podcasts'>('accounts')
   const [sessionRole, setSessionRole] = useState<string | null>(null)
 
   // Project form
@@ -81,6 +101,11 @@ export default function SettingsPage() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
   const [editingProjectName, setEditingProjectName] = useState('')
   const [savingProjectId, setSavingProjectId] = useState<string | null>(null)
+
+  // Podcasts
+  const [podcasts, setPodcasts] = useState<PodcastShow[]>([])
+  const [savingPodcastId, setSavingPodcastId] = useState<string | null>(null)
+  const [copiedRssId, setCopiedRssId] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [addChannelId, setAddChannelId] = useState('')
   const [addChannelProject, setAddChannelProject] = useState('')
@@ -103,11 +128,12 @@ export default function SettingsPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const [projRes, accRes] = await Promise.all([
+      const [projRes, accRes, podRes] = await Promise.all([
         fetch('/api/projects?all=true'),
         SUPABASE_URL ? fetch(`${SUPABASE_URL}/rest/v1/google_accounts?select=*`, {
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
         }) : Promise.resolve(null),
+        fetch('/api/podcasts'),
       ])
       const { projects: p, channels: c, tgChannels: tg } = await projRes.json()
       setProjects(p ?? [])
@@ -121,9 +147,31 @@ export default function SettingsPage() {
         const accData = await accRes.json()
         if (Array.isArray(accData)) setAccounts(accData)
       }
+
+      if (podRes.ok) {
+        const { shows } = await podRes.json()
+        setPodcasts(shows ?? [])
+      }
     } finally {
       setLoading(false)
     }
+  }
+
+  async function updatePodcast(id: string, patch: Partial<PodcastShow>) {
+    setSavingPodcastId(id)
+    const res = await fetch(`/api/podcasts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setPodcasts(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert('Не удалось обновить шоу: ' + (data.error ?? res.status))
+    }
+    setSavingPodcastId(null)
   }
 
   async function createProject() {
@@ -259,6 +307,7 @@ export default function SettingsPage() {
     { id: 'accounts' as const, label: 'Google аккаунты', icon: <User className="w-3.5 h-3.5" /> },
     { id: 'projects' as const, label: 'Проекты', icon: <FolderOpen className="w-3.5 h-3.5" /> },
     { id: 'channels' as const, label: 'Каналы', icon: <Play className="w-3.5 h-3.5" /> },
+    { id: 'podcasts' as const, label: 'Подкасты', icon: <Mic className="w-3.5 h-3.5" /> },
   ]
 
   if (loading) return (
@@ -828,6 +877,166 @@ export default function SettingsPage() {
               </Card>
             )
           })}
+        </div>
+      )}
+
+      {/* ── PODCASTS ── */}
+      {activeSection === 'podcasts' && (
+        <div className="space-y-4">
+          <Card className="bg-accent/5 border-accent/20 p-4 text-xs text-muted-foreground leading-relaxed">
+            Каждое шоу соответствует одному YouTube-каналу. ContentOS отдаёт iTunes-совместимый RSS по адресу
+            <code className="mx-1 px-1 py-0.5 rounded bg-background/80 text-foreground font-mono text-[11px]">/podcasts/&lt;slug&gt;/feed.xml</code>
+            — скопируй URL и вставь в Mave.digital → оно сам распространит по Яндекс.Музыке, Apple, Spotify, VK Подкасты, Zvuk, Castbox. Cover: квадрат 3000×3000, JPG/PNG, sRGB.
+          </Card>
+
+          {podcasts.length === 0 ? (
+            <Card className="p-12 flex flex-col items-center justify-center text-center">
+              <Mic className="w-10 h-10 text-muted-foreground mb-3" />
+              <p className="text-foreground font-medium mb-1">Шоу ещё не созданы</p>
+              <p className="text-sm text-muted-foreground">Подключи YouTube-канал — шоу создастся автоматически.</p>
+            </Card>
+          ) : (
+            podcasts.map(show => {
+              const rssPath = `/podcasts/${show.slug}/feed.xml`
+              return (
+                <Card key={show.id} className="p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <input
+                        value={show.title}
+                        onChange={e => setPodcasts(prev => prev.map(p => p.id === show.id ? { ...p, title: e.target.value } : p))}
+                        onBlur={e => { if (e.target.value !== show.title) updatePodcast(show.id, { title: e.target.value }) }}
+                        className="w-full text-lg font-semibold tracking-tight text-foreground bg-transparent focus:outline-none focus:ring-0"
+                      />
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground/70 font-mono">/podcasts/{show.slug}</span>
+                        {savingPodcastId === show.id && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const url = `${window.location.origin}${rssPath}`
+                        navigator.clipboard.writeText(url)
+                        setCopiedRssId(show.id)
+                        setTimeout(() => setCopiedRssId(null), 2000)
+                      }}
+                    >
+                      {copiedRssId === show.id ? <Check /> : <Copy />}
+                      {copiedRssId === show.id ? 'Скопировано' : 'RSS URL'}
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <a href={`/podcasts/${show.slug}`} target="_blank" rel="noopener noreferrer">Открыть</a>
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Slug (в URL)</label>
+                      <input
+                        defaultValue={show.slug}
+                        onBlur={e => { if (e.target.value !== show.slug) updatePodcast(show.id, { slug: e.target.value }) }}
+                        className={`${inputClass} font-mono text-[12px]`}
+                        placeholder="denis-tsaryuk"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Автор</label>
+                      <input
+                        defaultValue={show.author ?? ''}
+                        onBlur={e => updatePodcast(show.id, { author: e.target.value || null })}
+                        className={inputClass}
+                        placeholder="Денис Царюк"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Email владельца (для Apple)</label>
+                      <input
+                        type="email"
+                        defaultValue={show.owner_email ?? ''}
+                        onBlur={e => updatePodcast(show.id, { owner_email: e.target.value || null })}
+                        className={inputClass}
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Категория iTunes</label>
+                      <input
+                        defaultValue={show.category ?? ''}
+                        onBlur={e => updatePodcast(show.id, { category: e.target.value || null })}
+                        className={inputClass}
+                        placeholder="Society & Culture"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={labelClass}>Обложка (URL, квадрат ≥1400px)</label>
+                      <div className="flex items-center gap-3">
+                        {show.cover_url && (
+                          <img src={show.cover_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-border shrink-0" />
+                        )}
+                        <input
+                          defaultValue={show.cover_url ?? ''}
+                          onBlur={e => updatePodcast(show.id, { cover_url: e.target.value || null })}
+                          className={inputClass}
+                          placeholder="https://…/cover-3000.jpg"
+                        />
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={labelClass}>Описание</label>
+                      <textarea
+                        defaultValue={show.description ?? ''}
+                        onBlur={e => updatePodcast(show.id, { description: e.target.value || null })}
+                        className={`${textareaClass} min-h-[80px]`}
+                        placeholder="О чём подкаст"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={labelClass}>Промпт для обложки эпизода (используется в ThumbnailStudio)</label>
+                      <textarea
+                        defaultValue={show.cover_style_prompt ?? ''}
+                        onBlur={e => updatePodcast(show.id, { cover_style_prompt: e.target.value || null })}
+                        className={`${textareaClass} min-h-[60px] font-mono text-[12px]`}
+                        placeholder="dark green bokeh background, portrait in center, huge white sans-serif surname"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-6 flex-wrap pt-2 border-t border-border">
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={show.auto_publish}
+                        onChange={e => updatePodcast(show.id, { auto_publish: e.target.checked })}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      Авто-публикация новых <code className="font-mono text-[11px]">content_type=&#39;podcast&#39;</code>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={show.is_active}
+                        onChange={e => updatePodcast(show.id, { is_active: e.target.checked })}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      Шоу активно (виден RSS/лендинг)
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer ml-auto">
+                      Обрезать начало, сек
+                      <input
+                        type="number"
+                        min={0}
+                        defaultValue={show.default_trim_start_sec}
+                        onBlur={e => updatePodcast(show.id, { default_trim_start_sec: Math.max(0, parseInt(e.target.value || '0', 10)) })}
+                        className="w-16 h-8 px-2 rounded bg-background border border-border text-center text-foreground"
+                      />
+                    </label>
+                  </div>
+                </Card>
+              )
+            })
+          )}
         </div>
       )}
     </div>
