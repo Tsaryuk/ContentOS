@@ -355,6 +355,7 @@ export default function SettingsPage() {
               const accChannels = channels.filter(c => c.google_account_id === acc.id)
               const ch = accChannels[0]
               const isBrand = acc.email?.includes('pages.plusgoogle.com')
+              const needsReauth = accChannels.some(c => c.needs_reauth)
               return (
                 <Card key={acc.id} className="flex items-center gap-4 p-4">
                   {ch?.thumbnail_url
@@ -374,9 +375,25 @@ export default function SettingsPage() {
                       <div className="text-[11px] text-muted-foreground/70">{acc.email}</div>
                     )}
                   </div>
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 shrink-0">
-                    Подключён
-                  </span>
+                  {needsReauth ? (
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-300 shrink-0 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Токен истёк
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 shrink-0">
+                      Подключён
+                    </span>
+                  )}
+                  {needsReauth && (
+                    <Button
+                      asChild
+                      variant="brand"
+                      size="sm"
+                      className="shrink-0"
+                    >
+                      <a href="/api/auth/start">Переподключить</a>
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
