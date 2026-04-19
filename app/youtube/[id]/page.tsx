@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Clock, Eye, ThumbsUp, Sparkles, ExternalLink,
   Loader2, FileText, Tag, Scissors, MessageSquare, Image,
-  User, Rocket, Check, Copy, Save, GalleryHorizontalEnd, Link as LinkIcon
+  User, Rocket, Check, Copy, Save, GalleryHorizontalEnd, Link as LinkIcon,
+  Trash2,
 } from 'lucide-react'
 import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
@@ -53,7 +54,25 @@ export default function VideoDetailPage() {
   const [guestLinks, setGuestLinks] = useState<string | null>(null)
   const [guestLinksSaved, setGuestLinksSaved] = useState(false)
   const [shortLinkOpen, setShortLinkOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const descTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  async function deleteFromSystem() {
+    if (deleting) return
+    if (!confirm('Удалить это видео из ContentOS? Все связанные задания, правки и драфты будут удалены. YouTube это не затронет.')) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/youtube/${videoId}`, { method: 'DELETE' })
+      if (res.ok) {
+        router.push('/youtube')
+        return
+      }
+      const data = await res.json().catch(() => ({}))
+      alert('Ошибка: ' + (data.error ?? res.status))
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const loadVideo = useCallback(async () => {
     if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
@@ -270,6 +289,14 @@ export default function VideoDetailPage() {
           <a href={`https://youtube.com/watch?v=${video.yt_video_id}`} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
             <ExternalLink className="w-4 h-4" />
           </a>
+          <button
+            onClick={deleteFromSystem}
+            disabled={deleting}
+            title="Удалить из системы"
+            className="p-2 rounded-lg bg-white/5 hover:bg-red-500/15 hover:text-red-400 transition-colors disabled:opacity-50"
+          >
+            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Status */}

@@ -7,11 +7,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutGrid, Mail, Globe, Settings, Scissors, FileText,
   Play, Send, Camera, GalleryHorizontalEnd, CheckSquare, Calendar,
-  LogOut, Shield, ChevronDown,
+  LogOut, Shield, ChevronDown, Sun, Moon,
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
-import { ThemeToggle } from './ThemeToggle'
+import { useTheme } from '@/lib/theme'
 import { ProjectSwitcher } from './ProjectSwitcher'
 import {
   DropdownMenu,
@@ -92,6 +92,7 @@ export function Sidebar() {
   // Hide sidebar on public pages (letters.tsaryuk.ru)
   if (pathname.startsWith('/letters')) return null
   const router = useRouter()
+  const { theme, toggleTheme, mounted } = useTheme()
   const [hovered, setHovered] = useState<string | null>(null)
   const [ytChannels, setYtChannels] = useState<YtChannel[]>([])
   const [session, setSession] = useState<SessionUser>({ userId: null, userName: null, userRole: null })
@@ -263,22 +264,8 @@ export function Sidebar() {
 
       <div className="flex-1" />
 
-      {/* Bottom: theme + settings + account */}
+      {/* Bottom: account menu (contains settings, theme, admin, sign out) */}
       <div className="px-2 pt-2">
-        <div className="flex items-center justify-between gap-1 mb-1 px-1">
-          <ThemeToggle />
-          <Link
-            href="/settings"
-            data-active={pathname === '/settings' || undefined}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors
-              text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent
-              data-[active]:text-accent data-[active]:bg-sidebar-accent"
-            title="Настройки"
-          >
-            <Settings className="w-4 h-4" />
-          </Link>
-        </div>
-
         {session.userId && (
           <DropdownMenu>
             <DropdownMenuTrigger className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-sidebar-accent transition-colors">
@@ -313,6 +300,14 @@ export function Sidebar() {
                     </Link>
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem
+                  onSelect={(e) => { e.preventDefault(); if (mounted) toggleTheme() }}
+                >
+                  {theme === 'dark'
+                    ? <Sun className="w-4 h-4 text-muted-foreground" />
+                    : <Moon className="w-4 h-4 text-muted-foreground" />}
+                  <span>{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:bg-destructive/10"
