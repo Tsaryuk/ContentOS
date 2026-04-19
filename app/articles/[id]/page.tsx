@@ -396,8 +396,8 @@ export default function ArticleEditorPage() {
     updateLocal({ blog_slug: slug })
   }
 
-  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-dim" /></div>
-  if (!article) return <div className="flex-1 flex items-center justify-center"><p className="text-muted">Статья не найдена</p></div>
+  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/60" /></div>
+  if (!article) return <div className="flex-1 flex items-center justify-center"><p className="text-muted-foreground">Статья не найдена</p></div>
 
   const ytId = article.youtube_url?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/)?.[1]
   const isPublished = article.status === 'published'
@@ -406,28 +406,28 @@ export default function ArticleEditorPage() {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
-        <Link href="/articles" className="p-1.5 text-dim hover:text-muted"><ArrowLeft className="w-4 h-4" /></Link>
-        <span className="text-sm font-medium text-cream truncate max-w-[200px]">{article.title || 'Новая статья'}</span>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isPublished ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-dim'}`}>
+        <Link href="/articles" className="p-1.5 text-muted-foreground/60 hover:text-muted-foreground"><ArrowLeft className="w-4 h-4" /></Link>
+        <span className="text-sm font-medium text-foreground truncate max-w-[200px]">{article.title || 'Новая статья'}</span>
+        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isPublished ? 'bg-green-500/10 text-green-400' : 'bg-accent-surface text-muted-foreground/60'}`}>
           {isPublished ? 'Опубликовано' : 'Черновик'}
         </span>
         <div className="flex gap-1 ml-4">
           {([['edit', 'Контент'], ['seo', 'SEO'], ['distribute', 'Дистрибуция']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key as Tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${tab === key ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${tab === key ? 'bg-accent/10 text-accent' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}>
               {label}
             </button>
           ))}
         </div>
         <div className="flex-1" />
-        <span className="text-[10px] text-dim">v{article.version}</span>
+        <span className="text-[10px] text-muted-foreground/60">v{article.version}</span>
         <button onClick={() => setShowWhitePaper(true)}
-          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream flex items-center gap-1.5"
+          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
           title="Режим белого листа — писать без форматирования, потом AI структурирует">
           <FileText className="w-3 h-3" /> Белый лист
         </button>
         <button onClick={handleSave} disabled={saving}
-          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream disabled:opacity-50 flex items-center gap-1.5">
+          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 flex items-center gap-1.5">
           {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Сохранить
         </button>
         {isPublished ? (
@@ -451,16 +451,16 @@ export default function ArticleEditorPage() {
             <div className="p-4 border-b border-border space-y-3 shrink-0 max-h-[280px] overflow-y-auto">
               <input placeholder="Заголовок статьи" value={article.title}
                 onChange={e => updateLocal({ title: e.target.value })}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm font-medium text-cream focus:outline-none focus:border-accent" />
+                className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:border-accent" />
               <input placeholder="Подзаголовок / интрига" value={article.subtitle}
                 onChange={e => updateLocal({ subtitle: e.target.value })}
-                className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent" />
+                className="w-full px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-muted-foreground focus:outline-none focus:border-accent" />
               <div className="flex gap-3 items-start">
                 <div className="flex-1 space-y-2">
                   <div className="flex gap-2">
                     <input placeholder="URL обложки" value={article.cover_url ?? ''} onChange={e => updateLocal({ cover_url: e.target.value })}
-                      className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent" />
-                    <label className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream cursor-pointer flex items-center gap-1.5">
+                      className="flex-1 px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" />
+                    <label className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1.5">
                       <Upload className="w-3 h-3" /> Загрузить
                       <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
                     </label>
@@ -469,7 +469,7 @@ export default function ArticleEditorPage() {
                       {genCover ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />} Генерировать
                     </button>
                     <button onClick={() => setShowCoverSettings(v => !v)}
-                      className="px-2 py-1.5 border border-border rounded-lg text-xs text-dim hover:text-cream"
+                      className="px-2 py-1.5 border border-border rounded-lg text-xs text-muted-foreground/60 hover:text-foreground"
                       title="Настроить промпт">⚙</button>
                   </div>
                   {showCoverSettings && (
@@ -478,7 +478,7 @@ export default function ArticleEditorPage() {
                       onChange={e => setCoverPrompt(e.target.value)}
                       placeholder="Промпт для сцены (на английском). Например: A lone figure standing at a crossroads in a misty forest, ancient stone pillars. Wide cinematic composition, 16:9. Пусто = сгенерируется из темы."
                       rows={3}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-[11px] text-muted focus:outline-none focus:border-accent resize-none font-mono" />
+                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[11px] text-muted-foreground focus:outline-none focus:border-accent resize-none font-mono" />
                   )}
                   {coverOptions.length > 0 && (
                     <div className="flex gap-2">
@@ -504,7 +504,7 @@ export default function ArticleEditorPage() {
                     <img src={article.cover_url} className="w-full h-28 object-cover rounded-lg" alt="" />
                   )}
                   {article.cover_url && (
-                    <label className="flex items-center gap-2 text-[11px] text-muted cursor-pointer select-none">
+                    <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={article.show_cover_in_article !== false}
@@ -519,17 +519,17 @@ export default function ArticleEditorPage() {
                 <div className="w-64 space-y-2 shrink-0">
                   <div className="flex gap-2 items-center">
                     <input placeholder="YouTube URL" value={article.youtube_url ?? ''} onChange={e => updateLocal({ youtube_url: e.target.value })}
-                      className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent" />
+                      className="flex-1 px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" />
                     {ytId && <span className="text-[10px] text-green-400 flex items-center gap-1 shrink-0"><Play className="w-3 h-3" /></span>}
                   </div>
                   {ytId && (
                     <button onClick={insertYoutubeEmbed}
-                      className="w-full px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream flex items-center gap-1.5 justify-center">
+                      className="w-full px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 justify-center">
                       <Play className="w-3 h-3" /> Вставить видео в текст
                     </button>
                   )}
                   <select value={article.category ?? ''} onChange={e => updateLocal({ category: e.target.value || null })}
-                    className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent">
+                    className="w-full px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-muted-foreground focus:outline-none focus:border-accent">
                     <option value="">Категория</option>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -539,11 +539,11 @@ export default function ArticleEditorPage() {
 
             {/* Editor scroll area: toolbar sticky + content scrolls */}
             <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border/50 sticky top-0 bg-bg z-10">
-              <button onClick={handleUndo} title="Отменить (Ctrl+Z)" className="p-1.5 text-dim hover:text-cream hover:bg-white/5 rounded">
+            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border/50 sticky top-0 bg-background z-10">
+              <button onClick={handleUndo} title="Отменить (Ctrl+Z)" className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded">
                 <Undo2 className="w-3.5 h-3.5" />
               </button>
-              <button onClick={handleRedo} title="Вернуть (Ctrl+Y)" className="p-1.5 text-dim hover:text-cream hover:bg-white/5 rounded">
+              <button onClick={handleRedo} title="Вернуть (Ctrl+Y)" className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded">
                 <Redo2 className="w-3.5 h-3.5" />
               </button>
               <div className="w-px h-4 bg-border mx-1" />
@@ -555,13 +555,13 @@ export default function ArticleEditorPage() {
                 { icon: Link2, cmd: () => { const u = prompt('URL:'); if (u) execCmd('createLink', u) }, title: 'Ссылка' },
                 { icon: Minus, cmd: () => execCmd('insertHTML', '<hr class="divider">'), title: 'Разделитель' },
               ].map(({ icon: Icon, cmd, title }, i) => (
-                <button key={i} onClick={cmd} title={title} className="p-1.5 text-dim hover:text-cream hover:bg-white/5 rounded">
+                <button key={i} onClick={cmd} title={title} className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded">
                   <Icon className="w-3.5 h-3.5" />
                 </button>
               ))}
               <div className="w-px h-4 bg-border mx-1" />
               <button onClick={openImageDialog} title="AI картинка в тексте"
-                className="p-1.5 text-dim hover:text-accent hover:bg-white/5 rounded">
+                className="p-1.5 text-muted-foreground/60 hover:text-accent hover:bg-accent-surface rounded">
                 <Image className="w-3.5 h-3.5" />
               </button>
               <button onClick={handleFormat} disabled={formatting} title="AI-оформитель: добавит H2, цитаты, инсайты, вопросы"
@@ -575,13 +575,13 @@ export default function ArticleEditorPage() {
                 { label: 'Вопрос', html: '<div class="qblock"><div class="q-label">Вопрос для размышления</div><div class="q-text">Текст</div></div>' },
               ].map(b => (
                 <button key={b.label} onClick={() => execCmd('insertHTML', b.html)}
-                  className="px-2 py-1 text-[10px] text-dim hover:text-cream hover:bg-white/5 rounded font-medium">{b.label}</button>
+                  className="px-2 py-1 text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded font-medium">{b.label}</button>
               ))}
               <div className="flex-1" />
               <div className="flex gap-1">
                 {(['editor', 'desktop', 'mobile'] as const).map(m => (
                   <button key={m} onClick={() => setPreview(m)}
-                    className={`px-2 py-1 rounded text-xs ${preview === m ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'}`}>
+                    className={`px-2 py-1 rounded text-xs ${preview === m ? 'bg-accent/10 text-accent' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}>
                     {m === 'editor' ? 'Редактор' : m === 'desktop' ? <Monitor className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
                   </button>
                 ))}
@@ -592,16 +592,16 @@ export default function ArticleEditorPage() {
             <div>
               {preview === 'editor' ? (
                 <div ref={editorRef} contentEditable suppressContentEditableWarning
-                  className="p-6 min-h-full text-cream text-sm leading-relaxed focus:outline-none prose prose-invert max-w-none
+                  className="p-6 min-h-full text-foreground text-sm leading-relaxed focus:outline-none prose prose-invert max-w-none
                     [&_h2]:text-xs [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:font-bold [&_h2]:text-accent [&_h2]:mt-8 [&_h2]:mb-3
-                    [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted
+                    [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
                     [&_.insight]:border-l-2 [&_.insight]:border-accent [&_.insight]:pl-4 [&_.insight]:my-6
                     [&_.ins-label]:text-[10px] [&_.ins-label]:uppercase [&_.ins-label]:tracking-wider [&_.ins-label]:text-accent [&_.ins-label]:mb-1
-                    [&_.ins-text]:italic [&_.ins-text]:text-cream
+                    [&_.ins-text]:italic [&_.ins-text]:text-foreground
                     [&_.qblock]:border-y [&_.qblock]:border-border [&_.qblock]:py-5 [&_.qblock]:my-6
-                    [&_.q-label]:text-[10px] [&_.q-label]:uppercase [&_.q-label]:tracking-wider [&_.q-label]:text-dim [&_.q-label]:mb-2
-                    [&_.q-text]:italic [&_.q-text]:text-lg [&_.q-text]:text-cream
-                    [&_hr]:border-border [&_hr]:my-6 [&_strong]:text-cream [&_a]:text-accent
+                    [&_.q-label]:text-[10px] [&_.q-label]:uppercase [&_.q-label]:tracking-wider [&_.q-label]:text-muted-foreground/60 [&_.q-label]:mb-2
+                    [&_.q-text]:italic [&_.q-text]:text-lg [&_.q-text]:text-foreground
+                    [&_hr]:border-border [&_hr]:my-6 [&_strong]:text-foreground [&_a]:text-accent
                     [&_.video-embed]:my-6 [&_.video-embed]:rounded-lg [&_.video-embed]:overflow-hidden
                     [&_iframe]:w-full [&_iframe]:border-0"
                   dangerouslySetInnerHTML={{ __html: article.body_html || '<p style="color:#555">Начните писать статью...</p>' }}
@@ -649,7 +649,7 @@ export default function ArticleEditorPage() {
           {tab === 'seo' && (
             <div className="p-6 space-y-5 overflow-y-auto flex-1">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-medium text-cream flex items-center gap-2"><Globe className="w-4 h-4 text-accent" /> SEO и публикация</h2>
+                <h2 className="text-sm font-medium text-foreground flex items-center gap-2"><Globe className="w-4 h-4 text-accent" /> SEO и публикация</h2>
                 <button onClick={async () => {
                   const textOnly = article.body_html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 2000)
                   setChatLoading(true)
@@ -661,25 +661,25 @@ export default function ArticleEditorPage() {
                   {chatLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI-генерация
                 </button>
               </div>
-              <div><label className="text-[10px] text-dim uppercase tracking-wider mb-1.5 block">SEO Title ({article.seo_title.length}/60)</label>
-                <input value={article.seo_title} onChange={e => updateLocal({ seo_title: e.target.value })} className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent" /></div>
-              <div><label className="text-[10px] text-dim uppercase tracking-wider mb-1.5 block">Meta Description ({article.seo_description.length}/160)</label>
-                <textarea value={article.seo_description} onChange={e => updateLocal({ seo_description: e.target.value })} rows={3} className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent resize-none" /></div>
-              <div><label className="text-[10px] text-dim uppercase tracking-wider mb-1.5 block">URL slug</label>
+              <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">SEO Title ({article.seo_title.length}/60)</label>
+                <input value={article.seo_title} onChange={e => updateLocal({ seo_title: e.target.value })} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" /></div>
+              <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Meta Description ({article.seo_description.length}/160)</label>
+                <textarea value={article.seo_description} onChange={e => updateLocal({ seo_description: e.target.value })} rows={3} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent resize-none" /></div>
+              <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">URL slug</label>
                 <div className="flex gap-2">
-                  <div className="flex-1 flex items-center bg-surface border border-border rounded-lg overflow-hidden">
-                    <span className="px-3 text-[10px] text-dim">/articles/</span>
-                    <input value={article.blog_slug ?? ''} onChange={e => updateLocal({ blog_slug: e.target.value })} className="flex-1 px-1 py-2 bg-transparent text-xs text-cream focus:outline-none" />
-                    <span className="px-2 text-[10px] text-dim">.html</span>
+                  <div className="flex-1 flex items-center bg-card border border-border rounded-lg overflow-hidden">
+                    <span className="px-3 text-[10px] text-muted-foreground/60">/articles/</span>
+                    <input value={article.blog_slug ?? ''} onChange={e => updateLocal({ blog_slug: e.target.value })} className="flex-1 px-1 py-2 bg-transparent text-xs text-foreground focus:outline-none" />
+                    <span className="px-2 text-[10px] text-muted-foreground/60">.html</span>
                   </div>
-                  <button onClick={slugFromTitle} className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream">Auto</button>
+                  <button onClick={slugFromTitle} className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground">Auto</button>
                 </div>
               </div>
-              <div><label className="text-[10px] text-dim uppercase tracking-wider mb-1.5 block">Ключевые слова</label>
-                <input value={article.seo_keywords.join(', ')} onChange={e => updateLocal({ seo_keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent" /></div>
-              <div><label className="text-[10px] text-dim uppercase tracking-wider mb-1.5 block">Рубрика</label>
+              <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Ключевые слова</label>
+                <input value={article.seo_keywords.join(', ')} onChange={e => updateLocal({ seo_keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" /></div>
+              <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Рубрика</label>
                 <div className="flex flex-wrap gap-1.5">
-                  {CATEGORIES.map(c => <button key={c} onClick={() => updateLocal({ category: c })} className={`px-3 py-1.5 rounded-full text-xs border ${article.category === c ? 'bg-accent/10 border-accent text-accent' : 'border-border text-dim hover:text-muted'}`}>{c}</button>)}
+                  {CATEGORIES.map(c => <button key={c} onClick={() => updateLocal({ category: c })} className={`px-3 py-1.5 rounded-full text-xs border ${article.category === c ? 'bg-accent/10 border-accent text-accent' : 'border-border text-muted-foreground/60 hover:text-muted-foreground'}`}>{c}</button>)}
                 </div></div>
               <div className="p-4 bg-white rounded-lg">
                 <div className="text-[11px] text-green-700 mb-0.5">letters.tsaryuk.ru &rsaquo; articles &rsaquo; {article.blog_slug || 'slug'}</div>
@@ -691,10 +691,10 @@ export default function ArticleEditorPage() {
 
           {tab === 'distribute' && (
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
-              <h2 className="text-sm font-medium text-cream mb-4">Дистрибуция из статьи</h2>
-              <div className="p-4 bg-surface border border-border rounded-xl">
+              <h2 className="text-sm font-medium text-foreground mb-4">Дистрибуция из статьи</h2>
+              <div className="p-4 bg-card border border-border rounded-xl">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-accent" /><span className="text-xs font-medium text-cream">Email рассылка</span></div>
+                  <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-accent" /><span className="text-xs font-medium text-foreground">Email рассылка</span></div>
                   {article.email_issue_id ? (
                     <Link href={`/newsletter/editor/${article.email_issue_id}`} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs flex items-center gap-1.5">
                       <ExternalLink className="w-3 h-3" /> Открыть письмо
@@ -706,12 +706,12 @@ export default function ArticleEditorPage() {
                     </button>
                   )}
                 </div>
-                <p className="text-[11px] text-dim mt-2">AI сократит статью до email-формата и добавит ссылку на полную версию</p>
+                <p className="text-[11px] text-muted-foreground/60 mt-2">AI сократит статью до email-формата и добавит ссылку на полную версию</p>
               </div>
               <VideoScriptPanel articleId={article.id} articleTitle={article.title} hasBody={Boolean(article.body_html?.trim())} />
-              <div className="p-4 bg-surface border border-border rounded-xl opacity-60">
-                <div className="flex items-center gap-2"><Image className="w-4 h-4 text-purple-400" /><span className="text-xs font-medium text-cream">Карусель</span></div>
-                <p className="text-[11px] text-dim mt-2">Скоро: генерация карусели для Instagram/Telegram</p>
+              <div className="p-4 bg-card border border-border rounded-xl opacity-60">
+                <div className="flex items-center gap-2"><Image className="w-4 h-4 text-purple-400" /><span className="text-xs font-medium text-foreground">Карусель</span></div>
+                <p className="text-[11px] text-muted-foreground/60 mt-2">Скоро: генерация карусели для Instagram/Telegram</p>
               </div>
               <ThreadsPanel articleId={article.id} hasBody={Boolean(article.body_html?.trim())} />
             </div>
@@ -721,33 +721,33 @@ export default function ArticleEditorPage() {
         {/* AI Chat sidebar */}
         <div className="w-[360px] shrink-0 flex flex-col min-h-0">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-            <Sparkles className="w-4 h-4 text-accent" /><span className="text-xs font-medium text-cream">AI-ассистент</span>
+            <Sparkles className="w-4 h-4 text-accent" /><span className="text-xs font-medium text-foreground">AI-ассистент</span>
           </div>
           <div className="px-3 py-2 border-b border-border/50 flex flex-wrap gap-1 shrink-0">
             {QUICK_CMDS.map(c => (
               <button key={c.label} onClick={() => sendChat(c.prompt)} disabled={chatLoading}
-                className="px-2.5 py-1 bg-surface border border-border rounded-full text-[10px] text-muted hover:text-cream hover:border-accent/50 disabled:opacity-50">{c.label}</button>
+                className="px-2.5 py-1 bg-card border border-border rounded-full text-[10px] text-muted-foreground hover:text-foreground hover:border-accent/50 disabled:opacity-50">{c.label}</button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-            {chatMessages.length === 0 && <div className="text-center py-8"><Sparkles className="w-8 h-8 text-dim mx-auto mb-3" /><p className="text-xs text-dim">Спроси что-нибудь или используй команды</p></div>}
+            {chatMessages.length === 0 && <div className="text-center py-8"><Sparkles className="w-8 h-8 text-muted-foreground/60 mx-auto mb-3" /><p className="text-xs text-muted-foreground/60">Спроси что-нибудь или используй команды</p></div>}
             {chatMessages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${m.role === 'user' ? 'bg-accent/10 text-cream' : 'bg-surface text-muted'}`}>
+                <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${m.role === 'user' ? 'bg-accent/10 text-foreground' : 'bg-card text-muted-foreground'}`}>
                   <div className="whitespace-pre-wrap">{m.content.slice(0, 2000)}{m.content.length > 2000 ? '...' : ''}</div>
                   {m.role === 'assistant' && <button onClick={() => insertFromChat(m.content)} className="mt-2 text-[10px] text-accent hover:underline">Вставить в редактор</button>}
                 </div>
               </div>
             ))}
-            {chatLoading && <div className="flex justify-start"><div className="bg-surface rounded-xl px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-accent" /></div></div>}
+            {chatLoading && <div className="flex justify-start"><div className="bg-card rounded-xl px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-accent" /></div></div>}
             <div ref={chatEndRef} />
           </div>
           <div className="p-3 border-t border-border flex gap-2 shrink-0">
-            <button onClick={toggleVoice} className={`p-2 rounded-lg ${listening ? 'bg-red-500/20 text-red-400' : 'text-dim hover:text-muted'}`}>
+            <button onClick={toggleVoice} className={`p-2 rounded-lg ${listening ? 'bg-red-500/20 text-red-400' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}>
               {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
             <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat(chatInput)}
-              placeholder="Спросить AI..." className="flex-1 px-3 py-2 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent" />
+              placeholder="Спросить AI..." className="flex-1 px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" />
             <button onClick={() => sendChat(chatInput)} disabled={!chatInput.trim() || chatLoading}
               className="p-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50"><Send className="w-4 h-4" /></button>
           </div>
@@ -772,13 +772,13 @@ export default function ArticleEditorPage() {
       {showImageDialog && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6"
           onClick={() => !genImage && setShowImageDialog(false)}>
-          <div className="bg-surface border border-border rounded-xl p-6 max-w-lg w-full"
+          <div className="bg-card border border-border rounded-xl p-6 max-w-lg w-full"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
               <Image className="w-4 h-4 text-accent" />
-              <h3 className="text-sm font-medium text-cream">Вставить AI-картинку</h3>
+              <h3 className="text-sm font-medium text-foreground">Вставить AI-картинку</h3>
             </div>
-            <p className="text-[11px] text-dim mb-3">
+            <p className="text-[11px] text-muted-foreground/60 mb-3">
               Стиль ч/б гравюры применяется автоматически. Опишите сцену на английском (лучше работает) или русском.
             </p>
             <textarea
@@ -787,13 +787,13 @@ export default function ArticleEditorPage() {
               placeholder="A lone tree on a cliff edge, storm clouds swirling above, waves crashing below"
               rows={4}
               autoFocus
-              className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent resize-none font-mono mb-4"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent resize-none font-mono mb-4"
             />
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setShowImageDialog(false)}
                 disabled={genImage}
-                className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream disabled:opacity-50">
+                className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">
                 Отмена
               </button>
               <button

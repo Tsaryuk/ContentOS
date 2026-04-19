@@ -31,7 +31,7 @@ export function ThumbnailGallery({
               key={idx}
               onClick={() => onSelect(idx)}
               className={`relative rounded-xl overflow-hidden border-2 transition-all ${
-                isSelected ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-transparent hover:border-white/20'
+                isSelected ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-transparent hover:border-border'
               }`}
             >
               <img src={url} alt={`Вариант ${idx + 1}`} className="w-full aspect-video object-cover" />

@@ -247,10 +247,10 @@ export default function VideoDetailPage() {
   }, [videoId])
 
   if (loading) {
-    return <div className="min-h-screen bg-bg text-cream flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted" /></div>
+    return <div className="min-h-screen bg-background text-foreground flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
   }
   if (!video) {
-    return <div className="min-h-screen bg-bg text-cream flex items-center justify-center"><div className="text-muted">Видео не найдено</div></div>
+    return <div className="min-h-screen bg-background text-foreground flex items-center justify-center"><div className="text-muted-foreground">Видео не найдено</div></div>
   }
 
   const po = video.producer_output
@@ -260,17 +260,17 @@ export default function VideoDetailPage() {
   const canPublish = (video.status === 'review' || video.status === 'done') && video.is_approved
 
   return (
-    <div className="min-h-screen bg-bg text-cream font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans">
       <div className="max-w-7xl mx-auto px-6 py-6">
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => router.push('/youtube')} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+          <button onClick={() => router.push('/youtube')} className="p-2 rounded-lg bg-accent-surface hover:bg-accent-surface/80 transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-medium truncate">{video.current_title}</h1>
-            <div className="flex items-center gap-4 mt-1 text-xs text-muted">
+            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(video.duration_seconds)}</span>
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatCount(video.view_count)}</span>
               <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" />{formatCount(video.like_count)}</span>
@@ -282,25 +282,25 @@ export default function VideoDetailPage() {
           <button
             onClick={() => setShortLinkOpen(true)}
             title="Deep link"
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+            className="p-2 rounded-lg bg-accent-surface hover:bg-accent-surface/80 transition-colors"
           >
             <LinkIcon className="w-4 h-4" />
           </button>
-          <a href={`https://youtube.com/watch?v=${video.yt_video_id}`} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+          <a href={`https://youtube.com/watch?v=${video.yt_video_id}`} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-accent-surface hover:bg-accent-surface/80 transition-colors">
             <ExternalLink className="w-4 h-4" />
           </a>
           <button
             onClick={deleteFromSystem}
             disabled={deleting}
             title="Удалить из системы"
-            className="p-2 rounded-lg bg-white/5 hover:bg-red-500/15 hover:text-red-400 transition-colors disabled:opacity-50"
+            className="p-2 rounded-lg bg-accent-surface hover:bg-red-500/15 hover:text-red-400 transition-colors disabled:opacity-50"
           >
             {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
           </button>
         </div>
 
         {/* Status */}
-        <div className="mb-6 p-3 bg-surface rounded-xl border border-border">
+        <div className="mb-6 p-3 bg-card rounded-xl border border-border">
           <StatusStepper status={video.status} />
           {video.status === 'error' && video.error_message && !video.error_message.startsWith('progress:') && (
             <div className="flex items-center justify-between mt-2 px-2">
@@ -354,17 +354,17 @@ export default function VideoDetailPage() {
             {po && (
               <>
                 {/* Guest Info */}
-                <div className="p-4 bg-surface rounded-xl border border-border">
-                  <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><User className="w-4 h-4" /> Гость</h3>
+                <div className="p-4 bg-card rounded-xl border border-border">
+                  <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><User className="w-4 h-4" /> Гость</h3>
                   <GuestInfo guest={po.guest_info} onUpdate={(g) => patchVideo({ producer_output: { ...po, guest_info: g } })} />
                   {/* Guest Links */}
                   <div className="mt-3 pt-3 border-t border-border">
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] text-dim uppercase tracking-wider font-medium">Ссылки на гостя</label>
+                      <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Ссылки на гостя</label>
                       {guestLinksSaved && <span className="text-[10px] text-green-400">Сохранено</span>}
                     </div>
                     <textarea
-                      className="w-full bg-bg border border-border rounded-lg p-2 text-xs text-cream leading-relaxed resize-none focus:outline-none focus:border-muted/40"
+                      className="w-full bg-background border border-border rounded-lg p-2 text-xs text-foreground leading-relaxed resize-none focus:outline-none focus:border-muted/40"
                       rows={3}
                       placeholder={'— https://t.me/guest\n— https://instagram.com/guest'}
                       value={guestLinks ?? video.guest_links ?? ''}
@@ -381,8 +381,8 @@ export default function VideoDetailPage() {
                 </div>
 
                 {/* Titles */}
-                <div className="p-4 bg-surface rounded-xl border border-border">
-                  <h3 className="text-sm font-medium text-muted mb-3">Заголовок</h3>
+                <div className="p-4 bg-card rounded-xl border border-border">
+                  <h3 className="text-sm font-medium text-muted-foregroundmb-3">Заголовок</h3>
                   <VariantSelector
                     variants={po.title_variants}
                     selectedIndex={sv.title_index}
@@ -395,11 +395,11 @@ export default function VideoDetailPage() {
                 </div>
 
                 {/* Description */}
-                <div className="p-4 bg-surface rounded-xl border border-border">
+                <div className="p-4 bg-card rounded-xl border border-border">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-muted">Описание</h3>
+                    <h3 className="text-sm font-medium text-muted-foreground">Описание</h3>
                     <div className="flex items-center gap-2">
-                      {descSaving && <span className="text-xs text-muted flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /></span>}
+                      {descSaving && <span className="text-xs text-muted-foregroundflex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /></span>}
                       {descSaved && <span className="text-xs text-green-400 flex items-center gap-1"><Check className="w-3 h-3" /> Сохранено</span>}
                       <button
                         onClick={() => {
@@ -407,7 +407,7 @@ export default function VideoDetailPage() {
                           setDescEdit(full)
                           saveDescDebounced(full)
                         }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-surface transition-colors border border-border"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foregroundhover:text-foreground hover:bg-card transition-colors border border-border"
                       >
                         <FileText className="w-3 h-3" />
                         Собрать
@@ -415,7 +415,7 @@ export default function VideoDetailPage() {
                     </div>
                   </div>
                   <textarea
-                    className="w-full bg-bg border border-border rounded-lg p-3 text-xs text-cream leading-relaxed resize-y focus:outline-none focus:border-muted/40 min-h-[200px]"
+                    className="w-full bg-background border border-border rounded-lg p-3 text-xs text-foreground leading-relaxed resize-y focus:outline-none focus:border-muted/40 min-h-[200px]"
                     value={descEdit ?? video.generated_description ?? po.description ?? ''}
                     onChange={e => {
                       setDescEdit(e.target.value)
@@ -424,15 +424,15 @@ export default function VideoDetailPage() {
                     rows={12}
                   />
                   <div className="flex items-center justify-between mt-2 px-1">
-                    <span className="text-[10px] text-dim">{(descEdit ?? video.generated_description ?? po.description ?? '').length} / 5000 символов</span>
+                    <span className="text-[10px] text-muted-foreground/60">{(descEdit ?? video.generated_description ?? po.description ?? '').length} / 5000 символов</span>
                   </div>
                 </div>
 
                 {/* Tags */}
                 {po.tags?.length > 0 && (
-                  <div className="p-4 bg-surface rounded-xl border border-border">
+                  <div className="p-4 bg-card rounded-xl border border-border">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-muted flex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
+                      <h3 className="text-sm font-medium text-muted-foregroundflex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
                       <button
                         onClick={() => {
                           const text = po.tags.map((t: string) => t.replace(/^#/, '')).join(', ')
@@ -440,7 +440,7 @@ export default function VideoDetailPage() {
                           setCopiedTags(true)
                           setTimeout(() => setCopiedTags(false), 2000)
                         }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foregroundhover:text-foreground hover:bg-accent-surface transition-colors"
                       >
                         {copiedTags ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                         {copiedTags ? 'Скопировано' : 'Копировать'}
@@ -448,7 +448,7 @@ export default function VideoDetailPage() {
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {po.tags.map((tag: string, i: number) => (
-                        <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-xs text-muted">{tag}</span>
+                        <span key={i} className="px-2 py-0.5 bg-accent-surface rounded text-xs text-muted-foreground">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -456,9 +456,9 @@ export default function VideoDetailPage() {
 
                 {/* Timecodes */}
                 {po.timecodes?.length > 0 && (
-                  <div className="p-4 bg-surface rounded-xl border border-border">
+                  <div className="p-4 bg-card rounded-xl border border-border">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-muted flex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
+                      <h3 className="text-sm font-medium text-muted-foregroundflex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={async () => {
@@ -480,7 +480,7 @@ export default function VideoDetailPage() {
                           }}
                           disabled={regenTimecodes}
                           title="Перегенерировать таймкоды"
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foregroundhover:text-foreground hover:bg-accent-surface transition-colors disabled:opacity-50"
                         >
                           {regenTimecodes
                             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -494,7 +494,7 @@ export default function VideoDetailPage() {
                             setCopiedTimecodes(true)
                             setTimeout(() => setCopiedTimecodes(false), 2000)
                           }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-white/5 transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foregroundhover:text-foreground hover:bg-accent-surface transition-colors"
                         >
                           {copiedTimecodes ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                           {copiedTimecodes ? 'Скопировано' : 'Копировать'}
@@ -505,7 +505,7 @@ export default function VideoDetailPage() {
                       {po.timecodes.map((tc: any, i: number) => (
                         <div key={i} className="flex gap-3 text-xs">
                           <span className="text-purple-400 font-mono w-14 shrink-0">{tc.time}</span>
-                          <span className="text-muted">{tc.label}</span>
+                          <span className="text-muted-foreground">{tc.label}</span>
                         </div>
                       ))}
                     </div>
@@ -513,8 +513,8 @@ export default function VideoDetailPage() {
                 )}
 
                 {/* Clips & Shorts */}
-                <div className="p-4 bg-surface rounded-xl border border-border">
-                  <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><Scissors className="w-4 h-4" /> Контент для нарезки</h3>
+                <div className="p-4 bg-card rounded-xl border border-border">
+                  <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><Scissors className="w-4 h-4" /> Контент для нарезки</h3>
                   <ClipList
                     clips={po.clip_suggestions ?? []}
                     shorts={po.short_suggestions ?? []}
@@ -527,20 +527,20 @@ export default function VideoDetailPage() {
 
                 {/* Social Previews */}
                 {po.social_drafts?.length > 0 && (
-                  <div className="p-4 bg-surface rounded-xl border border-border">
-                    <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Анонсы</h3>
+                  <div className="p-4 bg-card rounded-xl border border-border">
+                    <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Анонсы</h3>
                     <SocialPreview drafts={po.social_drafts} />
                   </div>
                 )}
 
                 {/* Create Carousel from Video */}
                 {video.transcript && (
-                  <div className="p-4 bg-surface rounded-xl border border-border">
-                    <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><GalleryHorizontalEnd className="w-4 h-4" /> Карусель</h3>
-                    <p className="text-xs text-muted mb-3">Создай Instagram-карусель из ключевых идей этого видео</p>
+                  <div className="p-4 bg-card rounded-xl border border-border">
+                    <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><GalleryHorizontalEnd className="w-4 h-4" /> Карусель</h3>
+                    <p className="text-xs text-muted-foregroundmb-3">Создай Instagram-карусель из ключевых идей этого видео</p>
                     <button
                       onClick={() => router.push(`/carousels/new?videoId=${video.id}&topic=${encodeURIComponent(video.generated_title || video.current_title || '')}`)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-xs font-semibold text-muted hover:border-accent hover:text-accent transition-colors"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-xs font-semibold text-muted-foregroundhover:border-accent hover:text-accent transition-colors"
                     >
                       <GalleryHorizontalEnd className="w-3.5 h-3.5" />
                       Создать карусель из видео
@@ -551,13 +551,13 @@ export default function VideoDetailPage() {
             )}
 
             {/* Comments */}
-            <div className="p-4 bg-surface rounded-xl border border-border">
+            <div className="p-4 bg-card rounded-xl border border-border">
               <CommentsList videoId={video.id} />
             </div>
 
             {/* Transcript */}
-            <div className="p-4 bg-surface rounded-xl border border-border">
-              <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><FileText className="w-4 h-4" /> Транскрипт</h3>
+            <div className="p-4 bg-card rounded-xl border border-border">
+              <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><FileText className="w-4 h-4" /> Транскрипт</h3>
               <TranscriptViewer videoTitle={video.current_title} chunks={video.transcript_chunks} transcript={video.transcript} />
             </div>
           </div>
@@ -566,8 +566,8 @@ export default function VideoDetailPage() {
           <div className="space-y-4">
 
             {/* Actions */}
-            <div className="p-4 bg-surface rounded-xl border border-border space-y-2 sticky top-6 z-30">
-              <h3 className="text-sm font-medium text-muted mb-3">Действия</h3>
+            <div className="p-4 bg-card rounded-xl border border-border space-y-2 sticky top-6 z-30">
+              <h3 className="text-sm font-medium text-muted-foregroundmb-3">Действия</h3>
 
               {po ? (
                 <>
@@ -582,17 +582,17 @@ export default function VideoDetailPage() {
 
                   <button
                     onClick={() => router.push(`/clips/${videoId}`)}
-                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-surface border border-border text-muted hover:text-cream hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-card border border-border text-muted-foregroundhover:text-foreground hover:bg-accent-surface transition-colors flex items-center justify-center gap-2"
                   >
                     <Scissors className="w-4 h-4" /> Создать клипы
                   </button>
 
-                  <div className="border-t border-white/[0.06] pt-2 mt-2">
+                  <div className="border-t border-border pt-2 mt-2">
                     <button
                       onClick={() => patchVideo({ is_approved: !video.is_approved })}
                       disabled={video.status !== 'review' || isProcessing}
                       className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 ${
-                        video.is_approved ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-muted hover:bg-white/10'
+                        video.is_approved ? 'bg-emerald-500/20 text-emerald-400' : 'bg-accent-surface text-muted-foregroundhover:bg-accent-surface/80'
                       }`}
                     >
                       {video.is_approved ? <><Check className="w-4 h-4 inline mr-2" />Одобрено</> : 'Одобрить'}
@@ -605,11 +605,11 @@ export default function VideoDetailPage() {
                     const title = video.generated_title ?? po?.title_variants?.[0]?.text ?? ''
                     const published = publishedVariants.has(0)
                     return (
-                      <div className="mt-2 border-t border-white/[0.06] pt-2">
-                        <p className="text-[10px] text-dim px-1 mb-1.5">{video.is_published_back ? 'Обновить на YouTube' : 'Публикация на YouTube'}</p>
-                        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                      <div className="mt-2 border-t border-border pt-2">
+                        <p className="text-[10px] text-muted-foreground/60 px-1 mb-1.5">{video.is_published_back ? 'Обновить на YouTube' : 'Публикация на YouTube'}</p>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-accent-surface/50 border border-border">
                           {thumb && <img src={thumb} alt="" className="w-12 h-7 rounded object-cover flex-shrink-0" />}
-                          <p className="flex-1 min-w-0 text-[11px] text-cream truncate">{title}</p>
+                          <p className="flex-1 min-w-0 text-[11px] text-foreground truncate">{title}</p>
                           <button
                             onClick={() => publishVariant(0, title, thumb)}
                             disabled={isProcessing || published}
@@ -646,7 +646,7 @@ export default function VideoDetailPage() {
 
             {/* Thumbnail Studio */}
             {po && (
-              <div className="p-4 bg-surface rounded-xl border border-border">
+              <div className="p-4 bg-card rounded-xl border border-border">
                 <ThumbnailStudio
                   videoId={video.id}
                   channelId={video.channel_id}
@@ -664,8 +664,8 @@ export default function VideoDetailPage() {
 
             {/* Thumbnails (legacy gallery) */}
             {!po && video.thumbnail_url && (
-              <div className="p-4 bg-surface rounded-xl border border-border">
-                <h3 className="text-sm font-medium text-muted mb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Обложки</h3>
+              <div className="p-4 bg-card rounded-xl border border-border">
+                <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Обложки</h3>
                 <ThumbnailGallery
                   thumbnailUrls={[video.thumbnail_url]}
                   currentThumbnail={video.current_thumbnail}
@@ -677,12 +677,12 @@ export default function VideoDetailPage() {
 
             {/* AI Score */}
             {po?.ai_score != null && (
-              <div className="p-4 bg-surface rounded-xl border border-border">
-                <h3 className="text-sm font-medium text-muted mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Score</h3>
+              <div className="p-4 bg-card rounded-xl border border-border">
+                <h3 className="text-sm font-medium text-muted-foregroundmb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Score</h3>
                 <div className="flex items-center gap-3">
                   <div className="text-3xl font-bold text-purple-400">{po.ai_score}</div>
                   <div className="flex-1">
-                    <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-2 bg-accent-surface rounded-full overflow-hidden">
                       <div className="h-full bg-purple-500 rounded-full" style={{ width: `${po.ai_score}%` }} />
                     </div>
                   </div>
@@ -692,9 +692,9 @@ export default function VideoDetailPage() {
 
             {/* Summary */}
             {po?.content_summary && (
-              <div className="p-4 bg-surface rounded-xl border border-border">
-                <h3 className="text-sm font-medium text-muted mb-2">Резюме</h3>
-                <p className="text-xs text-muted leading-relaxed">{po.content_summary}</p>
+              <div className="p-4 bg-card rounded-xl border border-border">
+                <h3 className="text-sm font-medium text-muted-foregroundmb-2">Резюме</h3>
+                <p className="text-xs text-muted-foregroundleading-relaxed">{po.content_summary}</p>
               </div>
             )}
           </div>

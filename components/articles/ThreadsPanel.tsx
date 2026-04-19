@@ -75,13 +75,13 @@ export function ThreadsPanel({ articleId, hasBody }: Props) {
   const generatedAt = piece?.metadata?.generated_at
 
   return (
-    <div className="p-4 bg-surface border border-border rounded-xl space-y-3">
+    <div className="p-4 bg-card border border-border rounded-xl space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Send className="w-4 h-4 text-sky-400" />
-          <span className="text-xs font-medium text-cream">Threads</span>
+          <span className="text-xs font-medium text-foreground">Threads</span>
           {generatedAt && (
-            <span className="text-[10px] text-dim">
+            <span className="text-[10px] text-muted-foreground/60">
               · последняя генерация {new Date(generatedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
@@ -95,11 +95,11 @@ export function ThreadsPanel({ articleId, hasBody }: Props) {
           {generating ? 'Генерируем...' : candidates.length ? 'Сгенерировать заново' : 'Сгенерировать'}
         </button>
       </div>
-      <p className="text-[11px] text-dim">
-        Стиль <code className="text-muted">@thedankoe</code> — короткий hook + 1-3 абзаца + афористичный финал. Без эмодзи. 5-7 вариантов из ключевых идей статьи.
+      <p className="text-[11px] text-muted-foreground/60">
+        Стиль <code className="text-muted-foreground">@thedankoe</code> — короткий hook + 1-3 абзаца + афористичный финал. Без эмодзи. 5-7 вариантов из ключевых идей статьи.
       </p>
 
-      {loading && <div className="flex items-center gap-2 text-xs text-dim"><Loader2 className="w-3 h-3 animate-spin" /> Загрузка...</div>}
+      {loading && <div className="flex items-center gap-2 text-xs text-muted-foreground/60"><Loader2 className="w-3 h-3 animate-spin" /> Загрузка...</div>}
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       {!loading && candidates.length > 0 && (
@@ -107,19 +107,19 @@ export function ThreadsPanel({ articleId, hasBody }: Props) {
           {candidates.map((c, i) => {
             const fullText = c.full_text ?? [c.hook, c.body, c.closing].filter(Boolean).join('\n\n')
             return (
-              <div key={i} className="p-3 bg-bg rounded-lg border border-border/60 hover:border-accent/40 transition-colors">
+              <div key={i} className="p-3 bg-background rounded-lg border border-border/60 hover:border-accent/40 transition-colors">
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="text-[10px] uppercase tracking-wider text-dim shrink-0">#{i + 1} · {c.seed_idea}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 shrink-0">#{i + 1} · {c.seed_idea}</span>
                   <button
                     onClick={() => copyToClipboard(fullText, i)}
-                    className="p-1 rounded text-dim hover:text-cream shrink-0"
+                    className="p-1 rounded text-muted-foreground/60 hover:text-foreground shrink-0"
                     title="Скопировать"
                   >
                     {copied === i ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <pre className="text-xs text-cream leading-relaxed whitespace-pre-wrap font-sans">{fullText}</pre>
-                <div className="text-[10px] text-dim mt-2 tabular-nums">
+                <pre className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-sans">{fullText}</pre>
+                <div className="text-[10px] text-muted-foreground/60 mt-2 tabular-nums">
                   {fullText.split(/\s+/).filter(Boolean).length} слов · {fullText.length} знаков
                 </div>
               </div>
@@ -129,7 +129,7 @@ export function ThreadsPanel({ articleId, hasBody }: Props) {
       )}
 
       {!loading && candidates.length === 0 && !error && !generating && (
-        <p className="text-[11px] text-dim italic">
+        <p className="text-[11px] text-muted-foreground/60 italic">
           Ещё не сгенерировано. Нажмите «Сгенерировать» чтобы создать 5-7 вариантов.
         </p>
       )}
