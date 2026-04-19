@@ -7,6 +7,7 @@ import { ChannelGrid } from '@/components/dashboard/ChannelGrid'
 import { AiInsightsBar } from '@/components/dashboard/AiInsightsBar'
 import { NewsletterWidget } from '@/components/dashboard/NewsletterWidget'
 import { WelcomeHero } from '@/components/dashboard/WelcomeHero'
+import { Card } from '@/components/ui/card'
 import { Channel, PLATFORM_LABELS, getUniquePlatforms } from '@/lib/channels'
 
 type Period = 'day' | 'week' | 'month'
@@ -212,23 +213,23 @@ export default function DashboardPage() {
 
       {/* Newsletter delta banner */}
       {nl && nl.subscribers != null && (
-        <div className="mb-6 rounded-2xl border border-border bg-surface px-5 py-4 flex items-center gap-4">
+        <Card className="mb-6 px-5 py-4 flex items-center gap-4">
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-dim">Подписчики рассылки</div>
-            <div className="text-2xl font-semibold text-cream tabular-nums leading-none mt-1">{nl.subscribers.toLocaleString('ru-RU')}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Подписчики рассылки</div>
+            <div className="text-2xl font-semibold text-foreground tabular-nums leading-none mt-1 tracking-tight">{nl.subscribers.toLocaleString('ru-RU')}</div>
           </div>
           <div className="flex-1" />
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wider text-dim">За {PERIOD_LABELS[period].toLowerCase()}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">За {PERIOD_LABELS[period].toLowerCase()}</div>
             <div className={`text-sm font-medium tabular-nums mt-1 ${
-              nl.subscribersDelta != null && nl.subscribersDelta < 0 ? 'text-red-400' :
-              nl.subscribersDelta != null && nl.subscribersDelta > 0 ? 'text-emerald-400' :
-              'text-muted'
+              nl.subscribersDelta != null && nl.subscribersDelta < 0 ? 'text-red-500 dark:text-red-300' :
+              nl.subscribersDelta != null && nl.subscribersDelta > 0 ? 'text-emerald-600 dark:text-emerald-300' :
+              'text-muted-foreground'
             }`}>
               {nlGrowthLabel}
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {channels.length > 0 && (
