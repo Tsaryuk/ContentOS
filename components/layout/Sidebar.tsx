@@ -93,22 +93,25 @@ export function Sidebar() {
     CHANNELS.filter(c => c.platform === platform)
 
   return (
-    <aside className="w-[160px] bg-bg-sidebar border-r border-border flex flex-col items-center py-3 gap-1.5 flex-shrink-0">
+    <aside className="w-[168px] bg-bg-sidebar border-r border-border flex flex-col items-center py-4 gap-1 flex-shrink-0">
       {/* Logo */}
-      <Link href="/" className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple flex items-center justify-center text-white font-bold text-sm mb-1">
+      <Link
+        href="/"
+        className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-purple flex items-center justify-center text-white font-bold text-sm mb-2 shadow-lg shadow-accent/20"
+      >
         C
       </Link>
 
       {/* Project switcher */}
       <ProjectSwitcher />
 
-      <div className="w-full px-3"><div className="h-px bg-border" /></div>
+      <div className="w-full px-4 my-2"><div className="h-px bg-border" /></div>
 
       {/* Dashboard */}
       <Link
         href="/"
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isDashboard ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+          isDashboard ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
         }`}
       >
         <LayoutGrid className="w-4 h-4 shrink-0" />
@@ -119,7 +122,7 @@ export function Sidebar() {
       <Link
         href="/tasks"
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isTasks ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+          isTasks ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
         }`}
       >
         <CheckSquare className="w-4 h-4 shrink-0" />
@@ -130,7 +133,7 @@ export function Sidebar() {
       <Link
         href="/calendar"
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isCalendar ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+          isCalendar ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
         }`}
       >
         <Calendar className="w-4 h-4 shrink-0" />
@@ -144,7 +147,7 @@ export function Sidebar() {
         onMouseLeave={() => setHovered(null)}
       >
         <div className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
-          isYoutube ? 'bg-accent/10 text-accent' : hovered === 'youtube' ? 'text-cream' : 'text-muted hover:text-cream'
+          isYoutube ? 'bg-accent/15 text-accent border border-accent/25' : hovered === 'youtube' ? 'text-cream' : 'text-muted hover:text-cream'
         }`}>
           <Play className="w-4 h-4 shrink-0" />
           <span className="text-xs font-medium">YouTube</span>
@@ -189,7 +192,7 @@ export function Sidebar() {
       <Link
         href="/clips"
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isClips ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+          isClips ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
         }`}
       >
         <Scissors className="w-4 h-4 shrink-0" />
@@ -200,7 +203,7 @@ export function Sidebar() {
       <Link
         href="/carousels"
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isCarousels ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+          isCarousels ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
         }`}
       >
         <GalleryHorizontalEnd className="w-4 h-4 shrink-0" />
@@ -211,7 +214,7 @@ export function Sidebar() {
       <Link
         href="/telegram"
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isTelegram ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+          isTelegram ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
         }`}
       >
         <Send className="w-4 h-4 shrink-0" />
@@ -222,7 +225,7 @@ export function Sidebar() {
       <Link
         href="/articles"
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isArticles ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+          isArticles ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
         }`}
       >
         <FileText className="w-4 h-4 shrink-0" />
@@ -233,7 +236,7 @@ export function Sidebar() {
       <Link
         href="/newsletter"
         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-          isNewsletter ? 'bg-accent/10 text-accent' : 'text-muted hover:text-cream'
+          isNewsletter ? 'bg-accent/15 text-accent border border-accent/25' : 'text-muted hover:text-cream'
         }`}
       >
         <Mail className="w-4 h-4 shrink-0" />
@@ -272,7 +275,7 @@ export function Sidebar() {
         <Link
           href="/settings"
           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-            pathname === '/settings' ? 'bg-accent/10 text-accent' : 'text-dim hover:text-muted'
+            pathname === '/settings' ? 'bg-accent/15 text-accent border border-accent/25' : 'text-dim hover:text-muted'
           }`}
           title="Настройки"
         >

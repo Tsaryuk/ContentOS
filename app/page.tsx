@@ -6,6 +6,7 @@ import { FilterTabs } from '@/components/dashboard/FilterTabs'
 import { ChannelGrid } from '@/components/dashboard/ChannelGrid'
 import { AiInsightsBar } from '@/components/dashboard/AiInsightsBar'
 import { NewsletterWidget } from '@/components/dashboard/NewsletterWidget'
+import { WelcomeHero } from '@/components/dashboard/WelcomeHero'
 import { Channel, PLATFORM_LABELS, getUniquePlatforms } from '@/lib/channels'
 
 type Period = 'day' | 'week' | 'month'
@@ -177,23 +178,25 @@ export default function DashboardPage() {
     : '—'
 
   return (
-    <div className="px-6 py-5 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-lg font-semibold text-cream">{projectName}</h1>
-          <p className="text-[11px] text-muted mt-0.5">
-            {loading ? 'Загрузка...' : `${channels.length} каналов`}
-          </p>
-        </div>
+    <div className="px-6 py-8 md:px-10 md:py-10 max-w-7xl mx-auto">
+      {/* Welcome header */}
+      <div className="flex items-start justify-between gap-6 mb-8 flex-wrap">
+        <WelcomeHero
+          projectName={projectName}
+          subtitle={loading
+            ? 'Загружаем метрики…'
+            : `${channels.length} канал${channels.length === 1 ? '' : channels.length < 5 ? 'а' : 'ов'} · будь в курсе прогресса и задач`}
+        />
         {/* Period selector */}
-        <div className="flex gap-1 rounded-lg bg-surface border border-border p-0.5">
+        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-surface border border-border">
           {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                period === p ? 'bg-accent text-white' : 'text-muted hover:text-cream'
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                period === p
+                  ? 'bg-accent text-white'
+                  : 'text-muted hover:text-cream'
               }`}
             >
               {PERIOD_LABELS[p]}
@@ -209,15 +212,15 @@ export default function DashboardPage() {
 
       {/* Newsletter delta banner */}
       {nl && nl.subscribers != null && (
-        <div className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 flex items-center gap-4">
+        <div className="mb-6 rounded-2xl border border-border bg-surface px-5 py-4 flex items-center gap-4">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-dim">Подписчики рассылки</div>
-            <div className="text-xl font-semibold text-cream tabular-nums">{nl.subscribers.toLocaleString('ru-RU')}</div>
+            <div className="text-2xl font-semibold text-cream tabular-nums leading-none mt-1">{nl.subscribers.toLocaleString('ru-RU')}</div>
           </div>
           <div className="flex-1" />
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-wider text-dim">За {PERIOD_LABELS[period].toLowerCase()}</div>
-            <div className={`text-sm font-medium tabular-nums ${
+            <div className={`text-sm font-medium tabular-nums mt-1 ${
               nl.subscribersDelta != null && nl.subscribersDelta < 0 ? 'text-red-400' :
               nl.subscribersDelta != null && nl.subscribersDelta > 0 ? 'text-emerald-400' :
               'text-muted'
