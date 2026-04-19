@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Scissors, Loader2, Zap } from 'lucide-react'
+import { Card } from '@/components/ui/card'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -16,6 +17,7 @@ interface VideoWithClips {
 }
 
 export default function ClipsIndexPage() {
+  const router = useRouter()
   const [videos, setVideos] = useState<VideoWithClips[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -43,46 +45,63 @@ export default function ClipsIndexPage() {
     load()
   }, [])
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-32">
-      <Loader2 className="w-5 h-5 animate-spin text-muted" />
-    </div>
-  )
+  const withClips = videos.filter(v => v.clip_count > 0).length
 
   return (
-    <div className="px-6 py-5 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <Scissors className="w-5 h-5 text-purple" />
-        <h1 className="text-lg font-semibold text-cream">Клипы</h1>
-      </div>
-
-      {videos.length === 0 ? (
-        <div className="text-center py-16 text-muted text-sm">
-          Нет видео с транскриптом. Сначала транскрибируйте видео.
+    <div className="p-6 md:p-10 max-w-5xl mx-auto">
+      <header className="mb-8">
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
+          <span>ContentOS</span>
+          <span className="w-1 h-1 rounded-full bg-border" />
+          <span className="normal-case tracking-normal">Короткие видео</span>
         </div>
+        <h1 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight">Клипы</h1>
+        <p className="text-sm text-muted-foreground mt-2">
+          {loading
+            ? 'Загружаем…'
+            : videos.length === 0
+              ? 'Нет видео с транскриптом'
+              : `${videos.length} ${videos.length === 1 ? 'видео' : videos.length < 5 ? 'видео' : 'видео'} · ${withClips} с клипами`}
+        </p>
+      </header>
+
+      {loading ? (
+        <div className="py-24 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : videos.length === 0 ? (
+        <Card className="p-12 flex flex-col items-center justify-center text-center">
+          <Scissors className="w-10 h-10 text-muted-foreground mb-3" />
+          <p className="text-foreground font-medium mb-1">Нет видео с транскриптом</p>
+          <p className="text-sm text-muted-foreground">Сначала транскрибируйте видео, чтобы нарезать клипы</p>
+        </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-3">
           {videos.map(v => (
-            <Link key={v.id} href={`/clips/${v.id}`}>
-              <div className="flex items-center gap-4 p-3 bg-surface border border-border rounded-xl hover:border-muted/30 transition-colors cursor-pointer">
-                <img src={v.current_thumbnail} alt="" className="w-24 h-14 rounded-lg object-cover shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{v.current_title}</p>
-                  <p className="text-[10px] text-dim mt-0.5">
-                    {Math.round(v.duration_seconds / 60)} мин
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  {v.clip_count > 0 ? (
-                    <span className="text-xs text-purple">{v.clip_count} клипов</span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-xs text-dim">
-                      <Zap className="w-3 h-3" /> Анализировать
-                    </span>
-                  )}
-                </div>
+            <Card
+              key={v.id}
+              onClick={() => router.push(`/clips/${v.id}`)}
+              className="flex items-center gap-4 p-4 hover:shadow-card-hover transition-shadow cursor-pointer"
+            >
+              <img src={v.current_thumbnail} alt="" className="w-24 h-16 rounded-lg object-cover shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{v.current_title}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {Math.round(v.duration_seconds / 60)} мин
+                </p>
               </div>
-            </Link>
+              <div className="shrink-0">
+                {v.clip_count > 0 ? (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-accent/10 text-accent">
+                    {v.clip_count} {v.clip_count === 1 ? 'клип' : v.clip_count < 5 ? 'клипа' : 'клипов'}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Zap className="w-3 h-3" /> Анализировать
+                  </span>
+                )}
+              </div>
+            </Card>
           ))}
         </div>
       )}
