@@ -235,11 +235,6 @@ export default function SettingsPage() {
     <div className="p-6 md:p-10 max-w-4xl mx-auto">
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
-            <span>ContentOS</span>
-            <span className="w-1 h-1 rounded-full bg-border" />
-            <span className="normal-case tracking-normal">Конфигурация</span>
-          </div>
           <h1 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight">Настройки</h1>
           <p className="text-sm text-muted-foreground mt-2">
             {accounts.length} {accounts.length === 1 ? 'аккаунт' : accounts.length < 5 ? 'аккаунта' : 'аккаунтов'} · {channels.length} YT · {tgChannels.length} TG · {projects.length} {projects.length === 1 ? 'проект' : 'проекта'}
