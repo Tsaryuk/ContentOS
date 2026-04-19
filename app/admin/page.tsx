@@ -29,12 +29,11 @@ const CARDS: Card[] = [
     comingSoon: true,
   },
   {
-    href: '#',
+    href: '/admin/status',
     title: 'Состояние системы',
-    description: 'Статус API, очередь, ошибки, последние деплои',
+    description: 'Статус подключённых сервисов: Supabase, Redis, AI-провайдеры',
     icon: <Activity className="w-5 h-5" />,
     accent: 'from-sky-500/20 to-sky-500/5',
-    comingSoon: true,
   },
 ]
 

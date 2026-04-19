@@ -1,5 +1,7 @@
 'use client'
 
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
+
 type Metric = {
   label: string
   value: string
@@ -13,22 +15,33 @@ export function HeroMetrics({ metrics }: { metrics: Metric[] }) {
       {metrics.map(m => (
         <div
           key={m.label}
-          className="bg-surface border border-border rounded-xl p-4 shadow-surface"
+          className="group relative bg-surface border border-border rounded-2xl p-5 hover:border-accent/30 transition-colors"
         >
-          <div className="text-[10px] uppercase tracking-wide text-muted mb-2">
-            {m.label}
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[10px] uppercase tracking-wider text-dim">
+              {m.label}
+            </div>
+            {m.growth && (
+              <div
+                className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                  m.growth.positive
+                    ? 'bg-emerald-400/10 text-emerald-300'
+                    : 'bg-red-400/10 text-red-300'
+                }`}
+              >
+                {m.growth.positive
+                  ? <ArrowUpRight className="w-3 h-3" />
+                  : <ArrowDownRight className="w-3 h-3" />}
+                {m.growth.value}
+              </div>
+            )}
           </div>
-          <div className="text-2xl font-semibold" style={{ color: m.color }}>
+          <div
+            className="text-3xl font-semibold tabular-nums leading-none"
+            style={{ color: m.color }}
+          >
             {m.value}
           </div>
-          {m.growth && (
-            <div className="flex items-center gap-1 mt-1.5">
-              <span className={`text-[10px] ${m.growth.positive ? 'text-green' : 'text-warn'}`}>
-                {m.growth.value}
-              </span>
-              <span className="text-[9px] text-dim">за месяц</span>
-            </div>
-          )}
         </div>
       ))}
     </div>
