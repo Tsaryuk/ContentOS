@@ -78,6 +78,9 @@ export default function SettingsPage() {
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectColor, setNewProjectColor] = useState('#a67ff0')
   const [creatingProject, setCreatingProject] = useState(false)
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
+  const [editingProjectName, setEditingProjectName] = useState('')
+  const [savingProjectId, setSavingProjectId] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [addChannelId, setAddChannelId] = useState('')
   const [addChannelProject, setAddChannelProject] = useState('')
@@ -136,6 +139,39 @@ export default function SettingsPage() {
       await loadData()
     }
     setCreatingProject(false)
+  }
+
+  async function updateProject(id: string, patch: { name?: string; color?: string }) {
+    setSavingProjectId(id)
+    const res = await fetch(`/api/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert('Не удалось обновить проект: ' + (data.error ?? res.status))
+    }
+    setSavingProjectId(null)
+  }
+
+  function startEditingProject(p: Project) {
+    setEditingProjectId(p.id)
+    setEditingProjectName(p.name)
+  }
+
+  async function commitEditingProject() {
+    if (!editingProjectId) return
+    const name = editingProjectName.trim()
+    const current = projects.find(p => p.id === editingProjectId)
+    if (current && name && name !== current.name) {
+      await updateProject(editingProjectId, { name })
+    }
+    setEditingProjectId(null)
+    setEditingProjectName('')
   }
 
   async function disconnectAccount(id: string) {
@@ -396,8 +432,36 @@ export default function SettingsPage() {
             return (
               <Card key={proj.id} className="overflow-hidden">
                 <div className="px-5 py-3 flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: proj.color }} />
-                  <span className="text-sm font-medium text-foreground">{proj.name}</span>
+                  <label className="relative w-3 h-3 rounded-full shrink-0 cursor-pointer" style={{ background: proj.color }} title="Сменить цвет">
+                    <input
+                      type="color"
+                      value={proj.color}
+                      onChange={e => updateProject(proj.id, { color: e.target.value })}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </label>
+                  {editingProjectId === proj.id ? (
+                    <input
+                      autoFocus
+                      value={editingProjectName}
+                      onChange={e => setEditingProjectName(e.target.value)}
+                      onBlur={commitEditingProject}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                        else if (e.key === 'Escape') { setEditingProjectId(null); setEditingProjectName('') }
+                      }}
+                      className="flex-1 h-7 px-2 rounded bg-background border border-ring/50 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => startEditingProject(proj)}
+                      title="Переименовать"
+                      className="text-sm font-medium text-foreground text-left hover:text-accent transition-colors"
+                    >
+                      {proj.name}
+                    </button>
+                  )}
+                  {savingProjectId === proj.id && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                   <span className="text-xs text-muted-foreground ml-auto tabular-nums">{totalChannels} кан.</span>
                   <Button
                     variant="ghost"
