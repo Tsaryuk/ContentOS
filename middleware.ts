@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   '/api/newsletter/subscribe',
   '/api/health',
   '/v',
+  '/podcasts',
 ]
 
 export async function middleware(req: NextRequest) {

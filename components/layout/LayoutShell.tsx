@@ -9,7 +9,7 @@ const BARE_PATHS = ['/login', '/forgot-password', '/reset-password']
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isPublic = pathname.startsWith('/letters')
+  const isPublic = pathname.startsWith('/letters') || pathname.startsWith('/podcasts')
   const isBare = BARE_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
 
   if (isPublic || isBare) {
