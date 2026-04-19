@@ -73,38 +73,38 @@ export function ShortLinkModal({ videoId, onClose }: ShortLinkModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-bg border border-border rounded-2xl w-full max-w-md p-6 relative"
+        className="bg-background border border-border rounded-2xl w-full max-w-md p-6 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-lg text-dim hover:text-cream hover:bg-white/5 transition-colors"
+          className="absolute top-4 right-4 p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface transition-colors"
           aria-label="Закрыть"
         >
           <X className="w-4 h-4" />
         </button>
 
-        <h2 className="text-lg font-semibold text-cream mb-1 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
           <LinkIcon className="w-4 h-4" />
           Deep link
         </h2>
-        <p className="text-xs text-dim mb-5">
+        <p className="text-xs text-muted-foreground/60 mb-5">
           Открывает видео в нативном приложении YouTube вместо встроенного
           браузера Instagram / Threads / TikTok.
         </p>
 
         {loading ? (
-          <div className="flex items-center gap-2 text-dim text-sm py-6">
+          <div className="flex items-center gap-2 text-muted-foreground/60 text-sm py-6">
             <Loader2 className="w-4 h-4 animate-spin" />
             Загружаем…
           </div>
         ) : link ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 p-3 bg-surface rounded-xl border border-border">
-              <code className="flex-1 text-sm text-cream break-all">{link.url}</code>
+            <div className="flex items-center gap-2 p-3 bg-card rounded-xl border border-border">
+              <code className="flex-1 text-sm text-foreground break-all">{link.url}</code>
               <button
                 onClick={handleCopy}
-                className="shrink-0 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                className="shrink-0 p-2 rounded-lg bg-accent-surface hover:bg-accent-surface/80 transition-colors"
                 aria-label="Скопировать"
               >
                 {copied ? (
@@ -119,14 +119,14 @@ export function ShortLinkModal({ videoId, onClose }: ShortLinkModalProps) {
               <QRCodeSVG value={link.url} size={192} level="M" />
             </div>
 
-            <div className="flex items-center justify-between text-xs text-dim">
+            <div className="flex items-center justify-between text-xs text-muted-foreground/60">
               <span>Кликов: {link.clicks}</span>
               <span className="opacity-60">slug: {link.slug}</span>
             </div>
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-dim">
+            <p className="text-sm text-muted-foreground/60">
               Для этого видео ссылка ещё не создана.
             </p>
             <button

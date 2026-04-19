@@ -25,7 +25,7 @@ export function GuestInfo({
     return (
       <button
         onClick={() => setEditing(true)}
-        className="w-full p-3 rounded-xl border border-dashed border-border text-xs text-dim hover:text-muted hover:border-white/20 transition-colors flex items-center justify-center gap-2"
+        className="w-full p-3 rounded-xl border border-dashed border-border text-xs text-muted-foreground/60 hover:text-muted-foreground hover:border-border transition-colors flex items-center justify-center gap-2"
       >
         <User className="w-4 h-4" /> Добавить информацию о госте
       </button>
@@ -39,20 +39,20 @@ export function GuestInfo({
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="Имя гостя"
-          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-purple-500/50"
+          className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-purple-500/50"
         />
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Кто этот человек, чем известен"
           rows={2}
-          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-purple-500/50 resize-none"
+          className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-purple-500/50 resize-none"
         />
         <input
           value={topics}
           onChange={e => setTopics(e.target.value)}
           placeholder="Темы через запятую"
-          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-cream placeholder:text-dim focus:outline-none focus:border-purple-500/50"
+          className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-purple-500/50"
         />
         <div className="flex gap-2">
           <button
@@ -66,7 +66,7 @@ export function GuestInfo({
           </button>
           <button
             onClick={() => setEditing(false)}
-            className="px-3 py-1.5 text-muted rounded-lg text-xs hover:text-muted transition-colors"
+            className="px-3 py-1.5 text-muted-foreground rounded-lg text-xs hover:text-muted-foreground transition-colors"
           >
             Отмена
           </button>
@@ -82,16 +82,16 @@ export function GuestInfo({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-cream">{guest!.name}</p>
-          <button onClick={() => setEditing(true)} className="text-dim hover:text-muted transition-colors">
+          <p className="text-sm font-medium text-foreground">{guest!.name}</p>
+          <button onClick={() => setEditing(true)} className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
             <Edit3 className="w-3 h-3" />
           </button>
         </div>
-        <p className="text-[11px] text-muted mt-0.5">{guest!.description}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">{guest!.description}</p>
         {guest!.topics?.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
             {guest!.topics.map((t, i) => (
-              <span key={i} className="px-1.5 py-0.5 bg-surface rounded text-[10px] text-muted">{t}</span>
+              <span key={i} className="px-1.5 py-0.5 bg-card rounded text-[10px] text-muted-foreground">{t}</span>
             ))}
           </div>
         )}

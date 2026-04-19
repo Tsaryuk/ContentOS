@@ -67,7 +67,7 @@ export function VariantSelector({
         const isSelected = selectedIndex === idx
         const isEditing = editingIdx === idx
         const displayText = isSelected && editedTitle ? editedTitle : v.text
-        const style = STYLE_LABELS[v.style] ?? { label: v.style, color: 'bg-white/10 text-muted' }
+        const style = STYLE_LABELS[v.style] ?? { label: v.style, color: 'bg-accent-surface/80 text-muted-foreground' }
 
         return (
           <div
@@ -76,12 +76,12 @@ export function VariantSelector({
             className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
               isSelected
                 ? 'border-purple-500/50 bg-purple-500/10'
-                : 'border-border bg-surface hover:border-accent/30'
+                : 'border-border bg-card hover:border-accent/30'
             }`}
           >
             <div className="flex items-start gap-3">
               <div className={`w-5 h-5 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center ${
-                isSelected ? 'border-purple-500 bg-purple-500' : 'border-white/20'
+                isSelected ? 'border-purple-500 bg-purple-500' : 'border-border'
               }`}>
                 {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
               </div>
@@ -98,20 +98,20 @@ export function VariantSelector({
                   {onTitleEdit && (
                     <button
                       onClick={e => { e.stopPropagation(); startEdit(idx, displayText) }}
-                      className="p-1 rounded hover:bg-white/10 transition-colors"
+                      className="p-1 rounded hover:bg-accent-surface/80 transition-colors"
                       title="Редактировать"
                     >
-                      <Pencil className="w-3 h-3 text-muted" />
+                      <Pencil className="w-3 h-3 text-muted-foreground" />
                     </button>
                   )}
                   <button
                     onClick={e => { e.stopPropagation(); copy(idx, displayText) }}
-                    className="ml-auto p-1 rounded hover:bg-white/10 transition-colors"
+                    className="ml-auto p-1 rounded hover:bg-accent-surface/80 transition-colors"
                     title="Копировать заголовок"
                   >
                     {copiedIdx === idx
                       ? <Check className="w-3.5 h-3.5 text-green-400" />
-                      : <Copy className="w-3.5 h-3.5 text-muted" />
+                      : <Copy className="w-3.5 h-3.5 text-muted-foreground" />
                     }
                   </button>
                 </div>
@@ -126,12 +126,12 @@ export function VariantSelector({
                       if (e.key === 'Escape') setEditingIdx(null)
                     }}
                     onClick={e => e.stopPropagation()}
-                    className="w-full bg-bg border border-accent/40 rounded-lg px-2.5 py-1.5 text-sm text-cream font-medium focus:outline-none focus:border-purple-500/60"
+                    className="w-full bg-background border border-accent/40 rounded-lg px-2.5 py-1.5 text-sm text-foreground font-medium focus:outline-none focus:border-purple-500/60"
                   />
                 ) : (
-                  <p className="text-sm text-cream font-medium leading-snug">{displayText}</p>
+                  <p className="text-sm text-foreground font-medium leading-snug">{displayText}</p>
                 )}
-                <p className="text-[11px] text-muted mt-1.5 flex items-start gap-1">
+                <p className="text-[11px] text-muted-foreground mt-1.5 flex items-start gap-1">
                   <MessageSquare className="w-3 h-3 shrink-0 mt-0.5" />
                   {v.reasoning}
                 </p>

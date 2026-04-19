@@ -299,7 +299,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted flex items-center gap-2">
+        <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
           <ImageIcon className="w-4 h-4" /> Обложка
         </h3>
         {isGenerating && (
@@ -342,7 +342,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                   }
                 }}
               />
-              {r.model && <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 backdrop-blur-sm rounded text-[10px] text-muted">{r.model}</span>}
+              {r.model && <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 backdrop-blur-sm rounded text-[10px] text-muted-foreground">{r.model}</span>}
               {selectedUrl === r.url && (
                 <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
                   <Check className="w-3 h-3 text-white" />
@@ -364,7 +364,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
       {isGenerating && resultsByTemplate[template].length === 0 && (
         <div className="grid grid-cols-2 gap-2">
           {[0, 1, 2, 3].map(i => (
-            <div key={i} className="aspect-video rounded-lg bg-white/5 border border-border flex items-center justify-center">
+            <div key={i} className="aspect-video rounded-lg bg-accent-surface border border-border flex items-center justify-center">
               <Loader2 className="w-5 h-5 animate-spin text-purple-400/40" />
             </div>
           ))}
@@ -373,14 +373,14 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
 
       {/* Input panel */}
       <div
-        className={`rounded-xl border p-3 space-y-3 transition-colors ${dragOver ? 'border-purple-500/50 bg-purple-500/5' : 'border-border bg-surface'}`}
+        className={`rounded-xl border p-3 space-y-3 transition-colors ${dragOver ? 'border-purple-500/50 bg-purple-500/5' : 'border-border bg-card'}`}
         onDragOver={e => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e: DragEvent) => { e.preventDefault(); setDragOver(false); addPhotos(e.dataTransfer.files) }}
       >
         {/* Content type selector (B-04) — picks per-type style preset from channel.rules */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wider text-dim">Тип контента</span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Тип контента</span>
           <div className="flex gap-1">
             {(Object.keys(CONTENT_TYPE_LABELS) as ContentType[]).map(ct => (
               <button
@@ -389,7 +389,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                 className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
                   activeContentType === ct
                     ? 'bg-accent text-white'
-                    : 'bg-bg text-muted hover:text-cream'
+                    : 'bg-background text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {CONTENT_TYPE_LABELS[ct]}
@@ -407,11 +407,11 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
               className={`flex-1 flex flex-col items-center gap-1 rounded-lg border p-1.5 transition-all ${
                 template === t.id
                   ? 'border-purple-500/60 bg-purple-500/10'
-                  : 'border-border bg-bg hover:border-border/80'
+                  : 'border-border bg-background hover:border-border/80'
               }`}
             >
               <div className="w-full aspect-video rounded overflow-hidden">{t.icon}</div>
-              <span className={`text-[10px] font-medium ${template === t.id ? 'text-purple-300' : 'text-dim'}`}>{t.label}</span>
+              <span className={`text-[10px] font-medium ${template === t.id ? 'text-purple-300' : 'text-muted-foreground/60'}`}>{t.label}</span>
             </button>
           ))}
         </div>
@@ -436,7 +436,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
             </div>
           )}
           {photos.length < 3 && (
-            <button onClick={() => photoRef.current?.click()} className="w-14 h-14 rounded-lg border border-dashed border-border flex flex-col items-center justify-center text-dim hover:text-muted hover:border-muted transition-colors flex-shrink-0 gap-0.5">
+            <button onClick={() => photoRef.current?.click()} className="w-14 h-14 rounded-lg border border-dashed border-border flex flex-col items-center justify-center text-muted-foreground/60 hover:text-muted-foreground hover:border-muted transition-colors flex-shrink-0 gap-0.5">
               <Plus className="w-3.5 h-3.5" />
               <span className="text-[8px] leading-none">Фото</span>
             </button>
@@ -460,7 +460,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
               className={`px-2.5 py-1 rounded-full text-[11px] transition-colors ${
                 selectedText === t && !customText
                   ? 'bg-accent/15 text-accent border border-accent/30'
-                  : 'bg-surface text-muted border border-border hover:text-cream'
+                  : 'bg-card text-muted-foreground border border-border hover:text-foreground'
               }`}
             >
               {t}
@@ -475,7 +475,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
             value={customText}
             onChange={e => setCustomText(e.target.value)}
             placeholder="Свой текст..."
-            className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-surface border border-border text-sm text-cream placeholder:text-dim focus:outline-none focus:border-accent/40"
+            className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-accent/40"
             onKeyDown={e => e.key === 'Enter' && generate()}
           />
           <button
@@ -495,7 +495,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
             value={refinement}
             onChange={e => setRefinement(e.target.value)}
             placeholder="Доработать: темнее, крупнее текст..."
-            className="w-full px-3 py-1.5 rounded-lg bg-surface border border-border text-xs text-cream placeholder:text-dim focus:outline-none focus:border-accent/40"
+            className="w-full px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-accent/40"
             onKeyDown={e => e.key === 'Enter' && refinement && generate()}
           />
         )}
@@ -507,7 +507,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
             if (!preview) { void loadPreview() } else { setPreviewOpen(v => !v) }
           }}
           disabled={!activeText || previewLoading}
-          className="flex items-center gap-1.5 text-[11px] text-dim hover:text-cream transition-colors disabled:opacity-40"
+          className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors disabled:opacity-40"
         >
           {previewLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
           {previewLoading ? 'Собираем...' : preview && previewOpen ? 'Скрыть превью промпта' : 'Показать что уходит в модель'}
@@ -515,30 +515,30 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         </button>
 
         {preview && previewOpen && (
-          <div className="rounded-lg bg-bg/80 border border-border p-3 space-y-2 text-[11px]">
-            <div className="grid grid-cols-2 gap-2 text-dim">
-              <div><span className="text-muted">Тип:</span> <span className="text-cream">{CONTENT_TYPE_LABELS[(preview.contentType as ContentType)] ?? preview.contentType}</span></div>
-              <div><span className="text-muted">Шаблон:</span> <span className="text-cream">{preview.template}</span></div>
-              <div><span className="text-muted">Фото лиц:</span> <span className="text-cream">{preview.facePhotos}</span></div>
-              <div><span className="text-muted">Стилевой реф:</span> <span className={preview.styleReference ? 'text-emerald-400' : 'text-dim'}>{preview.styleReference ? 'да' : 'нет'}</span></div>
-              <div><span className="text-muted">Строка 1:</span> <span className="text-cream">{preview.textLine1 || '—'}</span></div>
-              <div><span className="text-muted">Строка 2:</span> <span className="text-cream">{preview.textLine2 || '—'}</span></div>
+          <div className="rounded-lg bg-background/80 border border-border p-3 space-y-2 text-[11px]">
+            <div className="grid grid-cols-2 gap-2 text-muted-foreground/60">
+              <div><span className="text-muted-foreground">Тип:</span> <span className="text-foreground">{CONTENT_TYPE_LABELS[(preview.contentType as ContentType)] ?? preview.contentType}</span></div>
+              <div><span className="text-muted-foreground">Шаблон:</span> <span className="text-foreground">{preview.template}</span></div>
+              <div><span className="text-muted-foreground">Фото лиц:</span> <span className="text-foreground">{preview.facePhotos}</span></div>
+              <div><span className="text-muted-foreground">Стилевой реф:</span> <span className={preview.styleReference ? 'text-emerald-400' : 'text-muted-foreground/60'}>{preview.styleReference ? 'да' : 'нет'}</span></div>
+              <div><span className="text-muted-foreground">Строка 1:</span> <span className="text-foreground">{preview.textLine1 || '—'}</span></div>
+              <div><span className="text-muted-foreground">Строка 2:</span> <span className="text-foreground">{preview.textLine2 || '—'}</span></div>
             </div>
             {preview.channelStylePrompt && (
-              <div className="text-dim">
-                <span className="text-muted">Стиль канала:</span>{' '}
-                <span className="text-cream">{preview.channelStylePrompt}</span>
+              <div className="text-muted-foreground/60">
+                <span className="text-muted-foreground">Стиль канала:</span>{' '}
+                <span className="text-foreground">{preview.channelStylePrompt}</span>
               </div>
             )}
             {preview.refinement && (
-              <div className="text-dim">
-                <span className="text-muted">Замечание:</span>{' '}
-                <span className="text-cream">{preview.refinement}</span>
+              <div className="text-muted-foreground/60">
+                <span className="text-muted-foreground">Замечание:</span>{' '}
+                <span className="text-foreground">{preview.refinement}</span>
               </div>
             )}
             {preview.imageUrls.length > 0 && (
-              <div className="text-dim">
-                <span className="text-muted">В fal пойдут {preview.imageUrls.length} изображений:</span>
+              <div className="text-muted-foreground/60">
+                <span className="text-muted-foreground">В fal пойдут {preview.imageUrls.length} изображений:</span>
                 <div className="mt-1 flex gap-1 flex-wrap">
                   {preview.imageUrls.map((u, i) => (
                     <img key={i} src={u} alt="" className="w-10 h-10 rounded object-cover border border-border" />
@@ -546,15 +546,15 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                 </div>
               </div>
             )}
-            <details className="text-dim">
-              <summary className="cursor-pointer text-muted hover:text-cream">
+            <details className="text-muted-foreground/60">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
                 Полный промпт (образец — вариант «{preview.sampleEmotion}»)
               </summary>
-              <pre className="mt-2 p-2 rounded bg-black/20 text-[10px] leading-relaxed text-cream whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
+              <pre className="mt-2 p-2 rounded bg-black/20 text-[10px] leading-relaxed text-foreground whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
                 {preview.sampleFullPrompt}
               </pre>
             </details>
-            <p className="text-dim text-[10px]">
+            <p className="text-muted-foreground/60 text-[10px]">
               Превью работает только с уже загруженными референсами. Новые файлы подтянутся при нажатии «Создать».
             </p>
           </div>

@@ -107,13 +107,13 @@ export function CommentsList({ videoId }: Props) {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-muted flex items-center gap-2">
+        <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
           <MessageSquare className="w-4 h-4" /> Комментарии ({comments.length})
         </h3>
         <button
           onClick={syncComments}
           disabled={syncing}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted hover:text-cream hover:bg-surface transition-colors border border-border"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-card transition-colors border border-border"
         >
           {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
           Загрузить
@@ -121,12 +121,12 @@ export function CommentsList({ videoId }: Props) {
       </div>
 
       {loading && comments.length === 0 ? (
-        <div className="py-4 text-center text-dim text-xs">
+        <div className="py-4 text-center text-muted-foreground/60 text-xs">
           <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
           Загрузка...
         </div>
       ) : comments.length === 0 ? (
-        <div className="py-4 text-center text-dim text-xs">
+        <div className="py-4 text-center text-muted-foreground/60 text-xs">
           Нет комментариев. Нажмите "Загрузить" чтобы синхронизировать с YouTube.
         </div>
       ) : (
@@ -141,10 +141,10 @@ export function CommentsList({ videoId }: Props) {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-medium text-cream">{c.author_name}</span>
-                    <span className="text-[10px] text-dim">{timeAgo(c.published_at)}</span>
+                    <span className="text-xs font-medium text-foreground">{c.author_name}</span>
+                    <span className="text-[10px] text-muted-foreground/60">{timeAgo(c.published_at)}</span>
                     {c.like_count > 0 && (
-                      <span className="text-[10px] text-dim flex items-center gap-0.5">
+                      <span className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5">
                         <ThumbsUp className="w-2.5 h-2.5" /> {c.like_count}
                       </span>
                     )}
@@ -154,14 +154,14 @@ export function CommentsList({ videoId }: Props) {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted leading-relaxed">{c.text}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
 
                   {/* Action buttons */}
                   <div className="flex items-center gap-2 mt-2">
                     <button
                       onClick={() => generateDraft(c.yt_comment_id)}
                       disabled={drafting === c.yt_comment_id}
-                      className="flex items-center gap-1 text-[10px] text-dim hover:text-purple-400 transition-colors"
+                      className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-purple-400 transition-colors"
                     >
                       {drafting === c.yt_comment_id
                         ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -173,7 +173,7 @@ export function CommentsList({ videoId }: Props) {
                         setReplyingTo(replyingTo === c.yt_comment_id ? null : c.yt_comment_id)
                         setReplyText(c.ai_reply_draft ?? '')
                       }}
-                      className="flex items-center gap-1 text-[10px] text-dim hover:text-accent transition-colors"
+                      className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-accent transition-colors"
                     >
                       <Send className="w-3 h-3" /> Ответить
                     </button>
@@ -187,7 +187,7 @@ export function CommentsList({ videoId }: Props) {
                         onChange={e => setReplyText(e.target.value)}
                         rows={2}
                         placeholder="Ваш ответ..."
-                        className="w-full bg-bg border border-border rounded-lg p-2 text-xs text-cream placeholder:text-dim resize-none focus:outline-none focus:border-accent/40"
+                        className="w-full bg-background border border-border rounded-lg p-2 text-xs text-foreground placeholder:text-muted-foreground/60 resize-none focus:outline-none focus:border-accent/40"
                       />
                       <div className="flex items-center gap-2">
                         <button
@@ -200,7 +200,7 @@ export function CommentsList({ videoId }: Props) {
                         </button>
                         <button
                           onClick={() => { setReplyingTo(null); setReplyText('') }}
-                          className="text-[10px] text-dim hover:text-muted"
+                          className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
                         >
                           Отмена
                         </button>

@@ -46,7 +46,7 @@ export function SocialPreview({
       {/* Tabs */}
       <div className="flex gap-1 mb-3">
         {drafts.map(draft => {
-          const platform = PLATFORMS[draft.platform] ?? { label: draft.platform, icon: Send, color: 'text-muted' }
+          const platform = PLATFORMS[draft.platform] ?? { label: draft.platform, icon: Send, color: 'text-muted-foreground' }
           const Icon = platform.icon
           const isActive = activeTab === draft.platform
 
@@ -56,8 +56,8 @@ export function SocialPreview({
               onClick={() => setActiveTab(draft.platform)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 isActive
-                  ? 'bg-surface border border-border text-cream'
-                  : 'text-muted hover:text-cream hover:bg-surface'
+                  ? 'bg-card border border-border text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-card'
               }`}
             >
               <Icon className={`w-3.5 h-3.5 ${isActive ? platform.color : ''}`} />
@@ -73,13 +73,13 @@ export function SocialPreview({
           <textarea
             value={content}
             onChange={e => handleContentChange(e.target.value)}
-            className="w-full min-h-[150px] p-3 bg-surface border border-border rounded-xl text-sm text-cream leading-relaxed resize-y focus:outline-none focus:border-purple-500/30 placeholder:text-dim"
+            className="w-full min-h-[150px] p-3 bg-card border border-border rounded-xl text-sm text-foreground leading-relaxed resize-y focus:outline-none focus:border-purple-500/30 placeholder:text-muted-foreground/60"
           />
           <div className="flex items-center justify-between mt-2">
-            <span className="text-[10px] text-dim">{content.length} символов</span>
+            <span className="text-[10px] text-muted-foreground/60">{content.length} символов</span>
             <button
               onClick={() => handleCopy(activeTab)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border hover:bg-white/5 text-xs text-muted hover:text-cream transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border hover:bg-accent-surface text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {copied === activeTab
                 ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Скопировано</>

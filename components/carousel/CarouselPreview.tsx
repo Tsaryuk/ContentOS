@@ -27,7 +27,7 @@ export function CarouselPreview({ slides, preset, illustrationUrls, style, onSli
   if (slides.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4">
-        <div className="text-[10px] font-semibold tracking-widest uppercase text-muted">Превью карусели</div>
+        <div className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">Превью карусели</div>
         <div className="bg-white dark:bg-[#1a1a1a] rounded-xl overflow-hidden" style={{ width: 420, boxShadow: '0 4px 32px rgba(0,0,0,0.12)' }}>
           <div className="flex items-center justify-center" style={{ width: 420, height: 525, background: '#F7F5F0' }}>
             <div className="text-center">
@@ -49,15 +49,15 @@ export function CarouselPreview({ slides, preset, illustrationUrls, style, onSli
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="flex items-center justify-between" style={{ width: 420 }}>
-        <div className="text-[10px] font-semibold tracking-widest uppercase text-muted">Превью карусели</div>
+        <div className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">Превью карусели</div>
         <div className="flex items-center gap-1.5">
-          <button onClick={() => goTo(currentSlide - 1)} className="w-7 h-7 rounded-md border border-border bg-bg-surface flex items-center justify-center hover:border-gray-400 transition-colors">
+          <button onClick={() => goTo(currentSlide - 1)} className="w-7 h-7 rounded-md border border-border bg-bg-card flex items-center justify-center hover:border-gray-400 transition-colors">
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
-          <span className="text-xs font-semibold text-muted min-w-[36px] text-center">
+          <span className="text-xs font-semibold text-muted-foreground min-w-[36px] text-center">
             {currentSlide + 1}/{slides.length}
           </span>
-          <button onClick={() => goTo(currentSlide + 1)} className="w-7 h-7 rounded-md border border-border bg-bg-surface flex items-center justify-center hover:border-gray-400 transition-colors">
+          <button onClick={() => goTo(currentSlide + 1)} className="w-7 h-7 rounded-md border border-border bg-bg-card flex items-center justify-center hover:border-gray-400 transition-colors">
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>

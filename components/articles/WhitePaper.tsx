@@ -158,19 +158,19 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0
 
   return (
-    <div ref={containerRef} className="fixed inset-0 z-50 bg-bg flex flex-col">
+    <div ref={containerRef} className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Minimal header */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-border/40">
         <div>
-          <div className="text-[11px] text-dim tracking-[0.2em] uppercase">Белый лист</div>
+          <div className="text-[11px] text-muted-foreground/60 tracking-[0.2em] uppercase">Белый лист</div>
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-dim">
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground/60">
           <span>{wordCount} слов</span>
           {saving && <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> сохранение...</span>}
 
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 text-dim hover:text-cream transition-colors"
+            className="p-1.5 text-muted-foreground/60 hover:text-foreground transition-colors"
             title={isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -180,7 +180,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
           <button
             onClick={() => setShowInstruction(v => !v)}
             disabled={styleRunning}
-            className="px-3 py-1.5 border border-border/60 rounded-full text-xs text-muted hover:text-cream hover:border-muted disabled:opacity-40"
+            className="px-3 py-1.5 border border-border/60 rounded-full text-xs text-muted-foreground hover:text-foreground hover:border-muted disabled:opacity-40"
             title="Добавить замечание для AI-стилиста"
           >
             Замечание
@@ -209,7 +209,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
 
           <button
             onClick={onClose}
-            className="p-1.5 text-dim hover:text-cream transition-colors"
+            className="p-1.5 text-muted-foreground/60 hover:text-foreground transition-colors"
             title="Закрыть (черновик сохранён)"
           >
             <X className="w-4 h-4" />
@@ -219,16 +219,16 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
 
       {/* Optional instruction input */}
       {showInstruction && (
-        <div className="px-8 py-3 border-b border-border/40 bg-surface">
+        <div className="px-8 py-3 border-b border-border/40 bg-card">
           <div className="max-w-[720px] mx-auto">
             <input
               value={instruction}
               onChange={e => setInstruction(e.target.value)}
               placeholder="Замечание для AI: сократи вступление / добавь пример / усиль ритм..."
-              className="w-full px-3 py-2 bg-bg border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent"
               autoFocus
             />
-            <p className="text-[10px] text-dim mt-1.5">
+            <p className="text-[10px] text-muted-foreground/60 mt-1.5">
               Это замечание AI-стилист учтёт при следующей правке. Можно оставить пустым для общей правки по промпту.
             </p>
           </div>
@@ -243,7 +243,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
             value={text}
             onChange={e => setText(e.target.value)}
             placeholder="Просто начни писать. Мысли. Абзацы. Переносы строк.&#10;&#10;Никакого форматирования — только чистый текст.&#10;Нажми AI-стилист, чтобы привести в порядок ритм и стиль.&#10;Нажми 'В редактор', когда готов оформить в HTML."
-            className="w-full bg-transparent text-cream text-lg leading-[1.75] resize-none focus:outline-none placeholder:text-dim/60"
+            className="w-full bg-transparent text-foreground text-lg leading-[1.75] resize-none focus:outline-none placeholder:text-muted-foreground/60/60"
             style={{
               fontFamily: "'Lora', Georgia, serif",
               minHeight: 'calc(100vh - 180px)',
