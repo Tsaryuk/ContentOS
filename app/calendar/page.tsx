@@ -42,7 +42,10 @@ function addDays(d: Date, n: number): Date {
 }
 
 function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export default function CalendarPage() {
@@ -73,7 +76,7 @@ export default function CalendarPage() {
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>()
     for (const e of events) {
-      const day = e.at.slice(0, 10)
+      const day = ymd(new Date(e.at))
       const arr = map.get(day) ?? []
       arr.push(e)
       map.set(day, arr)
