@@ -1616,6 +1616,10 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const { refreshAllChannels } = await import('./lib/youtube/refresh-channel')
     await refreshAllChannels()
   },
+  videos_sync_all: async () => {
+    const { syncAllChannels } = await import('./lib/youtube/sync-channel')
+    await syncAllChannels()
+  },
 }
 
 // --- Stale job cleanup ---
@@ -1765,5 +1769,19 @@ async function scheduleChannelsRefresh() {
   } catch {}
 }
 scheduleChannelsRefresh()
+
+// Daily YouTube videos sync — pulls each channel's uploads playlist, upserts
+// new/updated videos, and drops rows whose yt_video_id no longer exists on
+// YouTube. Catches deletes/renames without waiting for a manual sync click.
+async function scheduleVideosSyncAll() {
+  try {
+    await nlQueue.add('videos_sync_all', {}, {
+      repeat: { every: 24 * 60 * 60 * 1000 },
+      jobId: 'videos_sync_all_cron',
+    })
+    console.log('[worker] YouTube videos sync-all cron scheduled (every 24h)')
+  } catch {}
+}
+scheduleVideosSyncAll()
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')
