@@ -1620,6 +1620,10 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const { syncAllChannels } = await import('./lib/youtube/sync-channel')
     await syncAllChannels()
   },
+  comments_sync_recent: async () => {
+    const { syncRecentComments } = await import('./lib/youtube/sync-comments')
+    await syncRecentComments()
+  },
 }
 
 // --- Stale job cleanup ---
@@ -1783,5 +1787,20 @@ async function scheduleVideosSyncAll() {
   } catch {}
 }
 scheduleVideosSyncAll()
+
+// Daily comments sync — pulls comments for each video published in the last
+// 30 days across every channel with a working OAuth token. Older videos are
+// excluded to keep the daily YouTube quota in budget; manual per-video sync
+// via POST /api/comments/sync still works for anything outside that window.
+async function scheduleCommentsSyncRecent() {
+  try {
+    await nlQueue.add('comments_sync_recent', {}, {
+      repeat: { every: 24 * 60 * 60 * 1000 },
+      jobId: 'comments_sync_recent_cron',
+    })
+    console.log('[worker] YouTube comments sync-recent cron scheduled (every 24h)')
+  } catch {}
+}
+scheduleCommentsSyncRecent()
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')
