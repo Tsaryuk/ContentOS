@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Plus, Send, Loader2, RefreshCw } from 'lucide-react'
-import type { TgChannelRow, TgPostWithChannel, TgPostStatus } from '@/lib/telegram/types'
+import type { TgChannelRow, TgPostWithChannel } from '@/lib/telegram/types'
 import { ConnectChannel } from '@/components/telegram/ConnectChannel'
 import { PostEditor } from '@/components/telegram/PostEditor'
 import { PostCard } from '@/components/telegram/PostCard'
 import { AiSuggestions } from '@/components/telegram/AiSuggestions'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 type Tab = 'all' | 'draft' | 'scheduled' | 'sent' | 'failed'
 
@@ -89,8 +91,8 @@ export default function TelegramPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-dim" />
+      <div className="flex-1 flex items-center justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -98,51 +100,49 @@ export default function TelegramPage() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <Send className="w-5 h-5 text-accent" />
-          <h1 className="text-lg font-semibold text-cream">Telegram</h1>
-          <span className="text-xs text-dim px-2 py-0.5 bg-white/5 rounded-full">
-            {channels.length} {channels.length === 1 ? 'канал' : 'каналов'}
-          </span>
+      <header className="px-6 md:px-10 pt-6 md:pt-10 pb-5 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
+            <span>ContentOS</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span className="normal-case tracking-normal">Социальные сети</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight">Telegram</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            {channels.length === 0
+              ? 'Подключи канал, чтобы начать постить'
+              : `${channels.length} ${channels.length === 1 ? 'канал' : channels.length < 5 ? 'канала' : 'каналов'} · ${posts.length} ${posts.length === 1 ? 'пост' : 'постов'}`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="icon"
             onClick={() => { fetchChannels(); fetchPosts() }}
-            className="p-2 text-dim hover:text-muted transition-colors"
             title="Обновить"
           >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setShowConnect(true)}
-            className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream hover:border-muted transition-colors"
-          >
-            + Подключить аккаунт
-          </button>
-          <button
-            onClick={handleNewPost}
-            disabled={channels.length === 0}
-            className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs hover:bg-accent/90 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" />
+            <RefreshCw />
+          </Button>
+          <Button variant="outline" onClick={() => setShowConnect(true)}>
+            <Plus />
+            Подключить аккаунт
+          </Button>
+          <Button variant="brand" onClick={handleNewPost} disabled={channels.length === 0}>
+            <Send />
             Новый пост
-          </button>
+          </Button>
         </div>
-      </div>
+      </header>
 
       {/* Tabs + filters */}
-      <div className="flex items-center gap-4 px-6 py-3 border-b border-border/50">
-        <div className="flex gap-1">
+      <div className="px-6 md:px-10 pb-4 flex items-center gap-4 flex-wrap">
+        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-card border border-border">
           {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                tab === t.key
-                  ? 'bg-accent/10 text-accent'
-                  : 'text-dim hover:text-muted'
-              }`}
+              data-active={tab === t.key || undefined}
+              className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors text-muted-foreground hover:text-foreground data-[active]:bg-muted data-[active]:text-foreground"
             >
               {t.label}
             </button>
@@ -153,7 +153,7 @@ export default function TelegramPage() {
           <select
             value={selectedChannel}
             onChange={e => setSelectedChannel(e.target.value)}
-            className="ml-auto px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent"
+            className="ml-auto h-9 px-3 rounded-lg bg-card border border-border text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Все каналы</option>
             {projects.map(proj => {
@@ -187,35 +187,27 @@ export default function TelegramPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto px-6 md:px-10 pb-10">
         {channels.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <Send className="w-10 h-10 text-dim mb-3" />
-            <p className="text-muted mb-1">Нет подключённых каналов</p>
-            <p className="text-xs text-dim mb-4">
-              Подключите Telegram-аккаунт, чтобы начать постить
-            </p>
-            <button
-              onClick={() => setShowConnect(true)}
-              className="px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent/90"
-            >
+          <Card className="p-12 flex flex-col items-center justify-center text-center">
+            <Send className="w-10 h-10 text-muted-foreground mb-3" />
+            <p className="text-foreground font-medium mb-1">Нет подключённых каналов</p>
+            <p className="text-sm text-muted-foreground mb-6">Подключи Telegram-аккаунт, чтобы начать постить</p>
+            <Button variant="brand" onClick={() => setShowConnect(true)}>
+              <Plus />
               Подключить Telegram
-            </button>
-          </div>
+            </Button>
+          </Card>
         ) : posts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <p className="text-muted mb-1">Нет постов</p>
-            <p className="text-xs text-dim mb-4">
-              Создайте первый пост для вашего канала
-            </p>
-            <button
-              onClick={handleNewPost}
-              className="px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent/90 flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
+          <Card className="p-12 flex flex-col items-center justify-center text-center">
+            <Send className="w-10 h-10 text-muted-foreground mb-3" />
+            <p className="text-foreground font-medium mb-1">Нет постов</p>
+            <p className="text-sm text-muted-foreground mb-6">Создай первый пост для канала</p>
+            <Button variant="brand" onClick={handleNewPost}>
+              <Plus />
               Создать пост
-            </button>
-          </div>
+            </Button>
+          </Card>
         ) : (
           <div className="flex gap-6">
             <div className="flex-1 grid gap-3 max-w-3xl">
@@ -248,7 +240,7 @@ export default function TelegramPage() {
 
       {/* Editor drawer */}
       {showEditor && (
-        <div className="fixed inset-y-0 right-0 w-[480px] bg-bg-sidebar border-l border-border z-40 shadow-2xl">
+        <div className="fixed inset-y-0 right-0 w-[480px] bg-card border-l border-border z-40 shadow-2xl">
           <PostEditor
             channels={channels}
             initialChannelId={editingPost?.channel_id}
