@@ -49,8 +49,11 @@ const NEWSLETTER_OPTIONS: IOptions = {
   // Newsletters use <section data-kind="..."> blocks (see lib/newsletter/sections.ts)
   // so the chat wizard can find/replace individual parts of the email body.
   // Keep this list in sync with SECTION_KINDS when adding new section types.
+  // sanitize-html types `allowedTags` as `string[] | false` — Array.isArray
+  // narrows it safely, a `?? []` wouldn't (it lets `false` through and then
+  // spread blows up at build time).
   allowedTags: [
-    ...(ARTICLE_OPTIONS.allowedTags ?? []),
+    ...(Array.isArray(ARTICLE_OPTIONS.allowedTags) ? ARTICLE_OPTIONS.allowedTags : []),
     'section',
   ],
   allowedAttributes: {
