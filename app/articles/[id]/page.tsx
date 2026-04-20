@@ -175,6 +175,38 @@ export default function ArticleEditorPage() {
     }
   }
 
+  function restoreSelection(): Selection | null {
+    editorRef.current?.focus()
+    const sel = window.getSelection()
+    if (sel && savedRangeRef.current) {
+      sel.removeAllRanges()
+      sel.addRange(savedRangeRef.current)
+    }
+    return sel
+  }
+
+  // Link insertion: prompt() blurs the editor, so native execCommand('createLink')
+  // loses the original selection and silently does nothing. Save range first,
+  // restore after prompt, then wrap selection — or insert the URL as link text
+  // when the cursor is collapsed so the button always produces something.
+  function insertLink(): void {
+    saveSelection()
+    const raw = prompt('URL:')
+    if (!raw) return
+    const trimmed = raw.trim()
+    if (!trimmed) return
+    const url = /^https?:\/\//i.test(trimmed) || trimmed.startsWith('mailto:')
+      ? trimmed
+      : `https://${trimmed}`
+    const sel = restoreSelection()
+    if (!sel || sel.isCollapsed) {
+      // No selection — insert the URL itself as the link text.
+      execCmd('insertHTML', `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
+      return
+    }
+    execCmd('createLink', url)
+  }
+
   async function handleFormat(): Promise<void> {
     if (!article || formatting) return
     const currentHtml = editorRef.current?.innerHTML ?? article.body_html
@@ -226,9 +258,28 @@ export default function ArticleEditorPage() {
         .replace(/^```html?\n?/i, '')
         .replace(/\n?```$/i, '')
         .trim()
+
+      // Extract suggested TITLE/SUBTITLE from service comments at the top of
+      // the response, then strip them from the HTML before it hits the editor.
+      const titleMatch = html.match(/<!--\s*TITLE:\s*([^]*?)\s*-->/i)
+      const subtitleMatch = html.match(/<!--\s*SUBTITLE:\s*([^]*?)\s*-->/i)
+      if (titleMatch || subtitleMatch) {
+        html = html
+          .replace(/<!--\s*TITLE:[^]*?-->\s*/i, '')
+          .replace(/<!--\s*SUBTITLE:[^]*?-->\s*/i, '')
+          .trim()
+      }
+
       if (!html) { alert('Модель вернула пустой результат'); return }
       pushUndo()
-      updateLocal({ body_html: html })
+
+      // Only adopt AI-suggested title/subtitle when the corresponding field is
+      // still empty — otherwise users would lose their own hand-picked heading
+      // every time they re-run "Оформить AI".
+      const patch: Partial<Article> = { body_html: html }
+      if (titleMatch && !article.title.trim()) patch.title = titleMatch[1].trim()
+      if (subtitleMatch && !article.subtitle.trim()) patch.subtitle = subtitleMatch[1].trim()
+      updateLocal(patch)
       if (editorRef.current) editorRef.current.innerHTML = html
     } catch (e) {
       alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
@@ -593,7 +644,7 @@ export default function ArticleEditorPage() {
                 { icon: Italic, cmd: () => execCmd('italic'), title: 'Курсив' },
                 { icon: Heading2, cmd: () => execCmd('formatBlock', 'h2'), title: 'Заголовок' },
                 { icon: Quote, cmd: () => execCmd('formatBlock', 'blockquote'), title: 'Цитата' },
-                { icon: Link2, cmd: () => { const u = prompt('URL:'); if (u) execCmd('createLink', u) }, title: 'Ссылка' },
+                { icon: Link2, cmd: insertLink, title: 'Ссылка' },
                 { icon: Minus, cmd: () => execCmd('insertHTML', '<hr class="divider">'), title: 'Разделитель' },
               ].map(({ icon: Icon, cmd, title }, i) => (
                 <button key={i} onClick={cmd} title={title} className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded">
