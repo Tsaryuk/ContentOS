@@ -5,8 +5,11 @@ import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from '@/lib/ai-models'
 import { getSession } from '@/lib/session'
 import { EMAIL_WRITER_PROMPT } from '@/lib/articles/prompts'
+import { nextIssueNumber } from '@/lib/newsletter/issue-number'
 
 const anthropic = new Anthropic()
+
+const DEFAULT_TAG = 'Разговор о...'
 
 export async function POST(
   req: NextRequest,
@@ -44,18 +47,28 @@ export async function POST(
       .join('')
       .replace(/^```html?\n?/i, '').replace(/\n?```$/i, '').trim()
 
-    // Create email issue linked to article
+    // Create email issue linked to article.
+    // Populate issue metadata from the article so the editor doesn't open with empty fields:
+    // - subject / subtitle / tag / preheader default from article (user can override in editor)
+    // - issue_number auto-assigned as max(existing) + 1 so UI doesn't show a dash
     const session = await getSession()
+    const projectId = session.activeProjectId ?? null
+
+    const preheaderDefault = (article.subtitle || article.seo_description || textOnly).slice(0, 140)
+    const issueNumber = await nextIssueNumber(supabaseAdmin, projectId)
+
     const { data: issue, error } = await supabaseAdmin
       .from('nl_issues')
       .insert({
         subject: article.title,
         subtitle: article.subtitle,
-        tag: article.category ?? '',
+        preheader: preheaderDefault,
+        tag: DEFAULT_TAG,
+        issue_number: issueNumber,
         body_html: emailHtml,
         category: article.category,
         tags: article.tags,
-        project_id: session.activeProjectId ?? null,
+        project_id: projectId,
         created_by: auth.userId,
       })
       .select()

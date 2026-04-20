@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
+import { nextIssueNumber } from '@/lib/newsletter/issue-number'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth()
@@ -36,6 +37,12 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const session = await getSession()
+    const projectId = session.activeProjectId ?? null
+
+    // Auto-assign issue_number unless the client already supplied one (e.g. import flow).
+    const issueNumber = typeof body.issue_number === 'number'
+      ? body.issue_number
+      : await nextIssueNumber(supabaseAdmin, projectId)
 
     const insert = {
       subject: body.subject ?? '',
@@ -44,10 +51,10 @@ export async function POST(req: NextRequest) {
       subtitle: body.subtitle ?? '',
       body_html: body.body_html ?? '',
       body_json: body.body_json ?? null,
-      issue_number: body.issue_number ?? null,
+      issue_number: issueNumber,
       category: body.category ?? null,
       tags: body.tags ?? [],
-      project_id: session.activeProjectId ?? null,
+      project_id: projectId,
       created_by: auth.userId,
     }
 
