@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Eye, Smartphone, Monitor, Save, Upload, Calendar, Loader2, Sparkles,
-  Bold, Italic, Heading2, Quote, Link2, List, Minus, Type
+  Bold, Italic, Heading2, Quote, Link2, List, Minus, Type, ClipboardCopy, Check
 } from 'lucide-react'
 
 interface Issue {
@@ -39,8 +39,49 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
   const [scheduleDate, setScheduleDate] = useState('')
   const [showSchedule, setShowSchedule] = useState(false)
   const [enhancing, setEnhancing] = useState(false)
+  const [copying, setCopying] = useState(false)
+  const [justCopied, setJustCopied] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
   const autoSaveTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // Fetch the fully template-wrapped email HTML and drop it on the clipboard
+  // so the user can paste it straight into Unisender (or any other ESP) by
+  // hand when the upload flow isn't enough.
+  async function handleCopyHtml(): Promise<void> {
+    if (copying) return
+    setCopying(true)
+    try {
+      // Save pending edits first so the copied HTML reflects what's in the
+      // editor right now, not what was last auto-saved.
+      await onSave()
+      const res = await fetch(`/api/newsletter/issues/${issue.id}/html`)
+      if (!res.ok) {
+        const t = await res.text().catch(() => '')
+        alert(`Ошибка ${res.status}: ${t.slice(0, 200)}`)
+        return
+      }
+      const html = await res.text()
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(html)
+      } else {
+        // Legacy fallback (e.g. non-secure contexts).
+        const ta = document.createElement('textarea')
+        ta.value = html
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
+      setJustCopied(true)
+      setTimeout(() => setJustCopied(false), 2000)
+    } catch (e) {
+      alert('Не скопировалось: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setCopying(false)
+    }
+  }
 
   useEffect(() => {
     autoSaveTimer.current = setInterval(() => {
@@ -314,6 +355,19 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
           >
             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
             Сохранить
+          </button>
+          <button
+            onClick={handleCopyHtml}
+            disabled={copying}
+            title="Скопировать полный HTML письма — вставь в Unisender вручную если нужно"
+            className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {copying
+              ? <Loader2 className="w-3 h-3 animate-spin" />
+              : justCopied
+                ? <Check className="w-3 h-3 text-emerald-400" />
+                : <ClipboardCopy className="w-3 h-3" />}
+            {justCopied ? 'Скопировано' : 'Копировать HTML'}
           </button>
           <button
             onClick={onUpload}
