@@ -10,8 +10,8 @@
 <meta property="og:image" content="{{COVER_URL}}">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Личная Стратегия">
-<meta property="og:url" content="https://letters.tsaryuk.ru/articles/{{SLUG}}.html">
-<link rel="canonical" href="https://letters.tsaryuk.ru/articles/{{SLUG}}.html">
+<meta property="og:url" content="https://letters.tsaryuk.ru/articles/{{SLUG}}">
+<link rel="canonical" href="https://letters.tsaryuk.ru/articles/{{SLUG}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -75,5 +75,11 @@
 </footer>
 
 <script src="/assets/article.js"></script>
+
+<!-- Внешний shell: меню и метрика лежат на tsaryuk.ru и подгружаются
+     динамически, поэтому правки в menu.js / metrika.js применяются ко
+     ВСЕМ статьям без переопубликации. -->
+<script src="https://tsaryuk.ru/menu.js" defer></script>
+<script src="https://tsaryuk.ru/metrika.js" defer></script>
 </body>
 </html>
