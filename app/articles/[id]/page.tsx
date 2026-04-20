@@ -203,13 +203,33 @@ export default function ArticleEditorPage() {
         alert(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
         return
       }
-      const data = await res.json()
-      if (data.error) { alert(data.error); return }
-      if (data.html) {
-        pushUndo()
-        updateLocal({ body_html: data.html })
-        if (editorRef.current) editorRef.current.innerHTML = data.html
+      if (!res.body) { alert('Пустой ответ сервера'); return }
+
+      // Stream chunks as they arrive so Safari's ~60s fetch timeout can't
+      // abort the connection while Anthropic is still generating markup.
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
       }
+      accumulated += decoder.decode()
+
+      const errMatch = accumulated.match(/\n\n\[\[STRUCTURE_ERROR\]\] ([\s\S]+)$/)
+      if (errMatch) { alert('Ошибка: ' + errMatch[1].trim()); return }
+
+      let html = accumulated
+        .replace(/\u200B/g, '')
+        .trim()
+        .replace(/^```html?\n?/i, '')
+        .replace(/\n?```$/i, '')
+        .trim()
+      if (!html) { alert('Модель вернула пустой результат'); return }
+      pushUndo()
+      updateLocal({ body_html: html })
+      if (editorRef.current) editorRef.current.innerHTML = html
     } catch (e) {
       alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
     } finally { setFormatting(false) }
