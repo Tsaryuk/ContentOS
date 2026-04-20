@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { EditorPanel } from '@/components/newsletter/EditorPanel'
 import { AiChat } from '@/components/newsletter/AiChat'
@@ -26,9 +26,28 @@ interface Issue {
 
 export default function NewsletterEditorPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [issue, setIssue] = useState<Issue | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete() {
+    if (deleting) return
+    if (!confirm('Удалить этот выпуск? Связь со статьёй будет снята, письмо исчезнет, статью можно будет пересоздать.')) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/newsletter/issues/${id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Ошибка ${res.status}: ${data.error ?? 'не удалось удалить'}`)
+        return
+      }
+      router.push('/newsletter')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -114,6 +133,15 @@ export default function NewsletterEditorPage() {
            issue.status === 'uploaded' ? 'Загружено' :
            issue.status === 'scheduled' ? 'Запланировано' : 'Отправлено'}
         </span>
+        <div className="flex-1" />
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          title="Удалить выпуск и снять связь со статьёй"
+          className="p-1.5 text-dim hover:text-red-400 hover:bg-red-500/10 rounded disabled:opacity-50"
+        >
+          {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+        </button>
       </div>
 
       <div className="flex-1 flex min-h-0">
