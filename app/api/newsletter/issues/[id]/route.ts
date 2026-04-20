@@ -110,6 +110,18 @@ export async function DELETE(
 
   const { id } = await params
 
+  // nl_articles.email_issue_id references nl_issues(id) without ON DELETE SET NULL,
+  // so deleting the issue is blocked while any article still points to it.
+  // Unlink the relation first, then delete.
+  const { error: unlinkError } = await supabaseAdmin
+    .from('nl_articles')
+    .update({ email_issue_id: null, updated_at: new Date().toISOString() })
+    .eq('email_issue_id', id)
+
+  if (unlinkError) {
+    return NextResponse.json({ error: `Не удалось отвязать статьи: ${unlinkError.message}` }, { status: 500 })
+  }
+
   const { error } = await supabaseAdmin
     .from('nl_issues')
     .delete()
