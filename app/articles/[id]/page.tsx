@@ -50,6 +50,7 @@ export default function ArticleEditorPage() {
   const [preview, setPreview] = useState<Preview>('editor')
   const [genCover, setGenCover] = useState(false)
   const [coverOptions, setCoverOptions] = useState<string[]>([])
+  const [coverVariantLabels, setCoverVariantLabels] = useState<string[]>([])
   const [selectedCoverIdx, setSelectedCoverIdx] = useState<number | null>(null)
   const [coverPrompt, setCoverPrompt] = useState('')
   const [showCoverSettings, setShowCoverSettings] = useState(false)
@@ -330,10 +331,12 @@ export default function ArticleEditorPage() {
     syncEditor()
   }
 
-  // Cover generation
+  // Cover generation — API now returns 3 variants with different prompts
+  // (светлая / тёмная / полная гравюра). Keep the order server-sent so the
+  // label under each thumbnail matches the layout you'll actually get.
   async function generateCover() {
     if (!article?.title.trim()) return
-    setGenCover(true); setCoverOptions([])
+    setGenCover(true); setCoverOptions([]); setCoverVariantLabels([])
     try {
       const res = await fetch('/api/articles/cover', {
         method: 'POST',
@@ -354,8 +357,17 @@ export default function ArticleEditorPage() {
       const data = await res.json()
       if (data.error) {
         alert('Ошибка: ' + data.error)
+      } else if (Array.isArray(data.variants) && data.variants.length > 0) {
+        const urls = data.variants.map((v: { url: string }) => v.url)
+        const labels = data.variants.map((v: { label: string }) => v.label)
+        setCoverOptions(urls)
+        setCoverVariantLabels(labels)
+        setSelectedCoverIdx(0)
+        await selectCover(urls[0])
       } else if (data.urls?.length) {
+        // Back-compat: older server response shape without labels.
         setCoverOptions(data.urls)
+        setCoverVariantLabels([])
         setSelectedCoverIdx(0)
         await selectCover(data.urls[0])
       } else {
@@ -508,9 +520,9 @@ export default function ArticleEditorPage() {
           variant="outline"
           size="sm"
           onClick={() => setShowWhitePaper(true)}
-          title="Режим белого листа — писать без форматирования, потом AI структурирует"
+          title="Режим чистого листа — писать без форматирования, потом AI структурирует"
         >
-          <FileText /> Белый лист
+          <FileText /> Чистый лист
         </Button>
         <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 className="animate-spin" /> : <Save />}
@@ -574,22 +586,27 @@ export default function ArticleEditorPage() {
                   )}
                   {coverOptions.length > 0 && (
                     <div className="flex gap-2">
-                      {coverOptions.map((url, i) => (
-                        <button key={i}
-                          onClick={async () => {
-                            setSelectedCoverIdx(i)
-                            await selectCover(url)
-                          }}
-                          disabled={persistingCover}
-                          className={`relative rounded-lg overflow-hidden border-2 transition-colors ${selectedCoverIdx === i ? 'border-accent' : 'border-border hover:border-muted'} disabled:cursor-wait`}>
-                          <img src={url} className="w-28 h-16 object-cover" alt={`Вариант ${i + 1}`} />
-                          {selectedCoverIdx === i && (
-                            <div className="absolute top-1 right-1 bg-accent text-white text-[9px] px-1.5 py-0.5 rounded">
-                              {persistingCover ? '...' : '✓'}
-                            </div>
-                          )}
-                        </button>
-                      ))}
+                      {coverOptions.map((url, i) => {
+                        const label = coverVariantLabels[i] ?? `Вариант ${i + 1}`
+                        return (
+                          <button key={i}
+                            onClick={async () => {
+                              setSelectedCoverIdx(i)
+                              await selectCover(url)
+                            }}
+                            disabled={persistingCover}
+                            className={`relative flex flex-col items-stretch gap-1 rounded-lg overflow-hidden border-2 transition-colors ${selectedCoverIdx === i ? 'border-accent' : 'border-border hover:border-muted'} disabled:cursor-wait`}
+                            title={label}>
+                            <img src={url} className="w-28 h-16 object-cover" alt={label} />
+                            <span className="px-1 pb-1 text-[9px] text-muted-foreground/80 text-center tabular-nums">{label}</span>
+                            {selectedCoverIdx === i && (
+                              <div className="absolute top-1 right-1 bg-accent text-white text-[9px] px-1.5 py-0.5 rounded">
+                                {persistingCover ? '...' : '✓'}
+                              </div>
+                            )}
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                   {article.cover_url && !coverOptions.length && (

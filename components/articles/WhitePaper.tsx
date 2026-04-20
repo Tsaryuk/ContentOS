@@ -186,7 +186,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
       {/* Minimal header */}
       <div className="flex items-center justify-between px-8 py-4 border-b border-border/40">
         <div>
-          <div className="text-[11px] text-muted-foreground/60 tracking-[0.2em] uppercase">Белый лист</div>
+          <div className="text-[11px] text-muted-foreground/60 tracking-[0.2em] uppercase">Чистый лист</div>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground/60">
           <span>{wordCount} слов</span>
@@ -222,7 +222,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
           <button
             onClick={() => {
               if (!text.trim()) { alert('Черновик пустой'); return }
-              if (!confirm('Перенести черновик в редактор?\n\nТекущее содержимое редактора будет ЗАМЕНЕНО черновиком.\nЧерновик сохранится — можешь вернуться в белый лист и продолжить.')) return
+              if (!confirm('Перенести черновик в редактор?\n\nТекущее содержимое редактора будет ЗАМЕНЕНО черновиком.\nЧерновик сохранится — можешь вернуться в чистый лист и продолжить.')) return
               handleSendToEditor()
             }}
             className="px-4 py-1.5 bg-white text-black rounded-full text-xs font-medium hover:opacity-90 flex items-center gap-2"

@@ -13,7 +13,7 @@
 //    Converts full article into shortened email version with link to full version.
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. STYLE EDITOR — белый лист
+// 1. STYLE EDITOR — чистый лист
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const STYLE_EDITOR_PROMPT = `Ты — редактор и соавтор длинных интеллектуальных постов в стиле Dan Koe (letters.thedankoe.com).
