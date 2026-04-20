@@ -105,39 +105,47 @@ async function writeRemoteString(sftp: Client, path: string, content: string): P
   await sftp.put(Buffer.from(content, 'utf-8'), path)
 }
 
-function renderArticleHtml(article: Article): string {
-  const templatePath = join(process.cwd(), 'services/letters-site/article-template.html')
-  if (!existsSync(templatePath)) {
-    throw new Error('Шаблон статьи не найден: ' + templatePath)
+function formatDateRu(iso: string | null): string {
+  const d = iso ? new Date(iso) : new Date()
+  return d.toLocaleDateString('ru-RU', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
+interface ArticlePayload {
+  slug: string
+  title: string
+  subtitle: string
+  description: string
+  category: string
+  date: string
+  cover_url: string
+  show_cover_in_article: boolean
+  body_html: string
+  published_at: string | null
+}
+
+// Build the per-article JSON that /article.php on the hosting reads and
+// renders inside the central shell. body_html goes through sanitizeArticleHtml
+// here, before it ever leaves the server — PHP trusts the field.
+function buildArticlePayload(article: Article): ArticlePayload {
+  return {
+    slug: article.blog_slug!,
+    title: article.title,
+    subtitle: article.subtitle ?? '',
+    description: article.seo_description || article.subtitle || '',
+    category: article.category ?? '',
+    date: formatDateRu(article.published_at),
+    cover_url: article.cover_url ?? '',
+    show_cover_in_article: article.show_cover_in_article !== false,
+    body_html: sanitizeArticleHtml(article.body_html),
+    published_at: article.published_at,
   }
-  const template = readFileSync(templatePath, 'utf-8')
+}
 
-  const date = article.published_at
-    ? new Date(article.published_at).toLocaleDateString('ru-RU', {
-        day: 'numeric', month: 'long', year: 'numeric',
-      })
-    : new Date().toLocaleDateString('ru-RU', {
-        day: 'numeric', month: 'long', year: 'numeric',
-      })
-
-  const showCover = article.show_cover_in_article !== false
-  const coverImg = showCover && article.cover_url
-    ? `<img class="article-cover" src="${article.cover_url}" alt="${article.title.replace(/"/g, '&quot;')}">`
-    : ''
-
-  const safeBodyHtml = sanitizeArticleHtml(article.body_html)
-
-  return template
-    .replace(/\{\{TITLE\}\}/g, article.title)
-    .replace(/\{\{DESCRIPTION\}\}/g, article.seo_description || article.subtitle)
-    .replace(/\{\{SUBTITLE\}\}/g, article.subtitle || '')
-    .replace(/\{\{COVER_URL\}\}/g, article.cover_url || '')
-    .replace(/\{\{COVER_IMG\}\}/g, coverImg)
-    .replace(/\{\{CATEGORY\}\}/g, article.category || '')
-    .replace(/\{\{DATE\}\}/g, date)
-    .replace(/\{\{NUMBER\}\}/g, '')
-    .replace(/\{\{SLUG\}\}/g, article.blog_slug || '')
-    .replace(/\{\{BODY_HTML\}\}/g, safeBodyHtml)
+function remoteArticleJsonPath(cfg: SftpConfig, slug: string): string {
+  assertSafeSlug(slug)
+  return remotePath(cfg, 'articles', `${slug}.json`)
 }
 
 export async function publishArticleFiles(
@@ -148,7 +156,7 @@ export async function publishArticleFiles(
   if (!article.body_html?.trim()) throw new Error('Статья пустая')
   assertSafeSlug(article.blog_slug)
 
-  const html = renderArticleHtml(article)
+  const payload = buildArticlePayload(article)
   const prev = opts.previousSlug
 
   await withSftp(async (sftp, cfg) => {
@@ -157,30 +165,32 @@ export async function publishArticleFiles(
       await sftp.mkdir(articlesDir, true)
     }
 
-    const htmlPath = remoteArticlePath(cfg, article.blog_slug!)
-    await writeRemoteString(sftp, htmlPath, html)
+    // New-shape: single JSON per article. /article.php + .htaccess rewrite
+    // turn this into a real page. No per-article HTML is uploaded anymore —
+    // editing the shell in article.php applies to everyone without republish.
+    const jsonPath = remoteArticleJsonPath(cfg, article.blog_slug!)
+    await writeRemoteString(sftp, jsonPath, JSON.stringify(payload, null, 2))
 
+    // Clean up old artifacts for the current slug: any pre-migration .html
+    // would otherwise short-circuit the rewrite (Apache matches filesystem
+    // file before the JSON-based rule because .html is served directly).
+    // Delete it so the canonical path goes through PHP.
+    const htmlPath = remoteArticlePath(cfg, article.blog_slug!)
+    if (await sftp.exists(htmlPath)) {
+      try { await sftp.delete(htmlPath) } catch { /* ignore */ }
+    }
+
+    // If the slug was renamed, also remove both artifacts under the old slug.
     if (prev && prev !== article.blog_slug) {
-      try {
-        const oldPath = remoteArticlePath(cfg, prev)
-        if (await sftp.exists(oldPath)) {
-          await sftp.delete(oldPath)
-        }
-      } catch {
-        // previous slug invalid — skip cleanup
+      for (const remove of [remoteArticlePath(cfg, prev), remoteArticleJsonPath(cfg, prev)]) {
+        try {
+          if (await sftp.exists(remove)) await sftp.delete(remove)
+        } catch { /* previous slug invalid — skip cleanup */ }
       }
     }
 
     const indexPath = remotePath(cfg, 'articles', 'index.json')
     const articles = await readRemoteJson<IndexEntry[]>(sftp, indexPath, [])
-
-    const date = article.published_at
-      ? new Date(article.published_at).toLocaleDateString('ru-RU', {
-          day: 'numeric', month: 'long', year: 'numeric',
-        })
-      : new Date().toLocaleDateString('ru-RU', {
-          day: 'numeric', month: 'long', year: 'numeric',
-        })
 
     const filtered = articles.filter(
       (a) => a.slug !== article.blog_slug && a.slug !== prev,
@@ -188,31 +198,35 @@ export async function publishArticleFiles(
     filtered.unshift({
       slug: article.blog_slug!,
       title: article.title,
-      date,
+      date: payload.date,
       category: article.category || null,
       cover: article.cover_url || null,
     })
 
     await writeRemoteString(sftp, indexPath, JSON.stringify(filtered, null, 2))
 
-    // Bootstrap static shell files. Each publish overwrites .htaccess on the
-    // hosting so the clean-URL rewrite rule is always in sync with the repo.
-    // menu / metrika scripts are external (tsaryuk.ru/menu.js, metrika.js),
-    // so updating them doesn't require re-publishing articles.
+    // Bootstrap the shell files: .htaccess rewrite rules + article.php
+    // renderer. Overwriting them on every publish keeps the hosting in sync
+    // with the repo so you don't need a separate "deploy letters-site" flow.
     await syncSiteAssets(sftp, cfg)
   })
 
   return { url: `https://letters.tsaryuk.ru/articles/${article.blog_slug}` }
 }
 
-// Upload site-wide static files (.htaccess) that aren't tied to a single
-// article. Failures are swallowed — the article upload itself already
-// succeeded and we don't want a shell sync hiccup to fail the publish.
+// Upload site-wide static files (.htaccess, article.php) that aren't tied to
+// a single article. Failures are swallowed — the article upload itself
+// already succeeded and we don't want a shell-sync hiccup to fail the
+// publish.
 async function syncSiteAssets(sftp: Client, cfg: SftpConfig): Promise<void> {
   const assets: Array<{ local: string; remote: string }> = [
     {
       local: join(process.cwd(), 'services/letters-site/.htaccess'),
       remote: remotePath(cfg, '.htaccess'),
+    },
+    {
+      local: join(process.cwd(), 'services/letters-site/article.php'),
+      remote: remotePath(cfg, 'article.php'),
     },
   ]
   for (const { local, remote } of assets) {
@@ -230,10 +244,11 @@ export async function unpublishArticleFiles(slug: string): Promise<void> {
   assertSafeSlug(slug)
 
   await withSftp(async (sftp, cfg) => {
-    const htmlPath = remoteArticlePath(cfg, slug)
-    if (await sftp.exists(htmlPath)) {
+    // Remove both legacy .html (if any) and the new .json payload for this
+    // slug so neither Apache nor article.php can still serve the article.
+    for (const path of [remoteArticlePath(cfg, slug), remoteArticleJsonPath(cfg, slug)]) {
       try {
-        await sftp.delete(htmlPath)
+        if (await sftp.exists(path)) await sftp.delete(path)
       } catch {
         // ignore
       }
