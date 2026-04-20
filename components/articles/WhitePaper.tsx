@@ -111,19 +111,42 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
         alert(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
         return
       }
-      const data = await res.json()
-      if (data.error) { alert(data.error); return }
-      if (data.text) {
-        setText(data.text)
-        setInstruction('')
-        setShowInstruction(false)
-        // Save to draft immediately
-        fetch(`/api/articles/${articleId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ draft_text: data.text }),
-        }).catch(() => {})
+      if (!res.body) { alert('Пустой ответ сервера'); return }
+
+      // Stream chunks as they arrive so Safari's ~60s fetch timeout can't
+      // abort the connection while Anthropic is still generating.
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+      let replaced = false
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        // Trim the zero-width keepalive byte the server sends up front.
+        const cleaned = accumulated.replace(/^\u200B/, '')
+        if (!cleaned) continue
+        if (!replaced) { replaced = true }
+        setText(cleaned)
       }
+      accumulated += decoder.decode()
+
+      const errMatch = accumulated.match(/\n\n\[\[STYLE_EDIT_ERROR\]\] ([\s\S]+)$/)
+      if (errMatch) {
+        alert('Ошибка: ' + errMatch[1].trim())
+        return
+      }
+
+      const finalText = accumulated.replace(/^\u200B/, '').trim()
+      if (!finalText) { alert('Модель вернула пустой текст'); return }
+      setText(finalText)
+      setInstruction('')
+      setShowInstruction(false)
+      fetch(`/api/articles/${articleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draft_text: finalText }),
+      }).catch(() => {})
     } catch (e) {
       alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
     } finally { setStyleRunning(false) }
