@@ -46,9 +46,16 @@ const ARTICLE_OPTIONS: IOptions = {
 
 const NEWSLETTER_OPTIONS: IOptions = {
   ...ARTICLE_OPTIONS,
+  // Newsletters use <section data-kind="..."> blocks (see lib/newsletter/sections.ts)
+  // so the chat wizard can find/replace individual parts of the email body.
+  // Keep this list in sync with SECTION_KINDS when adding new section types.
+  allowedTags: [
+    ...(ARTICLE_OPTIONS.allowedTags ?? []),
+    'section',
+  ],
   allowedAttributes: {
     ...ARTICLE_OPTIONS.allowedAttributes,
-    '*': ['style', 'class'],
+    '*': ['style', 'class', 'data-kind', 'data-placeholder'],
   },
   // Email renders inline styles; allow them but still block javascript:/expression
   allowedStyles: {
