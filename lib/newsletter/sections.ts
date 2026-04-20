@@ -81,3 +81,38 @@ export function renderEmailBody(content: Partial<Record<SectionKind, string>>): 
     .map((kind) => renderSection(kind, content[kind]))
     .join('\n<hr class="divider">\n')
 }
+
+// Replace the content of a single <section data-kind="..."> block inside
+// an existing email body while keeping the surrounding sections and <hr>
+// separators intact. Used by the chat wizard (C2) to fill philosophy /
+// lifehack / anons without re-rendering the whole body.
+//
+// The input must have been produced by renderEmailBody / renderSection so
+// the section tag shape is known: the regex tolerates optional attributes
+// (data-placeholder="1" / class) between data-kind and the closing >.
+export function replaceSection(
+  bodyHtml: string,
+  kind: SectionKind,
+  content: string,
+): string {
+  const next = renderSection(kind, content)
+  const pattern = new RegExp(
+    `<section\\b[^>]*\\bdata-kind=\\"${kind}\\"[^>]*>[\\s\\S]*?<\\/section>`,
+    'i',
+  )
+  if (pattern.test(bodyHtml)) {
+    return bodyHtml.replace(pattern, next)
+  }
+  // Section wasn't in the body yet — append before the final signoff if
+  // present, otherwise at the end. The wizard calls this shortly after
+  // email creation, so the section should always exist; fallback is just a
+  // safety net.
+  const signoffRe = /<hr class=\"divider\">\s*<section\b[^>]*\bdata-kind=\"signoff\"/i
+  if (signoffRe.test(bodyHtml)) {
+    return bodyHtml.replace(
+      signoffRe,
+      `<hr class="divider">\n${next}\n<hr class="divider">\n<section class="e-section e-signoff" data-kind="signoff"`,
+    )
+  }
+  return `${bodyHtml}\n<hr class="divider">\n${next}`
+}
