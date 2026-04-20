@@ -161,6 +161,7 @@ export default function NewsletterEditorPage() {
             currentHtml={issue.body_html}
             initialMessages={issue.ai_messages}
             onInsertText={handleInsertText}
+            onBodyHtmlReplaced={(html) => updateLocal({ body_html: html })}
           />
         </div>
       </div>

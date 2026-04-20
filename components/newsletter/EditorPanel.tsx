@@ -51,6 +51,21 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
     }
   }, [issue.status, onSave])
 
+  // Sync the contentEditable DOM with body_html when the parent updates it
+  // externally — e.g. after the chat wizard fills a section server-side.
+  // Without this the editor would keep its stale innerHTML because React
+  // doesn't re-run dangerouslySetInnerHTML when the DOM was mutated by the
+  // user's typing.
+  useEffect(() => {
+    const el = editorRef.current
+    if (!el) return
+    const next = stripEmailWrapper(issue.body_html) || ''
+    if (el.innerHTML !== next) {
+      el.innerHTML = next
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue.body_html])
+
   const getPreviewHtml = useCallback(() => {
     const tag = issue.tag || 'Разговор о...'
     const subject = issue.subject || '[Заголовок письма]'
