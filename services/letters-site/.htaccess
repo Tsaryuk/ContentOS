@@ -7,12 +7,20 @@ Options -Indexes
   # Legacy endpoint used by existing HTML forms.
   RewriteRule ^api/subscribe/?$ /api/subscribe.php [L]
 
-  # Clean article URLs: /articles/{slug} -> /articles/{slug}.html.
-  # If the static file exists, serve it; otherwise fall through to 404.
-  # .html URLs keep working because Apache serves the static file
-  # directly before this rule fires.
+  # Central shell for articles.
+  # New articles are uploaded as /articles/{slug}.json and rendered by
+  # /article.php. Both the clean URL /articles/{slug} and the .html form
+  # route through the PHP shell when a .json exists — so you can change
+  # the header/footer/scripts in article.php once and it applies to all
+  # live articles without republishing.
+  RewriteCond %{DOCUMENT_ROOT}/articles/$1.json -f
+  RewriteRule ^articles/([a-z0-9][a-z0-9-]{0,100})(?:\.html)?$ /article.php?slug=$1 [L,QSA]
+
+  # Legacy fallback: pre-migration articles exist only as /articles/{slug}.html
+  # on disk. For the clean URL form, internal-rewrite to the static file so
+  # old bookmarks keep working.
   RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{DOCUMENT_ROOT}/articles/$1.html -f
   RewriteRule ^articles/([a-z0-9][a-z0-9-]{0,100})$ /articles/$1.html [L]
 </IfModule>
 
