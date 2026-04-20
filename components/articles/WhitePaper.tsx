@@ -114,19 +114,20 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
       if (!res.body) { alert('Пустой ответ сервера'); return }
 
       // Stream chunks as they arrive so Safari's ~60s fetch timeout can't
-      // abort the connection while Anthropic is still generating.
+      // abort the connection while Anthropic is still generating. The server
+      // also sends zero-width spaces as keepalive bytes during the model's
+      // extended-thinking phase (before any text is produced).
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let accumulated = ''
-      let replaced = false
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         accumulated += decoder.decode(value, { stream: true })
-        // Trim the zero-width keepalive byte the server sends up front.
-        const cleaned = accumulated.replace(/^\u200B/, '')
+        // Strip every keepalive byte, not just the leading one — the server
+        // emits one per thinking delta.
+        const cleaned = accumulated.replace(/\u200B/g, '')
         if (!cleaned) continue
-        if (!replaced) { replaced = true }
         setText(cleaned)
       }
       accumulated += decoder.decode()
@@ -137,7 +138,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
         return
       }
 
-      const finalText = accumulated.replace(/^\u200B/, '').trim()
+      const finalText = accumulated.replace(/\u200B/g, '').trim()
       if (!finalText) { alert('Модель вернула пустой текст'); return }
       setText(finalText)
       setInstruction('')
