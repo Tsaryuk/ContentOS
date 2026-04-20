@@ -194,9 +194,36 @@ export async function publishArticleFiles(
     })
 
     await writeRemoteString(sftp, indexPath, JSON.stringify(filtered, null, 2))
+
+    // Bootstrap static shell files. Each publish overwrites .htaccess on the
+    // hosting so the clean-URL rewrite rule is always in sync with the repo.
+    // menu / metrika scripts are external (tsaryuk.ru/menu.js, metrika.js),
+    // so updating them doesn't require re-publishing articles.
+    await syncSiteAssets(sftp, cfg)
   })
 
-  return { url: `https://letters.tsaryuk.ru/articles/${article.blog_slug}.html` }
+  return { url: `https://letters.tsaryuk.ru/articles/${article.blog_slug}` }
+}
+
+// Upload site-wide static files (.htaccess) that aren't tied to a single
+// article. Failures are swallowed — the article upload itself already
+// succeeded and we don't want a shell sync hiccup to fail the publish.
+async function syncSiteAssets(sftp: Client, cfg: SftpConfig): Promise<void> {
+  const assets: Array<{ local: string; remote: string }> = [
+    {
+      local: join(process.cwd(), 'services/letters-site/.htaccess'),
+      remote: remotePath(cfg, '.htaccess'),
+    },
+  ]
+  for (const { local, remote } of assets) {
+    try {
+      if (!existsSync(local)) continue
+      const content = readFileSync(local, 'utf-8')
+      await writeRemoteString(sftp, remote, content)
+    } catch {
+      // shell sync is best-effort; logs elsewhere
+    }
+  }
 }
 
 export async function unpublishArticleFiles(slug: string): Promise<void> {

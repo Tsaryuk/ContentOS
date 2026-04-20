@@ -1,0 +1,21 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Legacy endpoint used by existing HTML forms.
+  RewriteRule ^api/subscribe/?$ /api/subscribe.php [L]
+
+  # Clean article URLs: /articles/{slug} -> /articles/{slug}.html.
+  # If the static file exists, serve it; otherwise fall through to 404.
+  # .html URLs keep working because Apache serves the static file
+  # directly before this rule fires.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^articles/([a-z0-9][a-z0-9-]{0,100})$ /articles/$1.html [L]
+</IfModule>
+
+<FilesMatch "^\.(env|htaccess|htpasswd)$">
+  Require all denied
+</FilesMatch>
