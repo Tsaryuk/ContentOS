@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createEmailMessage } from '@/lib/unisender'
+import { renderNewsletter } from '@/lib/newsletter/template'
 
 export async function POST(
   req: NextRequest,
@@ -30,11 +31,23 @@ export async function POST(
       return NextResponse.json({ error: 'Письмо пустое' }, { status: 400 })
     }
 
+    // Wrap body sections in the email template (DOCTYPE, <head> styles,
+    // header with tag/subject/subtitle, footer with {{UnsubscribeUrl}}).
+    // Without this Unisender receives naked <section>...</section> blocks
+    // and renders them without any layout — which is exactly what the
+    // subscriber was getting before this fix.
+    const fullHtml = renderNewsletter({
+      tag: issue.tag || 'Разговор о...',
+      subject: issue.subject,
+      subtitle: issue.subtitle ?? '',
+      bodyHtml: issue.body_html,
+    })
+
     const messageId = await createEmailMessage({
       senderName: process.env.UNISENDER_SENDER_NAME ?? 'Денис Царюк',
       senderEmail: process.env.UNISENDER_SENDER_EMAIL ?? 'denis@tsaryuk.ru',
       subject: issue.subject,
-      bodyHtml: issue.body_html,
+      bodyHtml: fullHtml,
     })
 
     // Create or update campaign record
