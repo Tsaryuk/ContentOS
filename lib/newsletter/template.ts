@@ -43,12 +43,14 @@ strong { color: #111; }
 <body>
 <div class="wrap">`
 
+// Unisender substitutes {{UnsubscribeUrl}} at send time. Any other placeholder
+// (including the old {{unsubscribe}}) would leak into the email as literal text.
 const TEMPLATE_FOOTER = `
   <div class="footer">
     <a href="https://tsaryuk.ru">tsaryuk.ru</a> &nbsp;&middot;&nbsp;
     <a href="https://t.me/tsaryuk_ru">@tsaryuk_ru</a> &nbsp;&middot;&nbsp;
     <a href="https://tsaryuk.ru/strategy1">Семинар по стратегии</a><br>
-    <a href="{{unsubscribe}}">Отписаться</a>
+    <a href="{{UnsubscribeUrl}}">Отписаться</a>
   </div>
 </div>
 </body>
@@ -65,7 +67,9 @@ export function renderNewsletter(data: NewsletterData): string {
 }
 
 export function renderPreview(data: NewsletterData): string {
-  return renderNewsletter(data).replace('{{unsubscribe}}', '#')
+  // In the in-app preview there's nothing for Unisender to substitute, so stub
+  // the unsubscribe link to a harmless anchor.
+  return renderNewsletter(data).replace('{{UnsubscribeUrl}}', '#')
 }
 
 function escapeHtml(str: string): string {
