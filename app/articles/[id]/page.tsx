@@ -11,6 +11,8 @@ import {
 import { WhitePaper } from '@/components/articles/WhitePaper'
 import { ThreadsPanel } from '@/components/articles/ThreadsPanel'
 import { VideoScriptPanel } from '@/components/articles/VideoScriptPanel'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 interface Article {
   id: string; title: string; subtitle: string; body_html: string
@@ -406,40 +408,59 @@ export default function ArticleEditorPage() {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
-        <Link href="/articles" className="p-1.5 text-muted-foreground/60 hover:text-muted-foreground"><ArrowLeft className="w-4 h-4" /></Link>
+        <Button variant="ghost" size="icon-sm" asChild>
+          <Link href="/articles"><ArrowLeft /></Link>
+        </Button>
         <span className="text-sm font-medium text-foreground truncate max-w-[200px]">{article.title || 'Новая статья'}</span>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isPublished ? 'bg-green-500/10 text-green-400' : 'bg-accent-surface text-muted-foreground/60'}`}>
+        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+          isPublished
+            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+            : 'bg-muted/60 text-muted-foreground'
+        }`}>
           {isPublished ? 'Опубликовано' : 'Черновик'}
         </span>
-        <div className="flex gap-1 ml-4">
+        <div className="inline-flex items-center gap-0.5 p-0.5 ml-4 rounded-lg bg-card border border-border">
           {([['edit', 'Контент'], ['seo', 'SEO'], ['distribute', 'Дистрибуция']] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key as Tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${tab === key ? 'bg-accent/10 text-accent' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}>
+            <button
+              key={key}
+              onClick={() => setTab(key as Tab)}
+              data-active={tab === key || undefined}
+              className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors text-muted-foreground hover:text-foreground data-[active]:bg-muted data-[active]:text-foreground"
+            >
               {label}
             </button>
           ))}
         </div>
         <div className="flex-1" />
-        <span className="text-[10px] text-muted-foreground/60">v{article.version}</span>
-        <button onClick={() => setShowWhitePaper(true)}
-          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
-          title="Режим белого листа — писать без форматирования, потом AI структурирует">
-          <FileText className="w-3 h-3" /> Белый лист
-        </button>
-        <button onClick={handleSave} disabled={saving}
-          className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 flex items-center gap-1.5">
-          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Сохранить
-        </button>
+        <span className="text-[10px] text-muted-foreground/60 tabular-nums">v{article.version}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowWhitePaper(true)}
+          title="Режим белого листа — писать без форматирования, потом AI структурирует"
+        >
+          <FileText /> Белый лист
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 className="animate-spin" /> : <Save />}
+          Сохранить
+        </Button>
         {isPublished ? (
-          <a href={`https://letters.tsaryuk.ru/articles/${article.blog_slug}.html`} target="_blank" rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg text-xs flex items-center gap-1.5">
-            <ExternalLink className="w-3 h-3" /> На сайте
-          </a>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/20"
+          >
+            <a href={`https://letters.tsaryuk.ru/articles/${article.blog_slug}.html`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink /> На сайте
+            </a>
+          </Button>
         ) : (
-          <button onClick={handlePublish} disabled={publishing || !article.blog_slug}
-            className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs hover:bg-accent/90 disabled:opacity-50 flex items-center gap-1.5">
-            {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Globe className="w-3 h-3" />} Опубликовать
-          </button>
+          <Button variant="brand" size="sm" onClick={handlePublish} disabled={publishing || !article.blog_slug}>
+            {publishing ? <Loader2 className="animate-spin" /> : <Globe />}
+            Опубликовать
+          </Button>
         )}
       </div>
 
@@ -520,7 +541,7 @@ export default function ArticleEditorPage() {
                   <div className="flex gap-2 items-center">
                     <input placeholder="YouTube URL" value={article.youtube_url ?? ''} onChange={e => updateLocal({ youtube_url: e.target.value })}
                       className="flex-1 px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" />
-                    {ytId && <span className="text-[10px] text-green-400 flex items-center gap-1 shrink-0"><Play className="w-3 h-3" /></span>}
+                    {ytId && <span className="text-[10px] text-emerald-500 flex items-center gap-1 shrink-0"><Play className="w-3 h-3" /></span>}
                   </div>
                   {ytId && (
                     <button onClick={insertYoutubeEmbed}
@@ -692,27 +713,35 @@ export default function ArticleEditorPage() {
           {tab === 'distribute' && (
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <h2 className="text-sm font-medium text-foreground mb-4">Дистрибуция из статьи</h2>
-              <div className="p-4 bg-card border border-border rounded-xl">
+              <Card className="p-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-accent" /><span className="text-xs font-medium text-foreground">Email рассылка</span></div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-accent" />
+                    <span className="text-xs font-medium text-foreground">Email рассылка</span>
+                  </div>
                   {article.email_issue_id ? (
-                    <Link href={`/newsletter/editor/${article.email_issue_id}`} className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs flex items-center gap-1.5">
-                      <ExternalLink className="w-3 h-3" /> Открыть письмо
-                    </Link>
+                    <Button variant="outline" size="sm" asChild className="bg-accent/10 text-accent border-accent/20 hover:bg-accent/20">
+                      <Link href={`/newsletter/editor/${article.email_issue_id}`}>
+                        <ExternalLink /> Открыть письмо
+                      </Link>
+                    </Button>
                   ) : (
-                    <button onClick={handleToEmail} disabled={creatingEmail}
-                      className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs disabled:opacity-50 flex items-center gap-1.5">
-                      {creatingEmail ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />} Создать письмо
-                    </button>
+                    <Button variant="brand" size="sm" onClick={handleToEmail} disabled={creatingEmail}>
+                      {creatingEmail ? <Loader2 className="animate-spin" /> : <Mail />}
+                      Создать письмо
+                    </Button>
                   )}
                 </div>
                 <p className="text-[11px] text-muted-foreground/60 mt-2">AI сократит статью до email-формата и добавит ссылку на полную версию</p>
-              </div>
+              </Card>
               <VideoScriptPanel articleId={article.id} articleTitle={article.title} hasBody={Boolean(article.body_html?.trim())} />
-              <div className="p-4 bg-card border border-border rounded-xl opacity-60">
-                <div className="flex items-center gap-2"><Image className="w-4 h-4 text-purple-400" /><span className="text-xs font-medium text-foreground">Карусель</span></div>
+              <Card className="p-4 opacity-60">
+                <div className="flex items-center gap-2">
+                  <Image className="w-4 h-4 text-purple-500" />
+                  <span className="text-xs font-medium text-foreground">Карусель</span>
+                </div>
                 <p className="text-[11px] text-muted-foreground/60 mt-2">Скоро: генерация карусели для Instagram/Telegram</p>
-              </div>
+              </Card>
               <ThreadsPanel articleId={article.id} hasBody={Boolean(article.body_html?.trim())} />
             </div>
           )}

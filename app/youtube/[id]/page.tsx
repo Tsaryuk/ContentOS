@@ -18,6 +18,8 @@ import { SocialPreview } from '@/components/youtube/SocialPreview'
 import { GuestInfo } from '@/components/youtube/GuestInfo'
 import { CommentsList } from '@/components/youtube/CommentsList'
 import { ShortLinkModal } from '@/components/youtube/ShortLinkModal'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -33,6 +35,8 @@ function formatCount(n: number): string {
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
   return n.toString()
 }
+
+const sectionTitle = 'text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2'
 
 export default function VideoDetailPage() {
   const params = useParams()
@@ -264,67 +268,69 @@ export default function VideoDetailPage() {
       <div className="max-w-7xl mx-auto px-6 py-6">
 
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => router.push('/youtube')} className="p-2 rounded-lg bg-accent-surface hover:bg-accent-surface/80 transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="secondary" size="icon-sm" onClick={() => router.push('/youtube')}>
+            <ArrowLeft />
+          </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-medium truncate">{video.current_title}</h1>
+            <h1 className="text-base font-medium text-foreground truncate">{video.current_title}</h1>
             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(video.duration_seconds)}</span>
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatCount(video.view_count)}</span>
               <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" />{formatCount(video.like_count)}</span>
               {video.ai_score != null && (
-                <span className="flex items-center gap-1 text-purple-400"><Sparkles className="w-3 h-3" />{video.ai_score}</span>
+                <span className="flex items-center gap-1 text-purple-500"><Sparkles className="w-3 h-3" />{video.ai_score}</span>
               )}
             </div>
           </div>
-          <button
-            onClick={() => setShortLinkOpen(true)}
-            title="Deep link"
-            className="p-2 rounded-lg bg-accent-surface hover:bg-accent-surface/80 transition-colors"
-          >
-            <LinkIcon className="w-4 h-4" />
-          </button>
-          <a href={`https://youtube.com/watch?v=${video.yt_video_id}`} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg bg-accent-surface hover:bg-accent-surface/80 transition-colors">
-            <ExternalLink className="w-4 h-4" />
-          </a>
-          <button
+          <Button variant="secondary" size="icon-sm" onClick={() => setShortLinkOpen(true)} title="Deep link">
+            <LinkIcon />
+          </Button>
+          <Button variant="secondary" size="icon-sm" asChild>
+            <a href={`https://youtube.com/watch?v=${video.yt_video_id}`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink />
+            </a>
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon-sm"
             onClick={deleteFromSystem}
             disabled={deleting}
             title="Удалить из системы"
-            className="p-2 rounded-lg bg-accent-surface hover:bg-red-500/15 hover:text-red-400 transition-colors disabled:opacity-50"
+            className="hover:bg-destructive/10 hover:text-destructive"
           >
-            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-          </button>
+            {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+          </Button>
         </div>
 
         {/* Status */}
-        <div className="mb-6 p-3 bg-card rounded-xl border border-border">
+        <Card className="mb-6 p-3">
           <StatusStepper status={video.status} />
           {video.status === 'error' && video.error_message && !video.error_message.startsWith('progress:') && (
             <div className="flex items-center justify-between mt-2 px-2">
-              <p className="text-xs text-red-400">{video.error_message}</p>
-              <button
+              <p className="text-xs text-destructive">{video.error_message}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="bg-destructive/10 text-destructive hover:bg-destructive/20"
                 onClick={() => patchVideo({
                   status: po ? 'review' : 'pending',
                   error_message: null,
                 })}
-                className="shrink-0 ml-3 px-3 py-1 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
               >
                 Сбросить
-              </button>
+              </Button>
             </div>
           )}
           {isProcessing && (
-            <div className="flex items-center gap-2 mt-2 px-2 text-xs text-purple-400">
+            <div className="flex items-center gap-2 mt-2 px-2 text-xs text-purple-500">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
               {video.error_message?.startsWith('progress:')
                 ? video.error_message.replace('progress:', '')
                 : processing || 'Обработка...'}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Main action button */}
         {!po && (
@@ -354,17 +360,17 @@ export default function VideoDetailPage() {
             {po && (
               <>
                 {/* Guest Info */}
-                <div className="p-4 bg-card rounded-xl border border-border">
-                  <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><User className="w-4 h-4" /> Гость</h3>
+                <Card className="p-4">
+                  <h3 className={sectionTitle}><User className="w-4 h-4" /> Гость</h3>
                   <GuestInfo guest={po.guest_info} onUpdate={(g) => patchVideo({ producer_output: { ...po, guest_info: g } })} />
                   {/* Guest Links */}
                   <div className="mt-3 pt-3 border-t border-border">
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Ссылки на гостя</label>
-                      {guestLinksSaved && <span className="text-[10px] text-green-400">Сохранено</span>}
+                      {guestLinksSaved && <span className="text-[10px] text-emerald-500">Сохранено</span>}
                     </div>
                     <textarea
-                      className="w-full bg-background border border-border rounded-lg p-2 text-xs text-foreground leading-relaxed resize-none focus:outline-none focus:border-muted/40"
+                      className="w-full bg-background border border-border rounded-lg p-2 text-xs text-foreground leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                       rows={3}
                       placeholder={'— https://t.me/guest\n— https://instagram.com/guest'}
                       value={guestLinks ?? video.guest_links ?? ''}
@@ -378,11 +384,11 @@ export default function VideoDetailPage() {
                       }}
                     />
                   </div>
-                </div>
+                </Card>
 
                 {/* Titles */}
-                <div className="p-4 bg-card rounded-xl border border-border">
-                  <h3 className="text-sm font-medium text-muted-foregroundmb-3">Заголовок</h3>
+                <Card className="p-4">
+                  <h3 className={sectionTitle}>Заголовок</h3>
                   <VariantSelector
                     variants={po.title_variants}
                     selectedIndex={sv.title_index}
@@ -392,30 +398,31 @@ export default function VideoDetailPage() {
                       await patchVideo({ generated_title: text })
                     }}
                   />
-                </div>
+                </Card>
 
                 {/* Description */}
-                <div className="p-4 bg-card rounded-xl border border-border">
+                <Card className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-muted-foreground">Описание</h3>
                     <div className="flex items-center gap-2">
-                      {descSaving && <span className="text-xs text-muted-foregroundflex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /></span>}
-                      {descSaved && <span className="text-xs text-green-400 flex items-center gap-1"><Check className="w-3 h-3" /> Сохранено</span>}
-                      <button
+                      {descSaving && <span className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /></span>}
+                      {descSaved && <span className="text-xs text-emerald-500 flex items-center gap-1"><Check className="w-3 h-3" /> Сохранено</span>}
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => {
                           const full = composeDescription()
                           setDescEdit(full)
                           saveDescDebounced(full)
                         }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foregroundhover:text-foreground hover:bg-card transition-colors border border-border"
                       >
-                        <FileText className="w-3 h-3" />
+                        <FileText />
                         Собрать
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   <textarea
-                    className="w-full bg-background border border-border rounded-lg p-3 text-xs text-foreground leading-relaxed resize-y focus:outline-none focus:border-muted/40 min-h-[200px]"
+                    className="w-full bg-background border border-border rounded-lg p-3 text-xs text-foreground leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-ring min-h-[200px]"
                     value={descEdit ?? video.generated_description ?? po.description ?? ''}
                     onChange={e => {
                       setDescEdit(e.target.value)
@@ -426,41 +433,44 @@ export default function VideoDetailPage() {
                   <div className="flex items-center justify-between mt-2 px-1">
                     <span className="text-[10px] text-muted-foreground/60">{(descEdit ?? video.generated_description ?? po.description ?? '').length} / 5000 символов</span>
                   </div>
-                </div>
+                </Card>
 
                 {/* Tags */}
                 {po.tags?.length > 0 && (
-                  <div className="p-4 bg-card rounded-xl border border-border">
+                  <Card className="p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-muted-foregroundflex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
-                      <button
+                      <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Tag className="w-4 h-4" /> Теги ({po.tags.length})</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           const text = po.tags.map((t: string) => t.replace(/^#/, '')).join(', ')
                           navigator.clipboard.writeText(text)
                           setCopiedTags(true)
                           setTimeout(() => setCopiedTags(false), 2000)
                         }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foregroundhover:text-foreground hover:bg-accent-surface transition-colors"
                       >
-                        {copiedTags ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedTags ? <Check className="text-emerald-500" /> : <Copy />}
                         {copiedTags ? 'Скопировано' : 'Копировать'}
-                      </button>
+                      </Button>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {po.tags.map((tag: string, i: number) => (
                         <span key={i} className="px-2 py-0.5 bg-accent-surface rounded text-xs text-muted-foreground">{tag}</span>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Timecodes */}
                 {po.timecodes?.length > 0 && (
-                  <div className="p-4 bg-card rounded-xl border border-border">
+                  <Card className="p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-muted-foregroundflex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
+                      <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Clock className="w-4 h-4" /> Тайм-коды ({po.timecodes.length})</h3>
                       <div className="flex items-center gap-1">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={async () => {
                             if (regenTimecodes) return
                             setRegenTimecodes(true)
@@ -480,41 +490,41 @@ export default function VideoDetailPage() {
                           }}
                           disabled={regenTimecodes}
                           title="Перегенерировать таймкоды"
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foregroundhover:text-foreground hover:bg-accent-surface transition-colors disabled:opacity-50"
                         >
                           {regenTimecodes
-                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : <Sparkles className="w-3.5 h-3.5" />}
+                            ? <Loader2 className="animate-spin" />
+                            : <Sparkles />}
                           {regenTimecodes ? 'Генерация...' : 'Перегенерировать'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => {
                             const text = po.timecodes.map((tc: any) => `${tc.time} — ${tc.label}`).join('\n')
                             navigator.clipboard.writeText(text)
                             setCopiedTimecodes(true)
                             setTimeout(() => setCopiedTimecodes(false), 2000)
                           }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foregroundhover:text-foreground hover:bg-accent-surface transition-colors"
                         >
-                          {copiedTimecodes ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copiedTimecodes ? <Check className="text-emerald-500" /> : <Copy />}
                           {copiedTimecodes ? 'Скопировано' : 'Копировать'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <div className="space-y-1">
                       {po.timecodes.map((tc: any, i: number) => (
                         <div key={i} className="flex gap-3 text-xs">
-                          <span className="text-purple-400 font-mono w-14 shrink-0">{tc.time}</span>
+                          <span className="text-purple-500 font-mono w-14 shrink-0">{tc.time}</span>
                           <span className="text-muted-foreground">{tc.label}</span>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 )}
 
                 {/* Clips & Shorts */}
-                <div className="p-4 bg-card rounded-xl border border-border">
-                  <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><Scissors className="w-4 h-4" /> Контент для нарезки</h3>
+                <Card className="p-4">
+                  <h3 className={sectionTitle}><Scissors className="w-4 h-4" /> Контент для нарезки</h3>
                   <ClipList
                     clips={po.clip_suggestions ?? []}
                     shorts={po.short_suggestions ?? []}
@@ -523,76 +533,77 @@ export default function VideoDetailPage() {
                     onToggleClip={toggleClip}
                     onToggleShort={toggleShort}
                   />
-                </div>
+                </Card>
 
                 {/* Social Previews */}
                 {po.social_drafts?.length > 0 && (
-                  <div className="p-4 bg-card rounded-xl border border-border">
-                    <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4" /> Анонсы</h3>
+                  <Card className="p-4">
+                    <h3 className={sectionTitle}><MessageSquare className="w-4 h-4" /> Анонсы</h3>
                     <SocialPreview drafts={po.social_drafts} />
-                  </div>
+                  </Card>
                 )}
 
                 {/* Create Carousel from Video */}
                 {video.transcript && (
-                  <div className="p-4 bg-card rounded-xl border border-border">
-                    <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><GalleryHorizontalEnd className="w-4 h-4" /> Карусель</h3>
-                    <p className="text-xs text-muted-foregroundmb-3">Создай Instagram-карусель из ключевых идей этого видео</p>
-                    <button
+                  <Card className="p-4">
+                    <h3 className={sectionTitle}><GalleryHorizontalEnd className="w-4 h-4" /> Карусель</h3>
+                    <p className="text-xs text-muted-foreground mb-3">Создай Instagram-карусель из ключевых идей этого видео</p>
+                    <Button
+                      variant="outline"
                       onClick={() => router.push(`/carousels/new?videoId=${video.id}&topic=${encodeURIComponent(video.generated_title || video.current_title || '')}`)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-xs font-semibold text-muted-foregroundhover:border-accent hover:text-accent transition-colors"
                     >
-                      <GalleryHorizontalEnd className="w-3.5 h-3.5" />
+                      <GalleryHorizontalEnd />
                       Создать карусель из видео
-                    </button>
-                  </div>
+                    </Button>
+                  </Card>
                 )}
               </>
             )}
 
             {/* Comments */}
-            <div className="p-4 bg-card rounded-xl border border-border">
+            <Card className="p-4">
               <CommentsList videoId={video.id} />
-            </div>
+            </Card>
 
             {/* Transcript */}
-            <div className="p-4 bg-card rounded-xl border border-border">
-              <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><FileText className="w-4 h-4" /> Транскрипт</h3>
+            <Card className="p-4">
+              <h3 className={sectionTitle}><FileText className="w-4 h-4" /> Транскрипт</h3>
               <TranscriptViewer videoTitle={video.current_title} chunks={video.transcript_chunks} transcript={video.transcript} />
-            </div>
+            </Card>
           </div>
 
           {/* Right Column */}
           <div className="space-y-4">
 
             {/* Actions */}
-            <div className="p-4 bg-card rounded-xl border border-border space-y-2 sticky top-6 z-30">
-              <h3 className="text-sm font-medium text-muted-foregroundmb-3">Действия</h3>
+            <Card className="p-4 space-y-2 sticky top-6 z-30">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Действия</h3>
 
               {po ? (
                 <>
                   <button
                     onClick={runProduce}
                     disabled={isProcessing}
-                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-30"
+                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors disabled:opacity-30"
                   >
                     {isProcessing ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
                     Перегенерировать
                   </button>
 
-                  <button
+                  <Button
+                    variant="outline"
+                    className="w-full"
                     onClick={() => router.push(`/clips/${videoId}`)}
-                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-card border border-border text-muted-foregroundhover:text-foreground hover:bg-accent-surface transition-colors flex items-center justify-center gap-2"
                   >
-                    <Scissors className="w-4 h-4" /> Создать клипы
-                  </button>
+                    <Scissors /> Создать клипы
+                  </Button>
 
                   <div className="border-t border-border pt-2 mt-2">
                     <button
                       onClick={() => patchVideo({ is_approved: !video.is_approved })}
                       disabled={video.status !== 'review' || isProcessing}
                       className={`w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-30 ${
-                        video.is_approved ? 'bg-emerald-500/20 text-emerald-400' : 'bg-accent-surface text-muted-foregroundhover:bg-accent-surface/80'
+                        video.is_approved ? 'bg-emerald-500/20 text-emerald-500' : 'bg-accent-surface text-muted-foreground hover:bg-accent-surface/80'
                       }`}
                     >
                       {video.is_approved ? <><Check className="w-4 h-4 inline mr-2" />Одобрено</> : 'Одобрить'}
@@ -615,8 +626,8 @@ export default function VideoDetailPage() {
                             disabled={isProcessing || published}
                             className={`px-2 py-1 rounded text-[10px] transition-colors whitespace-nowrap flex-shrink-0 ${
                               published
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-30'
+                                ? 'bg-emerald-500/20 text-emerald-500'
+                                : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-30'
                             }`}
                           >
                             {publishingVariant === 0
@@ -633,20 +644,20 @@ export default function VideoDetailPage() {
               ) : (
                 <>
                   <button onClick={() => runProcess('transcribe', 'Транскрипция')} disabled={!(video.status === 'pending' || video.status === 'error') || isProcessing}
-                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors disabled:opacity-30">
+                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors disabled:opacity-30">
                     Транскрибировать
                   </button>
                   <button onClick={() => runProcess('generate', 'AI генерация')} disabled={!((video.status === 'generating' || video.status === 'error') && video.transcript) || isProcessing}
-                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-30">
+                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors disabled:opacity-30">
                     Сгенерировать
                   </button>
                 </>
               )}
-            </div>
+            </Card>
 
             {/* Thumbnail Studio */}
             {po && (
-              <div className="p-4 bg-card rounded-xl border border-border">
+              <Card className="p-4">
                 <ThumbnailStudio
                   videoId={video.id}
                   channelId={video.channel_id}
@@ -659,43 +670,43 @@ export default function VideoDetailPage() {
                   contentType={video.content_type ?? null}
                   onSelect={selectThumbnailByUrl}
                 />
-              </div>
+              </Card>
             )}
 
             {/* Thumbnails (legacy gallery) */}
             {!po && video.thumbnail_url && (
-              <div className="p-4 bg-card rounded-xl border border-border">
-                <h3 className="text-sm font-medium text-muted-foregroundmb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Обложки</h3>
+              <Card className="p-4">
+                <h3 className={sectionTitle}><Image className="w-4 h-4" /> Обложки</h3>
                 <ThumbnailGallery
                   thumbnailUrls={[video.thumbnail_url]}
                   currentThumbnail={video.current_thumbnail}
                   selectedIndex={0}
                   onSelect={selectThumbnailByIndex}
                 />
-              </div>
+              </Card>
             )}
 
             {/* AI Score */}
             {po?.ai_score != null && (
-              <div className="p-4 bg-card rounded-xl border border-border">
-                <h3 className="text-sm font-medium text-muted-foregroundmb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Score</h3>
+              <Card className="p-4">
+                <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> AI Score</h3>
                 <div className="flex items-center gap-3">
-                  <div className="text-3xl font-bold text-purple-400">{po.ai_score}</div>
+                  <div className="text-3xl font-bold text-purple-500 tabular-nums">{po.ai_score}</div>
                   <div className="flex-1">
                     <div className="h-2 bg-accent-surface rounded-full overflow-hidden">
                       <div className="h-full bg-purple-500 rounded-full" style={{ width: `${po.ai_score}%` }} />
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Summary */}
             {po?.content_summary && (
-              <div className="p-4 bg-card rounded-xl border border-border">
-                <h3 className="text-sm font-medium text-muted-foregroundmb-2">Резюме</h3>
-                <p className="text-xs text-muted-foregroundleading-relaxed">{po.content_summary}</p>
-              </div>
+              <Card className="p-4">
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Резюме</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{po.content_summary}</p>
+              </Card>
             )}
           </div>
         </div>
