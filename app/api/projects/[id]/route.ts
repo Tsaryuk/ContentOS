@@ -1,17 +1,17 @@
 /**
  * PATCH /api/projects/[id] — rename / recolor an existing project (admin only).
  *
- * Accepts { name?, color? }. Slug is regenerated from the new name so the
- * project stays addressable by its human-friendly URL.
+ * Accepts { name?, color? }. Slug is regenerated from the new name with a
+ * numeric suffix fallback if the derived slug collides with another project.
+ * We never fail the rename just because of a slug clash — slug is invisible
+ * in the UI, so silently picking a unique variant beats a 500 with
+ * "duplicate key value violates unique constraint".
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/auth'
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-}
+import { buildUniqueProjectSlug } from '@/lib/projects/slug'
 
 export async function PATCH(
   req: NextRequest,
@@ -28,7 +28,8 @@ export async function PATCH(
     const name = body.name.trim()
     if (!name) return NextResponse.json({ error: 'Название не может быть пустым' }, { status: 400 })
     update.name = name
-    update.slug = slugify(name)
+    const slug = await buildUniqueProjectSlug(name, { excludeId: id })
+    if (slug) update.slug = slug
   }
   if (typeof body.color === 'string' && /^#[0-9a-f]{6}$/i.test(body.color)) {
     update.color = body.color

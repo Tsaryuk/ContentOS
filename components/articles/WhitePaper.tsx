@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, X, Loader2, ArrowRight, Maximize2, Minimize2, MessageSquare, Mic, MicOff, Send } from 'lucide-react'
+import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
 
 interface WhitePaperProps {
   articleId: string
@@ -36,9 +37,17 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
   const [dialogInput, setDialogInput] = useState('')
   const [dialogAsking, setDialogAsking] = useState(false)
   const [integrating, setIntegrating] = useState(false)
-  const [listening, setListening] = useState(false)
-  const recognitionRef = useRef<any>(null)
   const discussionEndRef = useRef<HTMLDivElement>(null)
+
+  // Two independent mics: one appends to the main draft textarea, one
+  // appends to the discussion panel input. Same hook, same UX, different
+  // sink function.
+  const draftVoice = useVoiceDictation({
+    onFinal: (t) => setText(prev => (prev ? prev + ' ' : '') + t),
+  })
+  const dialogVoice = useVoiceDictation({
+    onFinal: (t) => setDialogInput(prev => (prev ? prev + ' ' : '') + t),
+  })
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -272,64 +281,6 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
     } finally { setIntegrating(false) }
   }
 
-  function toggleVoice(): void {
-    if (listening) {
-      recognitionRef.current?.stop()
-      setListening(false)
-      return
-    }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) {
-      alert('Голосовой ввод не поддерживается этим браузером. В Safari должен работать; в Firefox — не работает. Попробуй Chrome/Safari или введи текст руками.')
-      return
-    }
-    const recognition = new SR()
-    recognition.lang = 'ru-RU'
-    recognition.interimResults = false
-    // continuous=true lets the user dictate multiple sentences without the
-    // recognition cutting off after the first short pause. Keeps listening
-    // until the mic button is pressed again (or onend fires from hard silence).
-    recognition.continuous = true
-    recognition.onresult = (e: any) => {
-      // Only act on final segments produced since the last event — iterating
-      // from resultIndex avoids re-appending earlier transcripts each time.
-      let appended = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) appended += ' ' + e.results[i][0].transcript
-      }
-      if (appended) {
-        setDialogInput(prev => (prev ? prev + appended : appended.trimStart()))
-      }
-      // Keep listening; user stops via the mic button.
-    }
-    recognition.onerror = (e: any) => {
-      setListening(false)
-      // Surface the real reason instead of failing silently. Common codes:
-      // 'not-allowed' / 'service-not-allowed' — permission denied
-      // 'no-speech' — didn't hear anything
-      // 'network' — DNS/offline
-      // 'audio-capture' — no microphone
-      const reason = e?.error || 'unknown'
-      if (reason === 'no-speech') return // just silence, no alert
-      const msg: Record<string, string> = {
-        'not-allowed': 'Браузер запретил доступ к микрофону. Разреши в настройках и попробуй снова.',
-        'service-not-allowed': 'Сервис распознавания недоступен (проверь что сайт на HTTPS, включён микрофон в настройках).',
-        'audio-capture': 'Микрофон не найден.',
-        'network': 'Нет интернета для распознавания речи.',
-      }
-      alert('Голосовой ввод: ' + (msg[reason] ?? reason))
-    }
-    recognition.onend = () => setListening(false)
-    recognitionRef.current = recognition
-    try {
-      recognition.start()
-      setListening(true)
-    } catch (err) {
-      setListening(false)
-      alert('Не удалось запустить распознавание: ' + (err instanceof Error ? err.message : String(err)))
-    }
-  }
-
   // Convert plain text to minimal HTML (paragraphs) — no formatting,
   // just enough structure for the regular editor to work with
   function textToHtml(rawText: string): string {
@@ -376,6 +327,20 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
             title={isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={draftVoice.toggle}
+            disabled={styleRunning || integrating}
+            title={draftVoice.listening ? 'Остановить диктовку' : 'Диктовать черновик голосом'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-full text-xs transition-colors disabled:opacity-40 ${
+              draftVoice.listening
+                ? 'bg-red-500/20 text-red-400 border-red-400/60'
+                : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-muted'
+            }`}
+          >
+            {draftVoice.listening ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+            {draftVoice.listening ? 'Слушаю...' : 'Голос'}
           </button>
 
           <button
@@ -458,7 +423,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
               ref={textareaRef}
               value={text}
               onChange={e => setText(e.target.value)}
-              placeholder="Просто начни писать. Мысли. Абзацы. Переносы строк.&#10;&#10;Никакого форматирования — только чистый текст.&#10;Нажми AI-стилист, чтобы привести в порядок ритм и стиль.&#10;Нажми 'Обсудить с AI', если хочешь чтобы AI задал вопросы и встроил ответы в текст."
+              placeholder="Просто начни писать. Мысли. Абзацы. Переносы строк.&#10;&#10;Никакого форматирования — только чистый текст.&#10;Нажми «Голос» в шапке, чтобы диктовать вслух.&#10;Нажми AI-стилист, чтобы привести в порядок ритм и стиль.&#10;Нажми «Обсудить с AI», если хочешь чтобы AI задал вопросы и встроил ответы в текст."
               className="w-full bg-transparent text-foreground text-lg leading-[1.75] resize-none focus:outline-none placeholder:text-muted-foreground/60/60"
               style={{
                 fontFamily: "'Lora', Georgia, serif",
@@ -466,6 +431,15 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
               }}
               spellCheck
             />
+            {/* Live transcript while the draft mic is hot — sticks below the
+                typing area so you see exactly what the recognizer hears
+                before it's committed. */}
+            {draftVoice.listening && draftVoice.interim && (
+              <div className="mt-3 px-4 py-3 border-l-2 border-red-400 bg-red-500/5 text-[15px] text-muted-foreground italic leading-relaxed">
+                <span className="text-red-400 mr-2">● слышу:</span>
+                <span className="whitespace-pre-wrap">{draftVoice.interim}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -507,16 +481,22 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
             </div>
 
             <div className="p-3 border-t border-border/40 space-y-2">
+              {dialogVoice.listening && dialogVoice.interim && (
+                <div className="text-[10px] text-accent italic flex items-start gap-1.5">
+                  <span className="text-red-400 shrink-0">●</span>
+                  <span className="whitespace-pre-wrap">{dialogVoice.interim}</span>
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
-                  onClick={toggleVoice}
+                  onClick={dialogVoice.toggle}
                   disabled={dialogAsking || integrating}
                   className={`p-2 rounded-lg transition-colors disabled:opacity-40 ${
-                    listening ? 'bg-red-500/20 text-red-400' : 'text-muted-foreground/60 hover:text-foreground'
+                    dialogVoice.listening ? 'bg-red-500/20 text-red-400' : 'text-muted-foreground/60 hover:text-foreground'
                   }`}
-                  title="Голосовой ввод"
+                  title={dialogVoice.listening ? 'Остановить запись' : 'Голосовой ввод'}
                 >
-                  {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  {dialogVoice.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
                 <input
                   value={dialogInput}

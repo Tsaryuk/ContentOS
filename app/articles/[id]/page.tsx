@@ -13,6 +13,7 @@ import { ThreadsPanel } from '@/components/articles/ThreadsPanel'
 import { VideoScriptPanel } from '@/components/articles/VideoScriptPanel'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
 
 interface Article {
   id: string; title: string; subtitle: string; body_html: string
@@ -68,10 +69,12 @@ export default function ArticleEditorPage() {
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
-  const [listening, setListening] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
-  const recognitionRef = useRef<any>(null)
+
+  const chatVoice = useVoiceDictation({
+    onFinal: (t) => setChatInput(prev => (prev ? prev + ' ' : '') + t),
+  })
 
   useEffect(() => {
     async function load() {
@@ -460,50 +463,6 @@ export default function ArticleEditorPage() {
     if (!html.includes('<')) html = text.split('\n').map(l => l.trim() ? `<p>${l}</p>` : '').join('\n')
     updateLocal({ body_html: (article?.body_html ?? '') + '\n' + html })
     if (editorRef.current) editorRef.current.innerHTML = (article?.body_html ?? '') + '\n' + html
-  }
-
-  function toggleVoice() {
-    if (listening) { recognitionRef.current?.stop(); setListening(false); return }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) {
-      alert('Голосовой ввод не поддерживается этим браузером. Попробуй Chrome или Safari.')
-      return
-    }
-    const r = new SR()
-    r.lang = 'ru-RU'
-    r.interimResults = false
-    // continuous=true — recognition keeps going, user stops with mic button
-    r.continuous = true
-    r.onresult = (e: any) => {
-      let appended = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) appended += ' ' + e.results[i][0].transcript
-      }
-      if (appended) {
-        setChatInput(prev => (prev ? prev + appended : appended.trimStart()))
-      }
-    }
-    r.onerror = (e: any) => {
-      setListening(false)
-      const reason = e?.error || 'unknown'
-      if (reason === 'no-speech') return
-      const msg: Record<string, string> = {
-        'not-allowed': 'Браузер запретил доступ к микрофону. Разреши в настройках и попробуй снова.',
-        'service-not-allowed': 'Сервис распознавания недоступен (нужен HTTPS и разрешение на микрофон).',
-        'audio-capture': 'Микрофон не найден.',
-        'network': 'Нет интернета для распознавания речи.',
-      }
-      alert('Голосовой ввод: ' + (msg[reason] ?? reason))
-    }
-    r.onend = () => setListening(false)
-    recognitionRef.current = r
-    try {
-      r.start()
-      setListening(true)
-    } catch (err) {
-      setListening(false)
-      alert('Не удалось запустить распознавание: ' + (err instanceof Error ? err.message : String(err)))
-    }
   }
 
   function slugFromTitle() {
@@ -904,14 +863,36 @@ export default function ArticleEditorPage() {
             {chatLoading && <div className="flex justify-start"><div className="bg-card rounded-xl px-3 py-2"><Loader2 className="w-4 h-4 animate-spin text-accent" /></div></div>}
             <div ref={chatEndRef} />
           </div>
-          <div className="p-3 border-t border-border flex gap-2 shrink-0">
-            <button onClick={toggleVoice} className={`p-2 rounded-lg ${listening ? 'bg-red-500/20 text-red-400' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}>
-              {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
-            <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat(chatInput)}
-              placeholder="Спросить AI..." className="flex-1 px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" />
-            <button onClick={() => sendChat(chatInput)} disabled={!chatInput.trim() || chatLoading}
-              className="p-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50"><Send className="w-4 h-4" /></button>
+          <div className="p-3 border-t border-border shrink-0 space-y-2">
+            {chatVoice.listening && chatVoice.interim && (
+              <div className="text-[10px] text-accent italic flex items-start gap-1.5">
+                <span className="text-red-400 shrink-0">●</span>
+                <span className="whitespace-pre-wrap">{chatVoice.interim}</span>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={chatVoice.toggle}
+                className={`p-2 rounded-lg ${chatVoice.listening ? 'bg-red-500/20 text-red-400' : 'text-muted-foreground/60 hover:text-muted-foreground'}`}
+                title={chatVoice.listening ? 'Остановить запись' : 'Голосовой ввод'}
+              >
+                {chatVoice.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+              <input
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat(chatInput)}
+                placeholder="Спросить AI..."
+                className="flex-1 px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent"
+              />
+              <button
+                onClick={() => sendChat(chatInput)}
+                disabled={!chatInput.trim() || chatLoading}
+                className="p-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
