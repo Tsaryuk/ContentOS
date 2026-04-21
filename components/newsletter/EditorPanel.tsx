@@ -5,6 +5,7 @@ import {
   Eye, Smartphone, Monitor, Save, Upload, Calendar, Loader2, Sparkles,
   Bold, Italic, Heading2, Quote, Link2, List, Minus, Type, ClipboardCopy, Check
 } from 'lucide-react'
+import { ARTICLE_CATEGORIES } from '@/lib/articles/categories'
 
 interface Issue {
   id: string
@@ -32,7 +33,7 @@ interface EditorPanelProps {
 
 type PreviewMode = 'edit' | 'desktop' | 'mobile'
 
-const CATEGORIES = ['Мышление', 'Деньги', 'Отношения', 'Стратегия', 'AI', 'Путешествия']
+const CATEGORIES = ARTICLE_CATEGORIES
 
 export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, saving }: EditorPanelProps) {
   const [preview, setPreview] = useState<PreviewMode>('edit')

@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
 import { useInsertAtCaret } from '@/lib/hooks/useInsertAtCaret'
+import { ARTICLE_CATEGORIES } from '@/lib/articles/categories'
 
 interface Article {
   id: string; title: string; subtitle: string; body_html: string
@@ -32,7 +33,7 @@ interface Article {
 type Tab = 'edit' | 'seo' | 'distribute'
 type Preview = 'editor' | 'desktop' | 'mobile'
 
-const CATEGORIES = ['Мышление', 'Деньги', 'Отношения', 'Стратегия', 'AI', 'Путешествия']
+const CATEGORIES = ARTICLE_CATEGORIES
 
 const QUICK_CMDS = [
   { label: 'Черновик', prompt: 'Напиши полный черновик статьи по структуре' },
@@ -98,6 +99,18 @@ export default function ArticleEditorPage() {
 
   function updateLocal(fields: Partial<Article>) {
     setArticle(prev => prev ? { ...prev, ...fields } : prev)
+  }
+
+  // Rubric selection lives in `tags[]` (multi). `category` is kept in sync
+  // with tags[0] for backward compat with the static blog index.json that
+  // still filters by a single category. Toggling a tag adds/removes it and
+  // updates category to whichever now stands first.
+  function toggleRubric(name: string) {
+    const current = article?.tags ?? []
+    const next = current.includes(name)
+      ? current.filter(t => t !== name)
+      : [...current, name]
+    updateLocal({ tags: next, category: next[0] ?? null })
   }
 
   function syncEditor() {
@@ -631,11 +644,27 @@ export default function ArticleEditorPage() {
                       <Play className="w-3 h-3" /> Вставить видео в текст
                     </button>
                   )}
-                  <select value={article.category ?? ''} onChange={e => updateLocal({ category: e.target.value || null })}
-                    className="w-full px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-muted-foreground focus:outline-none focus:border-accent">
-                    <option value="">Категория</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider block">Рубрики</label>
+                    <div className="flex flex-wrap gap-1">
+                      {CATEGORIES.map(c => {
+                        const active = (article.tags ?? []).includes(c)
+                        return (
+                          <button
+                            key={c}
+                            onClick={() => toggleRubric(c)}
+                            className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors ${
+                              active
+                                ? 'bg-accent/10 border-accent text-accent'
+                                : 'border-border text-muted-foreground/70 hover:text-foreground hover:border-muted'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -791,9 +820,24 @@ export default function ArticleEditorPage() {
               </div>
               <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Ключевые слова</label>
                 <input value={article.seo_keywords.join(', ')} onChange={e => updateLocal({ seo_keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" /></div>
-              <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Рубрика</label>
+              <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Рубрики (можно несколько)</label>
                 <div className="flex flex-wrap gap-1.5">
-                  {CATEGORIES.map(c => <button key={c} onClick={() => updateLocal({ category: c })} className={`px-3 py-1.5 rounded-full text-xs border ${article.category === c ? 'bg-accent/10 border-accent text-accent' : 'border-border text-muted-foreground/60 hover:text-muted-foreground'}`}>{c}</button>)}
+                  {CATEGORIES.map(c => {
+                    const active = (article.tags ?? []).includes(c)
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => toggleRubric(c)}
+                        className={`px-3 py-1.5 rounded-full text-xs border ${
+                          active
+                            ? 'bg-accent/10 border-accent text-accent'
+                            : 'border-border text-muted-foreground/60 hover:text-muted-foreground'
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    )
+                  })}
                 </div></div>
               <div className="p-4 bg-white rounded-lg">
                 <div className="text-[11px] text-green-700 mb-0.5">letters.tsaryuk.ru &rsaquo; articles &rsaquo; {article.blog_slug || 'slug'}</div>

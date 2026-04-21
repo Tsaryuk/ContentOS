@@ -191,6 +191,7 @@ a:hover{color:var(--text)}
       <a class="nav-tab" href="#" data-cat="Отношения">Отношения</a>
       <a class="nav-tab" href="#" data-cat="Стратегия">Стратегия</a>
       <a class="nav-tab" href="#" data-cat="AI">AI</a>
+      <a class="nav-tab" href="#" data-cat="Будущее">Будущее</a>
       <a class="nav-tab" href="#" data-cat="Путешествия">Путешествия</a>
     </nav>
     <div class="archive-list" id="archiveList"></div>
@@ -269,9 +270,10 @@ let allArticles=[];
     if(allArticles.length>0){
       const latest=allArticles[0];
       document.getElementById('latestSection').style.display='block';
-      document.getElementById('latestCard').href='/articles/'+latest.slug+'.html';
+      document.getElementById('latestCard').href='/articles/'+latest.slug;
       document.getElementById('latestTitle').textContent=latest.title;
-      document.getElementById('latestMeta').textContent=latest.date+(latest.category?' · '+latest.category:'');
+      const latestLabel=Array.isArray(latest.tags)&&latest.tags.length?latest.tags.join(' · '):(latest.category||'');
+      document.getElementById('latestMeta').textContent=latest.date+(latestLabel?' · '+latestLabel:'');
       if(latest.cover){const img=document.getElementById('latestCover');img.style.backgroundImage='url('+latest.cover+')';img.style.backgroundSize='cover';img.style.backgroundPosition='center'}
     }
     // Archive list
@@ -279,14 +281,24 @@ let allArticles=[];
   }catch{}
 })();
 
+function articleMatchesCat(a,cat){
+  if(cat==='all')return true;
+  if(Array.isArray(a.tags)&&a.tags.includes(cat))return true;
+  return a.category===cat;
+}
+function articleLabel(a){
+  if(Array.isArray(a.tags)&&a.tags.length)return a.tags.join(' · ');
+  return a.category||'';
+}
 function renderArchive(cat){
   const list=document.getElementById('archiveList');
-  const filtered=cat==='all'?allArticles:allArticles.filter(a=>a.category===cat);
+  const filtered=allArticles.filter(a=>articleMatchesCat(a,cat));
   if(filtered.length===0){list.innerHTML='<div class="archive-empty">Нет статей в этой рубрике</div>';return;}
   list.innerHTML='';
   filtered.forEach(a=>{
-    const el=document.createElement('a');el.href='/articles/'+a.slug+'.html';el.className='archive-item';
-    el.innerHTML=`${a.cover?`<img class="archive-cover" src="${a.cover}" alt="">`:`<div class="archive-cover"></div>`}<div class="archive-body"><h4>${a.title}</h4><span>${a.date}${a.category?' &middot; '+a.category:''}</span></div>`;
+    const el=document.createElement('a');el.href='/articles/'+a.slug;el.className='archive-item';
+    const label=articleLabel(a);
+    el.innerHTML=`${a.cover?`<img class="archive-cover" src="${a.cover}" alt="">`:`<div class="archive-cover"></div>`}<div class="archive-body"><h4>${a.title}</h4><span>${a.date}${label?' &middot; '+label:''}</span></div>`;
     list.appendChild(el);
   });
 }

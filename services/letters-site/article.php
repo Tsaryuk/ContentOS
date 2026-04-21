@@ -43,6 +43,10 @@ $title       = isset($data['title'])       ? (string)$data['title']       : '';
 $subtitle    = isset($data['subtitle'])    ? (string)$data['subtitle']    : '';
 $description = isset($data['description']) ? (string)$data['description'] : $subtitle;
 $category    = isset($data['category'])    ? (string)$data['category']    : '';
+// Multi-select rubrics; fall back to `category` for legacy payloads where
+// tags wasn't present yet.
+$tags        = isset($data['tags']) && is_array($data['tags']) ? $data['tags'] : [];
+if (!$tags && $category !== '') $tags = [$category];
 $date        = isset($data['date'])        ? (string)$data['date']        : '';
 $coverUrl    = isset($data['cover_url'])   ? (string)$data['cover_url']   : '';
 $showCover   = !isset($data['show_cover_in_article']) || $data['show_cover_in_article'] !== false;
@@ -74,7 +78,7 @@ $ogImage   = $coverUrl;
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/article.css?v=3">
+<link rel="stylesheet" href="/assets/article.css?v=4">
 </head>
 <body>
 
@@ -86,7 +90,11 @@ $ogImage   = $coverUrl;
 </header>
 
 <article class="article">
-  <div class="article-cat"><?= esc($category) ?></div>
+  <div class="article-cat">
+<?php foreach ($tags as $t): ?>
+    <a href="/#archive" class="article-tag"><?= esc((string)$t) ?></a>
+<?php endforeach; ?>
+  </div>
   <h1 class="article-title"><?= esc($title) ?></h1>
   <p class="article-sub"><?= esc($subtitle) ?></p>
 

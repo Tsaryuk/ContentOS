@@ -25,7 +25,9 @@ a:hover{color:var(--text)}
 
 /* Article */
 .article{max-width:680px;margin:0 auto;padding:48px 24px 80px}
-.article-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--dim);margin-bottom:12px}
+.article-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--dim);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:4px 12px}
+.article-tag{color:var(--dim);text-decoration:none;border-bottom:none;padding:2px 0;transition:color .15s}
+.article-tag:hover{color:var(--text)}
 .article-title{font-family:var(--serif);font-size:clamp(28px,4.5vw,40px);font-weight:400;line-height:1.25;margin-bottom:12px;letter-spacing:-0.02em}
 .article-sub{font-family:var(--serif);font-style:italic;font-size:18px;color:var(--muted);margin-bottom:12px}
 

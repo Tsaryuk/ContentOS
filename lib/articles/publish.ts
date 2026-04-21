@@ -24,6 +24,7 @@ interface Article {
   cover_url: string | null
   youtube_url: string | null
   category: string | null
+  tags?: string[] | null
   seo_title: string
   seo_description: string
   blog_slug: string | null
@@ -36,6 +37,9 @@ interface IndexEntry {
   title: string
   date: string
   category: string | null
+  /** Secondary rubrics (multi-select). `category` mirrors tags[0] for
+   *  backward compat with older filters that only look at `category`. */
+  tags?: string[]
   cover: string | null
 }
 
@@ -118,6 +122,10 @@ interface ArticlePayload {
   subtitle: string
   description: string
   category: string
+  /** Multi-select rubrics chosen in the editor. `category` is kept as the
+   *  first element for backward compat with the static blog that used to
+   *  filter by a single field. */
+  tags: string[]
   date: string
   cover_url: string
   show_cover_in_article: boolean
@@ -129,12 +137,14 @@ interface ArticlePayload {
 // renders inside the central shell. body_html goes through sanitizeArticleHtml
 // here, before it ever leaves the server — PHP trusts the field.
 function buildArticlePayload(article: Article): ArticlePayload {
+  const tags = (article.tags ?? []).filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
   return {
     slug: article.blog_slug!,
     title: article.title,
     subtitle: article.subtitle ?? '',
     description: article.seo_description || article.subtitle || '',
-    category: article.category ?? '',
+    category: article.category ?? tags[0] ?? '',
+    tags,
     date: formatDateRu(article.published_at),
     cover_url: article.cover_url ?? '',
     show_cover_in_article: article.show_cover_in_article !== false,
@@ -199,7 +209,8 @@ export async function publishArticleFiles(
       slug: article.blog_slug!,
       title: article.title,
       date: payload.date,
-      category: article.category || null,
+      category: payload.category || null,
+      tags: payload.tags,
       cover: article.cover_url || null,
     })
 
