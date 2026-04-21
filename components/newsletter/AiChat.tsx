@@ -7,6 +7,7 @@ import {
   type WizardSectionKind,
 } from '@/lib/newsletter/wizard-prompts'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
+import { useInsertAtCaret } from '@/lib/hooks/useInsertAtCaret'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -60,10 +61,10 @@ export function AiChat({
   // fill-section endpoint instead of the generic /api/newsletter/ai.
   const [wizardKind, setWizardKind] = useState<WizardSectionKind | null>(null)
   const messagesEnd = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const voice = useVoiceDictation({
-    onFinal: (text) => setInput(prev => (prev ? prev + ' ' : '') + text),
-  })
+  const insertAtCaret = useInsertAtCaret(inputRef, input, setInput)
+  const voice = useVoiceDictation({ onFinal: insertAtCaret.insert })
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
@@ -273,6 +274,7 @@ export function AiChat({
             {voice.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
           <input
+            ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage(input)}

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, X, Loader2, ArrowRight, Maximize2, Minimize2, MessageSquare, Mic, MicOff, Send } from 'lucide-react'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
+import { useInsertAtCaret } from '@/lib/hooks/useInsertAtCaret'
 
 interface WhitePaperProps {
   articleId: string
@@ -38,16 +39,19 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
   const [dialogAsking, setDialogAsking] = useState(false)
   const [integrating, setIntegrating] = useState(false)
   const discussionEndRef = useRef<HTMLDivElement>(null)
+  const dialogInputRef = useRef<HTMLInputElement>(null)
 
-  // Two independent mics: one appends to the main draft textarea, one
-  // appends to the discussion panel input. Same hook, same UX, different
-  // sink function.
-  const draftVoice = useVoiceDictation({
-    onFinal: (t) => setText(prev => (prev ? prev + ' ' : '') + t),
-  })
-  const dialogVoice = useVoiceDictation({
-    onFinal: (t) => setDialogInput(prev => (prev ? prev + ' ' : '') + t),
-  })
+  // Insert-at-caret helpers keep the writing flow natural: if the cursor
+  // is parked mid-paragraph, dictated text lands exactly there — not at
+  // the end of the whole draft.
+  const draftInsert = useInsertAtCaret(textareaRef, text, setText)
+  const dialogInsert = useInsertAtCaret(dialogInputRef, dialogInput, setDialogInput)
+
+  // Two independent mics: one feeds the main draft textarea, one feeds the
+  // discussion panel input. Each final transcript lands at the current
+  // caret in its target field.
+  const draftVoice = useVoiceDictation({ onFinal: draftInsert.insert })
+  const dialogVoice = useVoiceDictation({ onFinal: dialogInsert.insert })
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -499,6 +503,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
                   {dialogVoice.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </button>
                 <input
+                  ref={dialogInputRef}
                   value={dialogInput}
                   onChange={e => setDialogInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendAnswer()}
