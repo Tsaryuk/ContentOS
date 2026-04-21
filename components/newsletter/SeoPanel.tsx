@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Loader2, Sparkles, Globe, Tag, Image, Copy, Check } from 'lucide-react'
+import { ARTICLE_CATEGORIES } from '@/lib/articles/categories'
 
 interface SeoPanelProps {
   seoTitle: string
@@ -16,7 +17,7 @@ interface SeoPanelProps {
   onUpdate: (fields: Record<string, any>) => void
 }
 
-const CATEGORIES = ['Мышление', 'Деньги', 'Отношения', 'Стратегия', 'AI', 'Путешествия']
+const CATEGORIES = ARTICLE_CATEGORIES
 
 export function SeoPanel({
   seoTitle, seoDescription, seoKeywords, blogSlug, ogImageUrl,
@@ -45,8 +46,8 @@ export function SeoPanel({
   "seo_description": "Мета-описание (до 160 символов, с CTA, упоминай рассылку Личная Стратегия)",
   "seo_keywords": ["ключ1", "ключ2", "ключ3", "ключ4", "ключ5"],
   "blog_slug": "url-slug-na-latinitse",
-  "category": "одна из: Мышление, Деньги, Отношения, Стратегия, AI, Путешествия",
-  "tags": ["тег1", "тег2", "тег3"]
+  "category": "одна основная рубрика из списка: ${CATEGORIES.join(', ')}",
+  "tags": ["от 1 до 3 рубрик из того же списка — могут включать category"]
 }`,
         }),
       })
