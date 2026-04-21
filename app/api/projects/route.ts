@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { requireAuth, requireAdmin } from '@/lib/auth'
+import { buildUniqueProjectSlug } from '@/lib/projects/slug'
 
 // GET /api/projects — projects with channels
 // ?all=true returns all channels (for settings), otherwise filters by active project
@@ -48,10 +49,18 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
 
   const { name, color } = await req.json()
-  const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  if (typeof name !== 'string' || !name.trim()) {
+    return NextResponse.json({ error: 'Название не может быть пустым' }, { status: 400 })
+  }
+  // Auto-suffix on conflict so creating a new project never 500s on an
+  // existing slug — see lib/projects/slug.ts.
+  const slug = await buildUniqueProjectSlug(name.trim())
+  if (!slug) {
+    return NextResponse.json({ error: 'Название должно содержать латинские буквы или цифры' }, { status: 400 })
+  }
   const { data, error } = await supabaseAdmin
     .from('projects')
-    .insert({ name, color: color ?? '#a67ff0', slug })
+    .insert({ name: name.trim(), color: color ?? '#a67ff0', slug })
     .select('id, name, color, slug')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

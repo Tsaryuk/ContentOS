@@ -6,6 +6,7 @@ import {
   WIZARD_QUESTIONS,
   type WizardSectionKind,
 } from '@/lib/newsletter/wizard-prompts'
+import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -55,12 +56,14 @@ export function AiChat({
   const [messages, setMessages] = useState<Message[]>(initialMessages ?? [])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [listening, setListening] = useState(false)
   // Active wizard step: when set, the next user message goes to the
   // fill-section endpoint instead of the generic /api/newsletter/ai.
   const [wizardKind, setWizardKind] = useState<WizardSectionKind | null>(null)
   const messagesEnd = useRef<HTMLDivElement>(null)
-  const recognitionRef = useRef<any>(null)
+
+  const voice = useVoiceDictation({
+    onFinal: (text) => setInput(prev => (prev ? prev + ' ' : '') + text),
+  })
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
@@ -149,58 +152,6 @@ export function AiChat({
       setMessages(prev => [...prev, { role: 'assistant', content: 'Ошибка соединения' }])
     } finally {
       setLoading(false)
-    }
-  }
-
-  function toggleVoice() {
-    if (listening) {
-      recognitionRef.current?.stop()
-      setListening(false)
-      return
-    }
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) {
-      alert('Голосовой ввод не поддерживается этим браузером. Попробуй Chrome или Safari.')
-      return
-    }
-
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'ru-RU'
-    recognition.interimResults = false
-    // See WhitePaper.toggleVoice — continuous lets you dictate multiple
-    // sentences; we iterate from resultIndex so new final segments append
-    // without re-duplicating earlier ones. Mic button stops it.
-    recognition.continuous = true
-    recognition.onresult = (e: any) => {
-      let appended = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) appended += ' ' + e.results[i][0].transcript
-      }
-      if (appended) {
-        setInput(prev => (prev ? prev + appended : appended.trimStart()))
-      }
-    }
-    recognition.onerror = (e: any) => {
-      setListening(false)
-      const reason = e?.error || 'unknown'
-      if (reason === 'no-speech') return
-      const msg: Record<string, string> = {
-        'not-allowed': 'Браузер запретил доступ к микрофону. Разреши в настройках и попробуй снова.',
-        'service-not-allowed': 'Сервис распознавания недоступен (нужен HTTPS и разрешение на микрофон).',
-        'audio-capture': 'Микрофон не найден.',
-        'network': 'Нет интернета для распознавания речи.',
-      }
-      alert('Голосовой ввод: ' + (msg[reason] ?? reason))
-    }
-    recognition.onend = () => setListening(false)
-    recognitionRef.current = recognition
-    try {
-      recognition.start()
-      setListening(true)
-    } catch (err) {
-      setListening(false)
-      alert('Не удалось запустить распознавание: ' + (err instanceof Error ? err.message : String(err)))
     }
   }
 
@@ -304,15 +255,22 @@ export function AiChat({
             Отмена — вернуться к обычному чату
           </button>
         )}
+        {/* Live interim transcript — shown only while the mic is hot. */}
+        {voice.listening && voice.interim && (
+          <div className="mb-2 text-[10px] text-accent italic flex items-start gap-1.5">
+            <span className="text-red-400 shrink-0">●</span>
+            <span className="whitespace-pre-wrap">{voice.interim}</span>
+          </div>
+        )}
         <div className="flex gap-2">
           <button
-            onClick={toggleVoice}
+            onClick={voice.toggle}
             className={`p-2 rounded-lg transition-colors ${
-              listening ? 'bg-red-500/20 text-red-400' : 'text-dim hover:text-muted'
+              voice.listening ? 'bg-red-500/20 text-red-400' : 'text-dim hover:text-muted'
             }`}
-            title="Голосовой ввод"
+            title={voice.listening ? 'Остановить запись' : 'Голосовой ввод'}
           >
-            {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            {voice.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
           <input
             value={input}
