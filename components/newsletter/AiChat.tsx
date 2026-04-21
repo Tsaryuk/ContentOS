@@ -168,11 +168,18 @@ export function AiChat({
     const recognition = new SpeechRecognition()
     recognition.lang = 'ru-RU'
     recognition.interimResults = false
-    recognition.continuous = false
+    // See WhitePaper.toggleVoice — continuous lets you dictate multiple
+    // sentences; we iterate from resultIndex so new final segments append
+    // without re-duplicating earlier ones. Mic button stops it.
+    recognition.continuous = true
     recognition.onresult = (e: any) => {
-      const text = e.results[0][0].transcript
-      setInput(prev => (prev ? prev + ' ' : '') + text)
-      setListening(false)
+      let appended = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) appended += ' ' + e.results[i][0].transcript
+      }
+      if (appended) {
+        setInput(prev => (prev ? prev + appended : appended.trimStart()))
+      }
     }
     recognition.onerror = (e: any) => {
       setListening(false)

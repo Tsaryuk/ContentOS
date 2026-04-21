@@ -286,11 +286,21 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
     const recognition = new SR()
     recognition.lang = 'ru-RU'
     recognition.interimResults = false
-    recognition.continuous = false
+    // continuous=true lets the user dictate multiple sentences without the
+    // recognition cutting off after the first short pause. Keeps listening
+    // until the mic button is pressed again (or onend fires from hard silence).
+    recognition.continuous = true
     recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript
-      setDialogInput(prev => (prev ? prev + ' ' : '') + transcript)
-      setListening(false)
+      // Only act on final segments produced since the last event — iterating
+      // from resultIndex avoids re-appending earlier transcripts each time.
+      let appended = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) appended += ' ' + e.results[i][0].transcript
+      }
+      if (appended) {
+        setDialogInput(prev => (prev ? prev + appended : appended.trimStart()))
+      }
+      // Keep listening; user stops via the mic button.
     }
     recognition.onerror = (e: any) => {
       setListening(false)

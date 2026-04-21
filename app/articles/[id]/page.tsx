@@ -472,10 +472,16 @@ export default function ArticleEditorPage() {
     const r = new SR()
     r.lang = 'ru-RU'
     r.interimResults = false
-    r.continuous = false
+    // continuous=true — recognition keeps going, user stops with mic button
+    r.continuous = true
     r.onresult = (e: any) => {
-      setChatInput(prev => (prev ? prev + ' ' : '') + e.results[0][0].transcript)
-      setListening(false)
+      let appended = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) appended += ' ' + e.results[i][0].transcript
+      }
+      if (appended) {
+        setChatInput(prev => (prev ? prev + appended : appended.trimStart()))
+      }
     }
     r.onerror = (e: any) => {
       setListening(false)
