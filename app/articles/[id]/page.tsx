@@ -465,11 +465,45 @@ export default function ArticleEditorPage() {
   function toggleVoice() {
     if (listening) { recognitionRef.current?.stop(); setListening(false); return }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) return
-    const r = new SR(); r.lang = 'ru-RU'; r.interimResults = false
-    r.onresult = (e: any) => { setChatInput(prev => prev + ' ' + e.results[0][0].transcript); setListening(false) }
-    r.onerror = () => setListening(false); r.onend = () => setListening(false)
-    recognitionRef.current = r; r.start(); setListening(true)
+    if (!SR) {
+      alert('Голосовой ввод не поддерживается этим браузером. Попробуй Chrome или Safari.')
+      return
+    }
+    const r = new SR()
+    r.lang = 'ru-RU'
+    r.interimResults = false
+    // continuous=true — recognition keeps going, user stops with mic button
+    r.continuous = true
+    r.onresult = (e: any) => {
+      let appended = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) appended += ' ' + e.results[i][0].transcript
+      }
+      if (appended) {
+        setChatInput(prev => (prev ? prev + appended : appended.trimStart()))
+      }
+    }
+    r.onerror = (e: any) => {
+      setListening(false)
+      const reason = e?.error || 'unknown'
+      if (reason === 'no-speech') return
+      const msg: Record<string, string> = {
+        'not-allowed': 'Браузер запретил доступ к микрофону. Разреши в настройках и попробуй снова.',
+        'service-not-allowed': 'Сервис распознавания недоступен (нужен HTTPS и разрешение на микрофон).',
+        'audio-capture': 'Микрофон не найден.',
+        'network': 'Нет интернета для распознавания речи.',
+      }
+      alert('Голосовой ввод: ' + (msg[reason] ?? reason))
+    }
+    r.onend = () => setListening(false)
+    recognitionRef.current = r
+    try {
+      r.start()
+      setListening(true)
+    } catch (err) {
+      setListening(false)
+      alert('Не удалось запустить распознавание: ' + (err instanceof Error ? err.message : String(err)))
+    }
   }
 
   function slugFromTitle() {
@@ -664,7 +698,18 @@ export default function ArticleEditorPage() {
                 { icon: Link2, cmd: insertLink, title: 'Ссылка' },
                 { icon: Minus, cmd: () => execCmd('insertHTML', '<hr class="divider">'), title: 'Разделитель' },
               ].map(({ icon: Icon, cmd, title }, i) => (
-                <button key={i} onClick={cmd} title={title} className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded">
+                <button
+                  key={i}
+                  // onMouseDown + preventDefault keeps focus inside the
+                  // contentEditable editor so the current selection survives
+                  // the click. Without this the Link button would lose the
+                  // user's selection before prompt() fired, and createLink
+                  // had nothing to wrap → link got inserted at the document
+                  // start instead of around the highlighted word.
+                  onMouseDown={(e) => { e.preventDefault(); cmd() }}
+                  title={title}
+                  className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded"
+                >
                   <Icon className="w-3.5 h-3.5" />
                 </button>
               ))}

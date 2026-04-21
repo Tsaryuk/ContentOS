@@ -18,7 +18,7 @@ a:hover{color:var(--text)}
 
 /* Header */
 .header{padding:20px 0;border-bottom:1px solid var(--border)}
-.header-inner{max-width:960px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:flex-end;position:relative}
+.header-inner{max-width:960px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:flex-start;position:relative}
 .logo{font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text);position:absolute;left:50%;transform:translateX(-50%)}
 .back{font-size:13px;color:var(--dim)}
 .back:hover{color:var(--text)}

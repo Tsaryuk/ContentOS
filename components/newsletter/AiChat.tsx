@@ -160,21 +160,48 @@ export function AiChat({
     }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) return
+    if (!SpeechRecognition) {
+      alert('Голосовой ввод не поддерживается этим браузером. Попробуй Chrome или Safari.')
+      return
+    }
 
     const recognition = new SpeechRecognition()
     recognition.lang = 'ru-RU'
     recognition.interimResults = false
+    // See WhitePaper.toggleVoice — continuous lets you dictate multiple
+    // sentences; we iterate from resultIndex so new final segments append
+    // without re-duplicating earlier ones. Mic button stops it.
+    recognition.continuous = true
     recognition.onresult = (e: any) => {
-      const text = e.results[0][0].transcript
-      setInput(prev => prev + ' ' + text)
-      setListening(false)
+      let appended = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) appended += ' ' + e.results[i][0].transcript
+      }
+      if (appended) {
+        setInput(prev => (prev ? prev + appended : appended.trimStart()))
+      }
     }
-    recognition.onerror = () => setListening(false)
+    recognition.onerror = (e: any) => {
+      setListening(false)
+      const reason = e?.error || 'unknown'
+      if (reason === 'no-speech') return
+      const msg: Record<string, string> = {
+        'not-allowed': 'Браузер запретил доступ к микрофону. Разреши в настройках и попробуй снова.',
+        'service-not-allowed': 'Сервис распознавания недоступен (нужен HTTPS и разрешение на микрофон).',
+        'audio-capture': 'Микрофон не найден.',
+        'network': 'Нет интернета для распознавания речи.',
+      }
+      alert('Голосовой ввод: ' + (msg[reason] ?? reason))
+    }
     recognition.onend = () => setListening(false)
     recognitionRef.current = recognition
-    recognition.start()
-    setListening(true)
+    try {
+      recognition.start()
+      setListening(true)
+    } catch (err) {
+      setListening(false)
+      alert('Не удалось запустить распознавание: ' + (err instanceof Error ? err.message : String(err)))
+    }
   }
 
   return (
