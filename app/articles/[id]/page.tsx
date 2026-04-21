@@ -14,6 +14,7 @@ import { VideoScriptPanel } from '@/components/articles/VideoScriptPanel'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
+import { useInsertAtCaret } from '@/lib/hooks/useInsertAtCaret'
 
 interface Article {
   id: string; title: string; subtitle: string; body_html: string
@@ -71,10 +72,10 @@ export default function ArticleEditorPage() {
   const [chatLoading, setChatLoading] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLInputElement>(null)
 
-  const chatVoice = useVoiceDictation({
-    onFinal: (t) => setChatInput(prev => (prev ? prev + ' ' : '') + t),
-  })
+  const chatInsert = useInsertAtCaret(chatInputRef, chatInput, setChatInput)
+  const chatVoice = useVoiceDictation({ onFinal: chatInsert.insert })
 
   useEffect(() => {
     async function load() {
@@ -879,6 +880,7 @@ export default function ArticleEditorPage() {
                 {chatVoice.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>
               <input
+                ref={chatInputRef}
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat(chatInput)}
