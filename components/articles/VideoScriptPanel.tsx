@@ -52,10 +52,21 @@ export function VideoScriptPanel({ articleId, articleTitle, hasBody }: Props) {
     try {
       const res = await fetch(`/api/articles/${articleId}/pieces/video-script`, { method: 'POST' })
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
-        throw new Error(d.error ?? `HTTP ${res.status}`)
+        const raw = await res.text().catch(() => '')
+        throw new Error(raw.slice(0, 200) || `HTTP ${res.status}`)
       }
-      const d = await res.json()
+      // Server streams zero-width-space keepalive bytes while Claude runs,
+      // then writes the final `{piece}` or `{error}` JSON on its own line.
+      // Read the whole body, strip keepalives, parse the last JSON block.
+      const body = await res.text()
+      const cleaned = body.replace(/\u200B/g, '').trim()
+      // Pick the last top-level JSON object in the response. Anthropic output
+      // is already consumed server-side, so this tail is ours.
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}$/)
+      if (!jsonMatch) throw new Error('Сервер вернул пустой ответ')
+      const d = JSON.parse(jsonMatch[0])
+      if (d.error) throw new Error(d.error)
+      if (!d.piece) throw new Error('Сервер не вернул piece')
       setPiece(d.piece)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ошибка генерации')
