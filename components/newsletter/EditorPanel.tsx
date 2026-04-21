@@ -192,8 +192,29 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
   }
 
   function insertLink() {
-    const url = prompt('URL ссылки:')
-    if (url) execCmd('createLink', url)
+    // Same pattern as article editor: prompt() blurs the editor, so we save
+    // the range first and restore it after. If selection is collapsed, drop
+    // the URL itself as link text instead of silently doing nothing.
+    const sel0 = window.getSelection()
+    const saved = sel0 && sel0.rangeCount > 0 ? sel0.getRangeAt(0).cloneRange() : null
+    const raw = prompt('URL ссылки:')
+    if (!raw) return
+    const trimmed = raw.trim()
+    if (!trimmed) return
+    const url = /^https?:\/\//i.test(trimmed) || trimmed.startsWith('mailto:')
+      ? trimmed
+      : `https://${trimmed}`
+    editorRef.current?.focus()
+    const sel = window.getSelection()
+    if (sel && saved) {
+      sel.removeAllRanges()
+      sel.addRange(saved)
+    }
+    if (!sel || sel.isCollapsed) {
+      execCmd('insertHTML', `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
+      return
+    }
+    execCmd('createLink', url)
   }
 
   // AI Enhance
@@ -302,7 +323,10 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
         {formatButtons.map(({ icon: Icon, title, action }) => (
           <button
             key={title}
-            onClick={action}
+            // onMouseDown + preventDefault keeps the contentEditable
+            // selection intact while clicking the toolbar — essential for
+            // createLink via prompt() which otherwise gets an empty range.
+            onMouseDown={(e) => { e.preventDefault(); action() }}
             title={title}
             className="p-1.5 text-dim hover:text-cream hover:bg-white/5 rounded transition-colors"
           >
@@ -313,7 +337,7 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
         {blockButtons.map(({ label, action, title }) => (
           <button
             key={label}
-            onClick={action}
+            onMouseDown={(e) => { e.preventDefault(); action() }}
             title={title ?? label}
             className="px-2 py-1 text-[10px] text-dim hover:text-cream hover:bg-white/5 rounded transition-colors font-medium"
           >

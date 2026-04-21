@@ -279,20 +279,45 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
       return
     }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) { alert('Голосовой ввод недоступен в этом браузере'); return }
+    if (!SR) {
+      alert('Голосовой ввод не поддерживается этим браузером. В Safari должен работать; в Firefox — не работает. Попробуй Chrome/Safari или введи текст руками.')
+      return
+    }
     const recognition = new SR()
     recognition.lang = 'ru-RU'
     recognition.interimResults = false
+    recognition.continuous = false
     recognition.onresult = (e: any) => {
       const transcript = e.results[0][0].transcript
       setDialogInput(prev => (prev ? prev + ' ' : '') + transcript)
       setListening(false)
     }
-    recognition.onerror = () => setListening(false)
+    recognition.onerror = (e: any) => {
+      setListening(false)
+      // Surface the real reason instead of failing silently. Common codes:
+      // 'not-allowed' / 'service-not-allowed' — permission denied
+      // 'no-speech' — didn't hear anything
+      // 'network' — DNS/offline
+      // 'audio-capture' — no microphone
+      const reason = e?.error || 'unknown'
+      if (reason === 'no-speech') return // just silence, no alert
+      const msg: Record<string, string> = {
+        'not-allowed': 'Браузер запретил доступ к микрофону. Разреши в настройках и попробуй снова.',
+        'service-not-allowed': 'Сервис распознавания недоступен (проверь что сайт на HTTPS, включён микрофон в настройках).',
+        'audio-capture': 'Микрофон не найден.',
+        'network': 'Нет интернета для распознавания речи.',
+      }
+      alert('Голосовой ввод: ' + (msg[reason] ?? reason))
+    }
     recognition.onend = () => setListening(false)
     recognitionRef.current = recognition
-    recognition.start()
-    setListening(true)
+    try {
+      recognition.start()
+      setListening(true)
+    } catch (err) {
+      setListening(false)
+      alert('Не удалось запустить распознавание: ' + (err instanceof Error ? err.message : String(err)))
+    }
   }
 
   // Convert plain text to minimal HTML (paragraphs) — no formatting,

@@ -219,6 +219,9 @@ export async function publishArticleFiles(
 // already succeeded and we don't want a shell-sync hiccup to fail the
 // publish.
 async function syncSiteAssets(sftp: Client, cfg: SftpConfig): Promise<void> {
+  // Keep these remote paths aligned with repo paths so the hosting is a
+  // mirror of services/letters-site/ after any publish. When you edit the
+  // CSS or the shell PHP, the next publish syncs the change.
   const assets: Array<{ local: string; remote: string }> = [
     {
       local: join(process.cwd(), 'services/letters-site/.htaccess'),
@@ -227,6 +230,14 @@ async function syncSiteAssets(sftp: Client, cfg: SftpConfig): Promise<void> {
     {
       local: join(process.cwd(), 'services/letters-site/article.php'),
       remote: remotePath(cfg, 'article.php'),
+    },
+    {
+      local: join(process.cwd(), 'services/letters-site/assets/article.css'),
+      remote: remotePath(cfg, 'assets', 'article.css'),
+    },
+    {
+      local: join(process.cwd(), 'services/letters-site/assets/article.js'),
+      remote: remotePath(cfg, 'assets', 'article.js'),
     },
   ]
   for (const { local, remote } of assets) {

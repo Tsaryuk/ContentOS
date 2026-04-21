@@ -160,21 +160,41 @@ export function AiChat({
     }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) return
+    if (!SpeechRecognition) {
+      alert('Голосовой ввод не поддерживается этим браузером. Попробуй Chrome или Safari.')
+      return
+    }
 
     const recognition = new SpeechRecognition()
     recognition.lang = 'ru-RU'
     recognition.interimResults = false
+    recognition.continuous = false
     recognition.onresult = (e: any) => {
       const text = e.results[0][0].transcript
-      setInput(prev => prev + ' ' + text)
+      setInput(prev => (prev ? prev + ' ' : '') + text)
       setListening(false)
     }
-    recognition.onerror = () => setListening(false)
+    recognition.onerror = (e: any) => {
+      setListening(false)
+      const reason = e?.error || 'unknown'
+      if (reason === 'no-speech') return
+      const msg: Record<string, string> = {
+        'not-allowed': 'Браузер запретил доступ к микрофону. Разреши в настройках и попробуй снова.',
+        'service-not-allowed': 'Сервис распознавания недоступен (нужен HTTPS и разрешение на микрофон).',
+        'audio-capture': 'Микрофон не найден.',
+        'network': 'Нет интернета для распознавания речи.',
+      }
+      alert('Голосовой ввод: ' + (msg[reason] ?? reason))
+    }
     recognition.onend = () => setListening(false)
     recognitionRef.current = recognition
-    recognition.start()
-    setListening(true)
+    try {
+      recognition.start()
+      setListening(true)
+    } catch (err) {
+      setListening(false)
+      alert('Не удалось запустить распознавание: ' + (err instanceof Error ? err.message : String(err)))
+    }
   }
 
   return (
