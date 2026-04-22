@@ -250,6 +250,16 @@ async function syncSiteAssets(sftp: Client, cfg: SftpConfig): Promise<void> {
       local: join(process.cwd(), 'services/letters-site/assets/article.js'),
       remote: remotePath(cfg, 'assets', 'article.js'),
     },
+    // Landing + archive pages — also synced so edits to the blog nav
+    // (e.g. adding a new rubric tab) don't silently stay local.
+    {
+      local: join(process.cwd(), 'services/letters-site/index.html'),
+      remote: remotePath(cfg, 'index.html'),
+    },
+    {
+      local: join(process.cwd(), 'services/letters-site/archive.html'),
+      remote: remotePath(cfg, 'archive.html'),
+    },
   ]
   for (const { local, remote } of assets) {
     try {
