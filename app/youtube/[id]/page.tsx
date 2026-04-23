@@ -78,7 +78,7 @@ export default function VideoDetailPage() {
   const loadVideo = useCallback(async () => {
     try {
       const res = await fetch(`/api/youtube/${videoId}`)
-      if (!res.ok) return
+      if (!res.ok) return null
       const data = await res.json()
       if (data?.id) {
         setVideo(data)
@@ -89,9 +89,12 @@ export default function VideoDetailPage() {
             if (chData?.id) setChannel(chData)
           }
         }
+        return data
       }
+      return null
     } catch (err) {
       console.error('Load failed:', err)
+      return null
     } finally {
       setLoading(false)
     }
@@ -471,9 +474,19 @@ export default function VideoDetailPage() {
                               if (!res.ok) {
                                 const data = await res.json().catch(() => ({}))
                                 alert('Ошибка: ' + (data.error ?? res.status))
+                                return
+                              }
+                              // Worker takes ~20s — poll until timecodes actually change.
+                              const before = JSON.stringify(po?.timecodes ?? [])
+                              const deadline = Date.now() + 60_000
+                              while (Date.now() < deadline) {
+                                await new Promise(r => setTimeout(r, 2000))
+                                const v = await loadVideo()
+                                const after = JSON.stringify(v?.producer_output?.timecodes ?? [])
+                                if (after && after !== before) break
                               }
                             } finally {
-                              setTimeout(() => { setRegenTimecodes(false); loadVideo() }, 3000)
+                              setRegenTimecodes(false)
                             }
                           }}
                           disabled={regenTimecodes}
