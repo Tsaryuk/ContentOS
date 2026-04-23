@@ -42,6 +42,11 @@ const VIDEO_ALLOWED_FIELDS = new Set([
   'generated_title',
   'selected_variants',
   'thumbnail_url',
+  'guest_links',
+  'producer_output',
+  'is_approved',
+  'status',
+  'error_message',
 ])
 
 // PATCH /api/youtube/[id] — update whitelisted editable fields on a video
