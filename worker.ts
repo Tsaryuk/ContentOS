@@ -228,12 +228,12 @@ function tcToSecs(t: string): number {
   return parts[0] * 60 + (parts[1] ?? 0)
 }
 
-/** Format seconds back to "MM:SS" or "H:MM:SS" */
+/** Format seconds back to "MM:SS" or "HH:MM:SS" (hour zero-padded for YouTube chapters) */
 function secsToTc(secs: number): string {
   const h = Math.floor(secs / 3600)
   const m = Math.floor((secs % 3600) / 60)
   const s = secs % 60
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  if (h > 0) return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
@@ -304,13 +304,13 @@ function fixTimecodes(
     const tc = timecodes[i]
     let fixed = tc.time
 
-    // Fix MM:SS where MM >= 60 -> H:MM:SS
+    // Fix MM:SS where MM >= 60 -> HH:MM:SS
     const parts = fixed.split(':').map(Number)
     if (parts.length === 2 && parts[0] >= 60) {
       const h = Math.floor(parts[0] / 60)
       const mm = parts[0] % 60
       const ss = parts[1] ?? 0
-      fixed = `${h}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+      fixed = `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
     }
 
     // First chapter is always 00:00 by YouTube rule
