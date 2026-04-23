@@ -103,6 +103,9 @@ export async function DELETE(
     await supabaseAdmin.from('yt_changes').delete().eq('video_id', videoId)
     await supabaseAdmin.from('yt_social_drafts').delete().eq('video_id', videoId)
     await supabaseAdmin.from('tg_posts').update({ video_id: null }).eq('video_id', videoId)
+    // Detach shorts/clips that reference this video as parent — yt_videos.parent_video_id
+    // is a NO ACTION FK, so deletion fails otherwise.
+    await supabaseAdmin.from('yt_videos').update({ parent_video_id: null }).eq('parent_video_id', videoId)
 
     const { error: delErr } = await supabaseAdmin
       .from('yt_videos')
