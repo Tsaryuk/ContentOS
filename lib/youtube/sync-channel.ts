@@ -79,6 +79,8 @@ export async function syncChannel(channel: ChannelRow): Promise<SyncChannelResul
       await supabaseAdmin.from('yt_changes').delete().in('video_id', ids)
       await supabaseAdmin.from('yt_social_drafts').delete().in('video_id', ids)
       await supabaseAdmin.from('tg_posts').update({ video_id: null }).in('video_id', ids)
+      // Detach shorts/clips that reference any of these as parent — NO ACTION FK.
+      await supabaseAdmin.from('yt_videos').update({ parent_video_id: null }).in('parent_video_id', ids)
       await supabaseAdmin.from('yt_videos').delete().in('id', ids)
       removed = toDelete.length
       console.log(`[sync-channel] Removed ${removed} deleted videos from ${channel.title ?? channel.yt_channel_id}`)
