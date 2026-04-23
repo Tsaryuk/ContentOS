@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Scissors, Loader2, Zap } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-
 interface VideoWithClips {
   id: string
   current_title: string
@@ -23,23 +20,9 @@ export default function ClipsIndexPage() {
 
   useEffect(() => {
     async function load() {
-      // Get videos that have transcripts (eligible for clips)
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/yt_videos?transcript=not.is.null&select=id,current_title,current_thumbnail,duration_seconds&order=published_at.desc&limit=50`, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      })
-      const data = await res.json()
-
-      // Get clip counts per video
-      const clipRes = await fetch(`${SUPABASE_URL}/rest/v1/clip_candidates?select=video_id`, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      })
-      const clips = await clipRes.json()
-      const countMap: Record<string, number> = {}
-      for (const c of clips ?? []) {
-        countMap[c.video_id] = (countMap[c.video_id] ?? 0) + 1
-      }
-
-      setVideos((data ?? []).map((v: any) => ({ ...v, clip_count: countMap[v.id] ?? 0 })))
+      const res = await fetch('/api/clips/list')
+      const { videos: vs, counts } = await res.json().catch(() => ({ videos: [], counts: {} }))
+      setVideos((vs ?? []).map((v: any) => ({ ...v, clip_count: counts?.[v.id] ?? 0 })))
       setLoading(false)
     }
     load()

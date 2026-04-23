@@ -50,3 +50,23 @@ export async function PATCH(
   if (!data) return NextResponse.json({ error: 'Проект не найден' }, { status: 404 })
   return NextResponse.json(data)
 }
+
+// DELETE /api/projects/[id] — delete project (admin only; channels are detached
+// by the client via /api/projects/assign before calling this).
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
+  const { id } = await params
+  if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
+
+  const { error } = await supabaseAdmin
+    .from('projects')
+    .delete()
+    .eq('id', id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

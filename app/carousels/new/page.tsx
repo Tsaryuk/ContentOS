@@ -2,18 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
 import {
   ArrowLeft, ArrowRight, Play, FileText, Sparkles, Loader2,
   Plus, Trash2, Check, RefreshCw
 } from 'lucide-react'
 import { BRAND_PRESETS } from '@/lib/carousel/types'
 import type { CarouselSlide, VoiceStyle } from '@/lib/carousel/types'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
-)
 
 type Step = 'source' | 'style' | 'preview'
 
@@ -60,13 +54,10 @@ export default function NewCarouselWizard() {
 
   // Load videos with transcripts
   useEffect(() => {
-    supabase
-      .from('yt_videos')
-      .select('id, current_title, generated_title, transcript, published_at, duration_seconds')
-      .not('transcript', 'is', null)
-      .order('published_at', { ascending: false })
-      .limit(20)
-      .then(({ data }) => setVideos(data ?? []))
+    fetch('/api/carousels/source-videos')
+      .then(r => r.json())
+      .then(d => setVideos(d.videos ?? []))
+      .catch(() => setVideos([]))
   }, [])
 
   // Load voice styles
