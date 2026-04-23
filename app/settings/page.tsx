@@ -11,9 +11,6 @@ import {
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-
 interface Project { id: string; name: string; color: string; slug: string }
 interface Channel {
   id: string; title: string; handle: string | null
@@ -130,9 +127,7 @@ export default function SettingsPage() {
     try {
       const [projRes, accRes, podRes] = await Promise.all([
         fetch('/api/projects?all=true'),
-        SUPABASE_URL ? fetch(`${SUPABASE_URL}/rest/v1/google_accounts?select=*`, {
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
-        }) : Promise.resolve(null),
+        fetch('/api/accounts'),
         fetch('/api/podcasts'),
       ])
       const { projects: p, channels: c, tgChannels: tg } = await projRes.json()
@@ -143,9 +138,9 @@ export default function SettingsPage() {
       for (const ch of (c ?? [])) initial[ch.id] = { ...DEFAULT_RULES, ...(ch.rules ?? {}) }
       setDrafts(initial)
 
-      if (accRes) {
-        const accData = await accRes.json()
-        if (Array.isArray(accData)) setAccounts(accData)
+      if (accRes.ok) {
+        const { accounts: a } = await accRes.json()
+        if (Array.isArray(a)) setAccounts(a)
       }
 
       if (podRes.ok) {
@@ -289,12 +284,9 @@ export default function SettingsPage() {
   async function saveRules(channelId: string) {
     setSaving(channelId)
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/yt_channels?id=eq.${channelId}`, {
+      const res = await fetch(`/api/channels/${channelId}`, {
         method: 'PATCH',
-        headers: {
-          apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json', Prefer: 'return=minimal',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rules: drafts[channelId] }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -541,10 +533,7 @@ export default function SettingsPage() {
                       for (const ch of projTgChannels) {
                         await assignToProject(ch.id, null, 'tg')
                       }
-                      await fetch(`${SUPABASE_URL}/rest/v1/projects?id=eq.${proj.id}`, {
-                        method: 'DELETE',
-                        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-                      })
+                      await fetch(`/api/projects/${proj.id}`, { method: 'DELETE' })
                       await loadData()
                     }}
                   >

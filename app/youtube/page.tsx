@@ -1,19 +1,11 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Video, Film, Mic, RefreshCw, Eye, Clock, Sparkles, AlertCircle, EyeOff } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import Link from 'next/link'
-
-function getSupabase(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) return null
-  return createClient(url, key)
-}
 
 type VideoItem = {
   id: string
@@ -76,8 +68,6 @@ function fmtDate(d: string) {
 interface YtChannel { id: string; title: string; yt_channel_id: string; thumbnail_url: string | null }
 
 export default function YouTubePage() {
-  const supabaseRef = useRef<SupabaseClient | null>(null)
-  const [configured, setConfigured] = useState(false)
   const [ytChannels, setYtChannels] = useState<YtChannel[]>([])
   const [activeChannelDbId, setActiveChannelDbId] = useState<string | null>(null)
   const [activeYtChannelId, setActiveYtChannelId] = useState<string | null>(null)
@@ -88,8 +78,6 @@ export default function YouTubePage() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
 
   useEffect(() => {
-    supabaseRef.current = getSupabase()
-    if (supabaseRef.current) setConfigured(true)
     // Load channels for current project
     fetch('/api/projects').then(r => r.json()).then(async ({ channels }) => {
       const ytChs: YtChannel[] = (channels ?? []).filter((c: any) => c.yt_channel_id)
@@ -104,7 +92,7 @@ export default function YouTubePage() {
     })
   }, [])
 
-  useEffect(() => { if (configured && activeChannelDbId) loadVideos() }, [configured, activeChannelDbId])
+  useEffect(() => { if (activeChannelDbId) loadVideos() }, [activeChannelDbId])
 
   // Auto-switch to first visible tab after videos load
   useEffect(() => {
@@ -132,15 +120,11 @@ export default function YouTubePage() {
   }
 
   async function loadVideos() {
-    const sb = supabaseRef.current
-    if (!sb || !activeChannelDbId) return
+    if (!activeChannelDbId) return
     setLoading(true)
-    const { data } = await sb
-      .from('yt_videos')
-      .select('id, yt_video_id, current_title, current_thumbnail, current_description, duration_seconds, published_at, view_count, like_count, status, ai_score, is_approved, is_published_back, generated_title, generated_description, privacy_status, guest_name, guest_title, parent_video_id, shorts_status')
-      .eq('channel_id', activeChannelDbId)
-      .order('published_at', { ascending: false })
-    setAllVideos(data || [])
+    const res = await fetch(`/api/youtube/by-channel?channelId=${activeChannelDbId}&mode=full`)
+    const { videos } = await res.json().catch(() => ({ videos: [] }))
+    setAllVideos(videos ?? [])
     setLoading(false)
   }
 
@@ -265,15 +249,6 @@ export default function YouTubePage() {
 
       <div className="max-w-7xl mx-auto px-6 py-6">
 
-        {!configured && (
-          <div className="mb-6 bg-warn/10 border border-warn/20 rounded-lg px-5 py-4">
-            <div className="text-warn text-sm font-medium mb-1">Supabase не подключён</div>
-            <div className="text-muted text-xs">
-              Добавьте NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY в .env.local, затем редеплойте.
-            </div>
-          </div>
-        )}
-
         {/* Tabs */}
         <div className="mb-6">
           <div className="relative inline-flex bg-surface rounded-lg p-1 border border-border">
@@ -335,9 +310,7 @@ export default function YouTubePage() {
             <div className="py-20 text-center text-muted text-sm">Загрузка...</div>
           ) : currentVideos.length === 0 ? (
             <div className="py-20 text-center text-muted text-sm">
-              {configured
-                ? activeTab === 'queue' ? 'Нет видео в очереди.' : 'Нет контента. Нажмите "Синхронизировать".'
-                : 'Подключите Supabase для начала работы.'}
+              {activeTab === 'queue' ? 'Нет видео в очереди.' : 'Нет контента. Нажмите "Синхронизировать".'}
             </div>
           ) : activeTab === 'shorts' ? (
             <ShortsEditor videos={currentVideos as ShortItem[]} channelId={activeYtChannelId} channelDbId={activeChannelDbId} onReload={loadVideos} />
@@ -434,14 +407,10 @@ function ShortsEditor({
 
   useEffect(() => {
     if (!channelDbId) return
-    const sb = getSupabase()
-    if (!sb) return
-    sb.from('yt_videos')
-      .select('id, yt_video_id, current_title')
-      .eq('channel_id', channelDbId)
-      .gt('duration_seconds', 180)
-      .order('published_at', { ascending: false })
-      .then(({ data }) => setPodcasts(data ?? []))
+    fetch(`/api/youtube/by-channel?channelId=${channelDbId}&mode=podcasts`)
+      .then(r => r.json())
+      .then(d => setPodcasts(d.videos ?? []))
+      .catch(() => setPodcasts([]))
   }, [channelDbId])
 
   const filteredVideos = statusFilter

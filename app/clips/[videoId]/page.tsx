@@ -69,22 +69,19 @@ export default function ClipsPage() {
   const [contentTab, setContentTab] = useState<ContentTab>('shorts')
   const [copiedTimestamp, setCopiedTimestamp] = useState<string | null>(null)
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-
   const loadData = useCallback(async () => {
     const [videoRes, candidatesRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/yt_videos?id=eq.${videoId}&select=id,yt_video_id,current_title,duration_seconds,transcript`, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      }),
+      fetch(`/api/youtube/${videoId}`),
       fetch(`/api/clips/candidates?videoId=${videoId}`),
     ])
-    const vData = await videoRes.json()
-    if (vData?.[0]) setVideo(vData[0])
+    if (videoRes.ok) {
+      const vData = await videoRes.json()
+      if (vData?.id) setVideo(vData)
+    }
     const cData = await candidatesRes.json()
     setCandidates(cData.candidates ?? [])
     setLoading(false)
-  }, [videoId, SUPABASE_URL, SUPABASE_KEY])
+  }, [videoId])
 
   useEffect(() => { loadData() }, [loadData])
 

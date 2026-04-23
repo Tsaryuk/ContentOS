@@ -21,9 +21,6 @@ import { ShortLinkModal } from '@/components/youtube/ShortLinkModal'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-
 function formatDuration(s: number): string {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
@@ -79,21 +76,18 @@ export default function VideoDetailPage() {
   }
 
   const loadVideo = useCallback(async () => {
-    if (!SUPABASE_URL || !SUPABASE_KEY) { setLoading(false); return }
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/yt_videos?id=eq.${videoId}&select=*`, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      })
+      const res = await fetch(`/api/youtube/${videoId}`)
+      if (!res.ok) return
       const data = await res.json()
-      if (data?.[0]) {
-        setVideo(data[0])
-        // Load channel data (rules, channel_links, hashtags)
-        if (data[0].channel_id && !channel) {
-          const chRes = await fetch(`${SUPABASE_URL}/rest/v1/yt_channels?id=eq.${data[0].channel_id}&select=id,title,rules`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-          })
-          const chData = await chRes.json()
-          if (chData?.[0]) setChannel(chData[0])
+      if (data?.id) {
+        setVideo(data)
+        if (data.channel_id && !channel) {
+          const chRes = await fetch(`/api/channels/${data.channel_id}`)
+          if (chRes.ok) {
+            const chData = await chRes.json()
+            if (chData?.id) setChannel(chData)
+          }
         }
       }
     } catch (err) {
@@ -156,12 +150,9 @@ export default function VideoDetailPage() {
   }
 
   const patchVideo = async (data: Record<string, any>) => {
-    await fetch(`${SUPABASE_URL}/rest/v1/yt_videos?id=eq.${videoId}`, {
+    await fetch(`/api/youtube/${videoId}`, {
       method: 'PATCH',
-      headers: {
-        apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json', Prefer: 'return=minimal',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
     await loadVideo()
@@ -236,12 +227,9 @@ export default function VideoDetailPage() {
     if (descTimerRef.current) clearTimeout(descTimerRef.current)
     descTimerRef.current = setTimeout(async () => {
       setDescSaving(true)
-      await fetch(`${SUPABASE_URL}/rest/v1/yt_videos?id=eq.${videoId}`, {
+      await fetch(`/api/youtube/${videoId}`, {
         method: 'PATCH',
-        headers: {
-          apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json', Prefer: 'return=minimal',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ generated_description: text }),
       })
       setDescSaving(false)
