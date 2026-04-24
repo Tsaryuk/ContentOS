@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, DragEvent } from 'react'
 import { Wand2, Loader2, X, Plus, Check, Image as ImageIcon, Download, Eye, ChevronDown } from 'lucide-react'
+import { DEFAULT_STYLE_PRESETS, type ThumbnailStylePreset } from '@/lib/thumbnail/style-presets'
 
 type Template = 'solo' | 'duo' | 'custom'
 type ContentType = 'podcast' | 'video' | 'short'
@@ -12,10 +13,12 @@ interface Props {
   textVariants: string[]
   currentThumbnail?: string
   savedUrlsByTemplate?: Record<string, string[]>
+  savedUrlsByTemplateByStyle?: Record<string, Record<string, string[]>>
   savedPhotos?: string[]
   savedReference?: string
   thumbnailGenerating?: string | null
   contentType?: ContentType | null
+  stylePresets?: ThumbnailStylePreset[]
   onSelect: (url: string) => void
 }
 
@@ -27,6 +30,9 @@ interface PromptPreview {
   facePhotos: number
   styleReference: boolean
   channelStylePrompt: string | null
+  styleId?: string
+  styleName?: string
+  stylePresetPrompt?: string | null
   refinement: string | null
   sampleEmotion: string
   sampleFullPrompt: string
@@ -108,18 +114,17 @@ const TEMPLATES: { id: Template; label: string; icon: React.ReactNode }[] = [
   { id: 'custom', label: 'Свой реф', icon: <CustomIcon /> },
 ]
 
-export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumbnail, savedUrlsByTemplate, savedPhotos, savedReference, thumbnailGenerating, contentType, onSelect }: Props) {
+export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumbnail, savedUrlsByTemplate, savedUrlsByTemplateByStyle, savedPhotos, savedReference, thumbnailGenerating, contentType, stylePresets, onSelect }: Props) {
+  const presets = stylePresets && stylePresets.length > 0 ? stylePresets : DEFAULT_STYLE_PRESETS
   const [template, setTemplate] = useState<Template>('solo')
   const [activeContentType, setActiveContentType] = useState<ContentType>(contentType ?? 'podcast')
+  const [styleId, setStyleId] = useState<string>(presets[0].id)
   const [photos, setPhotos] = useState<{ file?: File; preview: string }[]>([])
   const [reference, setReference] = useState<{ file?: File; preview: string } | null>(null)
   const [selectedText, setSelectedText] = useState(textVariants[0] ?? '')
   const [customText, setCustomText] = useState('')
   const [refinement, setRefinement] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [resultsByTemplate, setResultsByTemplate] = useState<Record<Template, { url: string; model: string }[]>>({
-    solo: [], duo: [], custom: [],
-  })
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -136,8 +141,14 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
   const photoRef = useRef<HTMLInputElement>(null)
   const refRef = useRef<HTMLInputElement>(null)
 
-  // Generating state comes from DB (survives navigation)
-  const isGenerating = !!thumbnailGenerating
+  // Generating state comes from DB (survives navigation).
+  // New format: `${template}__${styleId}`. Legacy (just template) is still
+  // treated as "generating" for backwards compatibility with in-flight jobs.
+  const activeKey = `${template}__${styleId}`
+  const isGenerating = !!thumbnailGenerating && (
+    thumbnailGenerating === activeKey || thumbnailGenerating === template
+  )
+  const isAnyGenerating = !!thumbnailGenerating
 
   useEffect(() => {
     if (savedPhotos?.length && photos.length === 0) {
@@ -148,14 +159,14 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
     }
   }, [savedPhotos, savedReference])
 
-  useEffect(() => {
-    if (!savedUrlsByTemplate) return
-    setResultsByTemplate({
-      solo:   (savedUrlsByTemplate.solo   ?? []).map(u => ({ url: u, model: '' })),
-      duo:    (savedUrlsByTemplate.duo    ?? []).map(u => ({ url: u, model: '' })),
-      custom: (savedUrlsByTemplate.custom ?? []).map(u => ({ url: u, model: '' })),
-    })
-  }, [savedUrlsByTemplate])
+  // Results for the currently selected (template, styleId) pair.
+  // Prefer the new per-style nested structure; fall back to the legacy flat one
+  // so videos generated before the style axis existed still render.
+  const currentUrls =
+    savedUrlsByTemplateByStyle?.[template]?.[styleId]
+    ?? savedUrlsByTemplate?.[template]
+    ?? []
+  const currentResults = currentUrls.map(u => ({ url: u, model: '' }))
 
   const addPhotos = (files: FileList | null) => {
     if (!files) return
@@ -185,7 +196,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
   const activeText = customText || selectedText
 
   const generate = async () => {
-    if (!activeText || isGenerating || submitting) return
+    if (!activeText || isAnyGenerating || submitting) return
     setSubmitting(true)
     setError(null)
 
@@ -239,6 +250,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           referenceUrl: refUrl || undefined,
           refinement: refinement || undefined,
           contentType: activeContentType,
+          styleId,
         }),
       })
 
@@ -278,6 +290,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           referenceUrl: refUrl,
           refinement: refinement || undefined,
           contentType: activeContentType,
+          styleId,
           dryRun: true,
         }),
       })
@@ -311,9 +324,9 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
       </div>
 
       {/* Results */}
-      {resultsByTemplate[template].length > 0 && (
+      {currentResults.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
-          {resultsByTemplate[template].map((r, i) => (
+          {currentResults.map((r, i) => (
             <button
               key={r.url + i}
               onClick={() => { setSelectedUrl(r.url); onSelect(r.url) }}
@@ -361,7 +374,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
       )}
 
       {/* Generating placeholder */}
-      {isGenerating && resultsByTemplate[template].length === 0 && (
+      {isGenerating && currentResults.length === 0 && (
         <div className="grid grid-cols-2 gap-2">
           {[0, 1, 2, 3].map(i => (
             <div key={i} className="aspect-video rounded-lg bg-accent-surface border border-border flex items-center justify-center">
@@ -393,6 +406,29 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                 }`}
               >
                 {CONTENT_TYPE_LABELS[ct]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Style preset selector — third axis alongside template and content_type.
+            Presets come from channel.rules.thumbnail_style_presets, falling back to
+            DEFAULT_STYLE_PRESETS in code when a channel hasn't customized them. */}
+        <div className="flex items-start gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 pt-0.5 shrink-0">Стиль</span>
+          <div className="flex gap-1 flex-wrap">
+            {presets.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setStyleId(p.id)}
+                title={p.description}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
+                  styleId === p.id
+                    ? 'bg-accent text-white'
+                    : 'bg-background text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {p.name}
               </button>
             ))}
           </div>
@@ -480,16 +516,16 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           />
           <button
             onClick={generate}
-            disabled={isGenerating || submitting || !activeText}
+            disabled={isAnyGenerating || submitting || !activeText}
             className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-30 text-white text-sm font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap flex-shrink-0"
           >
-            {(isGenerating || submitting) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-            {isGenerating ? 'Генерация...' : submitting ? 'Отправка...' : 'Создать'}
+            {(isAnyGenerating || submitting) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+            {isAnyGenerating ? 'Генерация...' : submitting ? 'Отправка...' : 'Создать'}
           </button>
         </div>
 
         {/* Refine */}
-        {resultsByTemplate[template].length > 0 && !isGenerating && (
+        {currentResults.length > 0 && !isGenerating && (
           <input
             type="text"
             value={refinement}
@@ -524,6 +560,15 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
               <div><span className="text-muted-foreground">Строка 1:</span> <span className="text-foreground">{preview.textLine1 || '—'}</span></div>
               <div><span className="text-muted-foreground">Строка 2:</span> <span className="text-foreground">{preview.textLine2 || '—'}</span></div>
             </div>
+            {preview.styleName && (
+              <div className="text-muted-foreground/60">
+                <span className="text-muted-foreground">Стиль:</span>{' '}
+                <span className="text-foreground">{preview.styleName}</span>
+                {preview.stylePresetPrompt && (
+                  <span className="text-muted-foreground/60"> — {preview.stylePresetPrompt}</span>
+                )}
+              </div>
+            )}
             {preview.channelStylePrompt && (
               <div className="text-muted-foreground/60">
                 <span className="text-muted-foreground">Стиль канала:</span>{' '}
