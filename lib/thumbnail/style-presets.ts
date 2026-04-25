@@ -78,6 +78,21 @@ export const DEFAULT_STYLE_PRESETS: ThumbnailStylePreset[] = [
       'Mood: credible, journalistic, serious. No glow, no gradients, no drama — the person does the work.',
     ].join(' '),
   },
+  {
+    id: 'silhouette',
+    name: 'Силуэты',
+    description: 'Контражур, чёрный фон, белый текст по центру (для подкастов)',
+    prompt: [
+      'STYLE OVERRIDE — backlit silhouette podcast cover. THIS OVERRIDE IS ABSOLUTE.',
+      'CRITICAL — IGNORE all earlier instructions about: deep green tint, #0f1a10 background, soft green ambient light, green glow, near-black green-tinted background, bright green text #4CAF50.',
+      'Background: PURE flat BLACK (#000000). No gradient, no tint, no glow, no ambient color, no atmospheric light of any kind.',
+      'Lighting: STRONG backlight only — bright cool-white rim light traces the contour of the head, hair, ears, and shoulders, with slight bloom on the brightest edges. The front of the face is in DEEP SHADOW. Facial features must NOT be visible — no eyes, no nose, no mouth detail. Only the silhouette shape reads.',
+      'Faces: even when face reference photos are provided, render each subject as a PURE BACKLIT SILHOUETTE. Preserve the head shape, hairline, ear position, and shoulder line of the reference, but render the face itself as solid dark shadow. The recognisability comes from the silhouette outline, not from facial features. This anonymous silhouette is the entire visual hook — do not "fix" it by adding face detail.',
+      'Text: ONE block of bold all-caps sans-serif (Inter Display Black / Druk Wide / Helvetica Now Black), PURE WHITE (#FFFFFF), centered horizontally between the silhouettes (or filling the empty side for solo). Heavy weight, condensed feel, tight line-height, two short lines stacked. NO secondary color, NO green accent, NO drop shadow, NO gradient on text — both lines are pure white.',
+      'Composition: works best with the duo template — two head-and-shoulder silhouettes facing slightly inward, framing the text in the middle negative space. For solo — single silhouette on one side, text filling the other half.',
+      'Mood: dramatic, anonymous, mysterious, prestige-podcast aesthetic. Maximum contrast between pure black and rim-lit white edges. No green, no warm tones, no atmospheric haze — just black, edge-light, and white text.',
+    ].join(' '),
+  },
 ]
 
 function isValidPreset(value: unknown): value is ThumbnailStylePreset {
