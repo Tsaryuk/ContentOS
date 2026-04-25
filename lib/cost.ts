@@ -61,6 +61,8 @@ const PRICING: Array<{
   // fal.ai image models
   { match: /^fal-ai\/nano-banana-2\/edit/, perUnit: 0.039 },
   { match: /^fal-ai\/flux\/dev/,           perUnit: 0.025 },
+  { match: /^openai\/gpt-image-2\/edit/,   perUnit: 0.04 },
+  { match: /^openai\/gpt-image-2/,         perUnit: 0.04 },
 
   // Recraft
   { match: /^recraft/, perUnit: 0.04 },
