@@ -156,7 +156,7 @@ async function compressToLimit(buffer: Buffer): Promise<Buffer> {
   return result
 }
 
-async function runNanoBanana(
+async function runImageModel(
   prompt: string,
   imageUrls: string[],
   name: string,
@@ -166,17 +166,19 @@ async function runNanoBanana(
   try {
     console.log(`[thumb] ${name}: starting with ${imageUrls.length} ref images...`)
 
+    // GPT Image 2 (edit) — uses image_size + quality + output_format.
+    // No aspect_ratio/resolution/safety_tolerance like nano-banana had.
     const input: Record<string, unknown> = {
       prompt,
-      aspect_ratio: '16:9',
-      resolution: '2K',
+      image_size: 'landscape_16_9',
+      quality: 'high',
       num_images: 1,
-      safety_tolerance: 5,
+      output_format: 'jpeg',
     }
 
     if (imageUrls.length > 0) input.image_urls = imageUrls
 
-    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', { input: input as any }) as any
+    const result = await fal.subscribe('openai/gpt-image-2/edit', { input: input as any }) as any
 
     const url =
       result?.data?.images?.[0]?.url ??
@@ -186,7 +188,7 @@ async function runNanoBanana(
     if (url) {
       trackUsage({
         provider: 'fal',
-        model: 'fal-ai/nano-banana-2/edit',
+        model: 'openai/gpt-image-2/edit',
         task: 'thumbnail',
         units: 1,
         videoId: videoId ?? null,
@@ -344,7 +346,7 @@ export async function POST(req: NextRequest) {
 
     const settled = await Promise.allSettled(
       VARIANTS.map(v =>
-        runNanoBanana(
+        runImageModel(
           buildMasterPrompt({
             textLine1: line1,
             textLine2: line2,
