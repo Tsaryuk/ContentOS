@@ -166,19 +166,17 @@ async function runImageModel(
   try {
     console.log(`[thumb] ${name}: starting with ${imageUrls.length} ref images...`)
 
-    // GPT Image 2 (edit) — uses image_size + quality + output_format.
-    // No aspect_ratio/resolution/safety_tolerance like nano-banana had.
     const input: Record<string, unknown> = {
       prompt,
-      image_size: 'landscape_16_9',
-      quality: 'high',
+      aspect_ratio: '16:9',
+      resolution: '2K',
       num_images: 1,
-      output_format: 'jpeg',
+      safety_tolerance: 5,
     }
 
     if (imageUrls.length > 0) input.image_urls = imageUrls
 
-    const result = await fal.subscribe('openai/gpt-image-2/edit', { input: input as any }) as any
+    const result = await fal.subscribe('fal-ai/nano-banana-2/edit', { input: input as any }) as any
 
     const url =
       result?.data?.images?.[0]?.url ??
@@ -188,7 +186,7 @@ async function runImageModel(
     if (url) {
       trackUsage({
         provider: 'fal',
-        model: 'openai/gpt-image-2/edit',
+        model: 'fal-ai/nano-banana-2/edit',
         task: 'thumbnail',
         units: 1,
         videoId: videoId ?? null,
