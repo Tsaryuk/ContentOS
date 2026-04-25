@@ -13,6 +13,7 @@ import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
 import { VariantSelector } from '@/components/youtube/VariantSelector'
 import { ThumbnailGallery } from '@/components/youtube/ThumbnailGallery'
 import { ThumbnailStudio } from '@/components/youtube/ThumbnailStudio'
+import { resolveStylePresets } from '@/lib/thumbnail/style-presets'
 import { ClipList } from '@/components/youtube/ClipList'
 import { SocialPreview } from '@/components/youtube/SocialPreview'
 import { GuestInfo } from '@/components/youtube/GuestInfo'
@@ -665,10 +666,12 @@ export default function VideoDetailPage() {
                   textVariants={po.thumbnail_spec?.text_overlay_variants ?? []}
                   currentThumbnail={video.current_thumbnail}
                   savedUrlsByTemplate={po.thumbnail_urls_by_template}
+                  savedUrlsByTemplateByStyle={po.thumbnail_urls_by_template_by_style}
                   savedPhotos={po.saved_photos}
                   savedReference={po.saved_reference}
                   thumbnailGenerating={po.thumbnail_generating}
                   contentType={video.content_type ?? null}
+                  stylePresets={resolveStylePresets(channel?.rules)}
                   onSelect={selectThumbnailByUrl}
                 />
               </Card>

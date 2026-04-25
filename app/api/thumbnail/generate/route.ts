@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
 import { filterAllowedUrls, isAllowedUrl } from '@/lib/url-whitelist'
 import { trackUsage } from '@/lib/cost'
+import { resolveStylePreset } from '@/lib/thumbnail/style-presets'
 
 function getSupabase() {
   return supabaseAdmin
@@ -75,8 +76,9 @@ function buildMasterPrompt(params: {
   hasStyleRef: boolean
   refinement?: string
   channelStylePrompt?: string | null
+  stylePresetPrompt?: string | null
 }): string {
-  const { textLine1, textLine2, guestName, emotion, template, photoCount, hasStyleRef, refinement, channelStylePrompt } = params
+  const { textLine1, textLine2, guestName, emotion, template, photoCount, hasStyleRef, refinement, channelStylePrompt, stylePresetPrompt } = params
 
   return [
     'YouTube podcast thumbnail. 1280x720, 16:9 aspect ratio.',
@@ -111,6 +113,7 @@ function buildMasterPrompt(params: {
     'Professional YouTube podcast thumbnail quality.',
 
     channelStylePrompt ? `CHANNEL STYLE: ${channelStylePrompt}` : '',
+    stylePresetPrompt ? stylePresetPrompt : '',
     refinement ? `IMPORTANT MODIFICATION: ${refinement}` : '',
   ].filter(Boolean).join(' ')
 }
@@ -158,6 +161,7 @@ async function runNanoBanana(
   imageUrls: string[],
   name: string,
   videoId?: string,
+  styleId?: string,
 ): Promise<{ url: string | null; name: string }> {
   try {
     console.log(`[thumb] ${name}: starting with ${imageUrls.length} ref images...`)
@@ -186,7 +190,7 @@ async function runNanoBanana(
         task: 'thumbnail',
         units: 1,
         videoId: videoId ?? null,
-        metadata: { variant: name },
+        metadata: { variant: name, styleId: styleId ?? null },
       })
     }
 
@@ -238,7 +242,7 @@ export async function POST(req: NextRequest) {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })
     const body = await req.json()
     videoId = body.videoId
-    const { channelId, photos, text, referenceUrl, refinement, guestInfo, contentType: contentTypeOverride } = body
+    const { channelId, photos, text, referenceUrl, refinement, guestInfo, contentType: contentTypeOverride, styleId: styleIdInput } = body
     const dryRun: boolean = body.dryRun === true
     template = body.template ?? 'solo'
 
@@ -268,11 +272,16 @@ export async function POST(req: NextRequest) {
       'podcast'
 
     // Load per-channel thumbnail style prompt (may be per-content-type)
+    // and resolve the requested style preset against channel rules.
     let channelStylePrompt: string | null = null
+    let channelRules: Record<string, unknown> | null = null
     if (channelId) {
       const { data: ch } = await supabase.from('yt_channels').select('rules').eq('id', channelId).single()
-      channelStylePrompt = pickStylePrompt(ch?.rules, contentType)
+      channelRules = (ch?.rules as Record<string, unknown> | null) ?? null
+      channelStylePrompt = pickStylePrompt(channelRules, contentType)
     }
+    const stylePreset = resolveStylePreset(channelRules, typeof styleIdInput === 'string' ? styleIdInput : null)
+    const stylePresetPrompt = stylePreset.prompt || null
 
     const { line1, line2 } = splitText(text)
 
@@ -293,6 +302,7 @@ export async function POST(req: NextRequest) {
         hasStyleRef,
         refinement,
         channelStylePrompt,
+        stylePresetPrompt,
       })
       return NextResponse.json({
         dryRun: true,
@@ -303,6 +313,9 @@ export async function POST(req: NextRequest) {
         facePhotos: safePhotos.length,
         styleReference: hasStyleRef,
         channelStylePrompt,
+        styleId: stylePreset.id,
+        styleName: stylePreset.name,
+        stylePresetPrompt,
         refinement: refinement ?? null,
         sampleEmotion: VARIANTS[0].name,
         sampleFullPrompt: previewPrompt,
@@ -319,13 +332,15 @@ export async function POST(req: NextRequest) {
         .eq('id', videoId)
     }
 
-    // Mark generation in progress — survives page navigation
-    await markGenerating(supabase, videoId, template)
+    // Mark generation in progress — survives page navigation.
+    // Format: `${template}__${styleId}` so UI can match the active combo.
+    const generatingKey = `${template}__${stylePreset.id}`
+    await markGenerating(supabase, videoId, generatingKey)
 
     // Respond immediately — client can navigate away
     // Generation continues server-side
 
-    console.log(`[thumb] template=${template} type=${contentType} "${line1} / ${line2}" | ${imageUrls.length} images | channelPrompt=${!!channelStylePrompt} | 4 variants...`)
+    console.log(`[thumb] template=${template} type=${contentType} style=${stylePreset.id} "${line1} / ${line2}" | ${imageUrls.length} images | channelPrompt=${!!channelStylePrompt} | 4 variants...`)
 
     const settled = await Promise.allSettled(
       VARIANTS.map(v =>
@@ -340,10 +355,12 @@ export async function POST(req: NextRequest) {
             hasStyleRef,
             refinement,
             channelStylePrompt,
+            stylePresetPrompt,
           }),
           imageUrls,
           v.name,
           videoId,
+          stylePreset.id,
         )
       )
     )
@@ -388,7 +405,21 @@ export async function POST(req: NextRequest) {
     const byTemplate = { ...(prevPo.thumbnail_urls_by_template ?? {}) }
     if (urls.length > 0) byTemplate[template] = urls
 
-    const po = { ...prevPo, thumbnail_urls_by_template: byTemplate, thumbnail_generating: null }
+    // New: per-style nested structure — survives across styles without overwriting.
+    const byTemplateByStyle = { ...(prevPo.thumbnail_urls_by_template_by_style ?? {}) }
+    if (urls.length > 0) {
+      byTemplateByStyle[template] = {
+        ...(byTemplateByStyle[template] ?? {}),
+        [stylePreset.id]: urls,
+      }
+    }
+
+    const po = {
+      ...prevPo,
+      thumbnail_urls_by_template: byTemplate,
+      thumbnail_urls_by_template_by_style: byTemplateByStyle,
+      thumbnail_generating: null,
+    }
 
     await supabase.from('yt_videos').update({
       ...(urls.length > 0 ? { thumbnail_url: urls[0] } : {}),
@@ -396,8 +427,8 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     }).eq('id', videoId)
 
-    console.log(`[thumb] Done: ${urls.length}/4 variants saved`)
-    return NextResponse.json({ success: true, urls, models: modelNames })
+    console.log(`[thumb] Done: ${urls.length}/4 variants saved (style=${stylePreset.id})`)
+    return NextResponse.json({ success: true, urls, models: modelNames, styleId: stylePreset.id })
   } catch (err: any) {
     console.error('[thumb-gen]', err)
     // Clear generating flag on error

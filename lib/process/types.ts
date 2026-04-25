@@ -73,6 +73,9 @@ export interface ProducerOutput {
   timecodes: Timecode[]
   thumbnail_spec: ThumbnailSpec
   thumbnail_urls?: string[]
+  thumbnail_urls_by_template?: Record<string, string[]>
+  thumbnail_urls_by_template_by_style?: Record<string, Record<string, string[]>>
+  thumbnail_generating?: string | null
   ai_score: number
   clip_suggestions: ClipSuggestion[]
   short_suggestions: ClipSuggestion[]
@@ -116,6 +119,7 @@ export interface ExtendedChannelRules extends ChannelRules {
   brand_voice?: string
   guest_info_template?: string
   thumbnail_style_prompt?: string
+  thumbnail_style_presets?: import('../thumbnail/style-presets').ThumbnailStylePreset[]
   channel_links?: string
 }
 
