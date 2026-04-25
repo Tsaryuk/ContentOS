@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Save, Loader2, Plus, X, ChevronDown, ChevronUp,
   Play, FolderOpen, User, Check, LogOut, Trash2, RotateCcw,
-  AlertCircle, Cog, Mic, Copy,
+  AlertCircle, Cog, Mic, Copy, Download,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -110,6 +110,7 @@ export default function SettingsPage() {
   const [addChannelError, setAddChannelError] = useState('')
   const [deletingChannel, setDeletingChannel] = useState<string | null>(null)
   const [refreshingChannel, setRefreshingChannel] = useState<string | null>(null)
+  const [downloadingChannel, setDownloadingChannel] = useState<string | null>(null)
 
   // Channel rules
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null)
@@ -262,6 +263,33 @@ export default function SettingsPage() {
       ))
     }
     setRefreshingChannel(null)
+  }
+
+  async function downloadTranscripts(channelId: string, channelTitle: string) {
+    setDownloadingChannel(channelId)
+    try {
+      const res = await fetch(`/api/channels/${channelId}/transcripts/zip`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(`Не удалось скачать транскрипты: ${data.error ?? res.status}`)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const safe = channelTitle.replace(/[\s/]+/g, '_')
+      const stamp = new Date().toISOString().slice(0, 10)
+      a.download = `transcripts_${safe}_${stamp}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(`Ошибка: ${err instanceof Error ? err.message : 'unknown'}`)
+    } finally {
+      setDownloadingChannel(null)
+    }
   }
 
   async function assignToProject(channelId: string, projectId: string | null, type: 'yt' | 'tg' = 'yt') {
@@ -711,6 +739,19 @@ export default function SettingsPage() {
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
+
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => downloadTranscripts(ch.id, ch.title)}
+                    disabled={downloadingChannel === ch.id}
+                    title="Скачать ZIP с транскриптами всех видео канала"
+                    className="text-muted-foreground"
+                  >
+                    {downloadingChannel === ch.id
+                      ? <Loader2 className="animate-spin" />
+                      : <Download />}
+                  </Button>
 
                   <Button
                     variant="ghost"
