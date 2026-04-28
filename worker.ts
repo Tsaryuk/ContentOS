@@ -691,6 +691,16 @@ async function handleTranscribe(videoId: string) {
       transcript, transcript_chunks: transcriptChunks, updated_at: new Date().toISOString(),
     }).eq('id', videoId)
 
+    // Embed chunks for the comment-reply RAG path. Failures here are not fatal —
+    // the prompt heuristic falls back to inlining the full text or all chunks.
+    try {
+      const { embedTranscript } = await import('./lib/youtube/transcript-rag')
+      const r = await embedTranscript(videoId)
+      console.log(`[transcribe] embedded ${r.chunks} chunks for ${video.yt_video_id}`)
+    } catch (embedErr: any) {
+      console.error('[transcribe] embed failed (non-fatal):', embedErr?.message ?? embedErr)
+    }
+
     await updateStatus(videoId, 'generating')
     await logJob(videoId, 'transcribe', 'done', { length: transcript.length, chunks: transcriptChunks.length })
     console.log(`[transcribe] OK: ${video.yt_video_id} (${transcriptChunks.length} segments)`)
@@ -1636,6 +1646,11 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const { runAutoReplyTick } = await import('./lib/youtube/comment-auto-reply')
     await runAutoReplyTick()
   },
+  transcript_embeddings_backfill: async () => {
+    const { backfillMissingEmbeddings } = await import('./lib/youtube/transcript-rag')
+    const r = await backfillMissingEmbeddings()
+    console.log(`[backfill] embeddings: ok=${r.ok} failed=${r.failed}`)
+  },
 }
 
 // --- Stale job cleanup ---
@@ -1829,5 +1844,19 @@ async function scheduleCommentAutoReply() {
   } catch {}
 }
 scheduleCommentAutoReply()
+
+// Daily backfill of transcript embeddings. Catches videos that pre-date the
+// pgvector rollout or whose embed job failed transiently; processes a small
+// batch each day so we don't blow the OpenAI token budget at once.
+async function scheduleTranscriptEmbeddingsBackfill() {
+  try {
+    await nlQueue.add('transcript_embeddings_backfill', {}, {
+      repeat: { every: 24 * 60 * 60 * 1000 },
+      jobId: 'transcript_embeddings_backfill_cron',
+    })
+    console.log('[worker] Transcript embeddings backfill cron scheduled (every 24h)')
+  } catch {}
+}
+scheduleTranscriptEmbeddingsBackfill()
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')

@@ -28,9 +28,13 @@ export const DEFAULT_COMMENT_REPLY_CONFIG: CommentReplyConfig = {
   thread_depth: 1,
 }
 
+// Legacy and current writers use different field names; accept both so old
+// rows in transcript_chunks render the same as freshly written ones.
 export interface TranscriptChunk {
-  start_secs?: number
-  end_secs?: number
+  start_secs?: number | null
+  end_secs?: number | null
+  start?: number | null
+  end?: number | null
   text: string
 }
 
@@ -82,7 +86,8 @@ export function buildTranscriptContext(
     const lines = chunks
       .filter((c) => c.text && c.text.trim().length > 0)
       .map((c) => {
-        const tc = typeof c.start_secs === 'number' ? `[${formatSecs(c.start_secs)}] ` : ''
+        const start = typeof c.start_secs === 'number' ? c.start_secs : typeof c.start === 'number' ? c.start : null
+        const tc = typeof start === 'number' ? `[${formatSecs(start)}] ` : ''
         return `${tc}${c.text.trim()}`
       })
     if (lines.length > 0) {

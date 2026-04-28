@@ -11,6 +11,7 @@ import {
   type CommentReplyConfig,
   type TranscriptChunk,
 } from '@/lib/youtube/comment-reply-prompts'
+import { pickContextChunks } from '@/lib/youtube/transcript-rag'
 
 const anthropic = new Anthropic()
 
@@ -99,11 +100,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       shouldIncludeCta,
     })
 
+    const ragChunks = await pickContextChunks(
+      video.id,
+      video.transcript,
+      comment.text,
+      video.transcript_chunks,
+    )
+
     const user = buildCommentReplyUserPrompt({
       videoTitle: video.current_title ?? '',
       videoDescription: video.current_description,
-      transcript: video.transcript,
-      transcriptChunks: video.transcript_chunks,
+      // When RAG kicks in, drop the full text so the prompt uses chunks only.
+      transcript: ragChunks ? null : video.transcript,
+      transcriptChunks: ragChunks ?? video.transcript_chunks,
       commentText: comment.text,
       commentAuthor: comment.author_name,
       parentReplyText,

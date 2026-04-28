@@ -34,6 +34,7 @@ export type JobName =
   | 'comment_classify'
   | 'comment_draft'
   | 'comment_auto_reply'
+  | 'transcript_embeddings_backfill'
 
 export interface JobPayload {
   videoId?: string

@@ -20,6 +20,7 @@ import {
   ReplyError,
 } from '@/lib/youtube/comment-reply-engine'
 import { classifyComment } from '@/lib/youtube/comment-classifier'
+import { pickContextChunks } from '@/lib/youtube/transcript-rag'
 
 const anthropic = new Anthropic()
 
@@ -113,11 +114,18 @@ async function generateDraft(
     maxLength: config.max_reply_length,
     shouldIncludeCta,
   })
+  const ragChunks = await pickContextChunks(
+    candidate.video.id,
+    candidate.video.transcript,
+    candidate.text,
+    candidate.video.transcript_chunks,
+  )
+
   const user = buildCommentReplyUserPrompt({
     videoTitle: candidate.video.current_title ?? '',
     videoDescription: candidate.video.current_description,
-    transcript: candidate.video.transcript,
-    transcriptChunks: candidate.video.transcript_chunks,
+    transcript: ragChunks ? null : candidate.video.transcript,
+    transcriptChunks: ragChunks ?? candidate.video.transcript_chunks,
     commentText: candidate.text,
     commentAuthor: candidate.author_name,
     parentReplyText,
