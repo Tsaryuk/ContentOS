@@ -69,6 +69,21 @@ interface Stats {
   kill_switch: boolean
 }
 
+interface LogItem {
+  id: string
+  reply_text: string
+  mode: 'auto' | 'manual'
+  status: 'sent' | 'failed' | 'skipped'
+  yt_reply_id: string | null
+  error: string | null
+  created_at: string
+  comment_text: string | null
+  comment_author: string | null
+  yt_comment_id: string | null
+  video_title: string | null
+  yt_video_id: string | null
+}
+
 interface ChannelInfo {
   id: string
   title: string
@@ -94,6 +109,7 @@ export default function ChannelCommentsPage() {
   const [channel, setChannel] = useState<ChannelInfo | null>(null)
   const [comments, setComments] = useState<QueueComment[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
+  const [log, setLog] = useState<LogItem[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -108,15 +124,17 @@ export default function ChannelCommentsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [channelRes, queueRes, statsRes] = await Promise.all([
+      const [channelRes, queueRes, statsRes, logRes] = await Promise.all([
         fetch(`/api/channels/${channelId}`).then((r) => r.json()),
         fetch(`/api/comments/queue?platform=youtube&channelId=${channelId}&limit=20`).then((r) => r.json()),
         fetch(`/api/channels/${channelId}/comments-stats`).then((r) => r.json()),
+        fetch(`/api/comments/log?channelId=${channelId}&days=7&limit=50`).then((r) => r.json()),
       ])
       setChannel(channelRes)
       const qs: QueueComment[] = queueRes.comments ?? []
       setComments(qs)
       setStats(statsRes)
+      setLog(logRes.items ?? [])
       const initialDrafts: Record<string, string> = {}
       for (const c of qs) {
         if (c.ai_reply_draft) initialDrafts[c.id] = c.ai_reply_draft
@@ -486,6 +504,68 @@ export default function ChannelCommentsPage() {
         {error && (
           <div className="mt-4 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive">
             {error}
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5 mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-foreground">Отправленные ответы</h2>
+          <span className="text-[11px] text-muted-foreground">за последние 7 дней</span>
+        </div>
+        {log.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            Пока пусто. Отправь первый ответ через карусель выше.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {log.map((item) => (
+              <div key={item.id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex items-center gap-2 mb-1 text-[11px]">
+                  <span
+                    className={`uppercase tracking-wider px-1.5 py-0.5 rounded text-[9px] ${
+                      item.status === 'sent'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                        : item.status === 'failed'
+                          ? 'bg-red-500/10 text-red-600 dark:text-red-300'
+                          : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                  <span
+                    className={`uppercase tracking-wider px-1.5 py-0.5 rounded text-[9px] ${
+                      item.mode === 'auto'
+                        ? 'bg-violet-500/10 text-violet-600 dark:text-violet-300'
+                        : 'bg-blue-500/10 text-blue-600 dark:text-blue-300'
+                    }`}
+                  >
+                    {item.mode}
+                  </span>
+                  <span className="text-muted-foreground">{timeAgo(item.created_at)}</span>
+                  {item.video_title && (
+                    <a
+                      href={item.yt_video_id ? `https://www.youtube.com/watch?v=${item.yt_video_id}` : '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-muted-foreground hover:text-foreground truncate max-w-[200px] inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      {item.video_title}
+                    </a>
+                  )}
+                </div>
+                {item.comment_text && (
+                  <div className="text-xs text-muted-foreground italic line-clamp-2 mb-1">
+                    @{item.comment_author}: {item.comment_text}
+                  </div>
+                )}
+                <div className="text-sm text-foreground whitespace-pre-wrap">{item.reply_text}</div>
+                {item.error && (
+                  <div className="text-[11px] text-destructive mt-1">{item.error}</div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </Card>

@@ -1632,6 +1632,10 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const { classifyComment } = await import('./lib/youtube/comment-classifier')
     if (data?.commentId) await classifyComment(data.commentId)
   },
+  comment_auto_reply: async () => {
+    const { runAutoReplyTick } = await import('./lib/youtube/comment-auto-reply')
+    await runAutoReplyTick()
+  },
 }
 
 // --- Stale job cleanup ---
@@ -1810,5 +1814,20 @@ async function scheduleCommentsSyncRecent() {
   } catch {}
 }
 scheduleCommentsSyncRecent()
+
+// Auto-reply tick — every 30 minutes for channels with rules.comments.auto_reply=true.
+// Honours the COMMENTS_AUTO_REPLY_GLOBAL_DISABLE env kill switch and per-channel
+// daily_limit. Sends within the tick are jittered 5–20 min apart by the runner
+// itself to look human; the cron interval just decides "how often we look".
+async function scheduleCommentAutoReply() {
+  try {
+    await nlQueue.add('comment_auto_reply', {}, {
+      repeat: { every: 30 * 60 * 1000 },
+      jobId: 'comment_auto_reply_cron',
+    })
+    console.log('[worker] Comment auto-reply cron scheduled (every 30m)')
+  } catch {}
+}
+scheduleCommentAutoReply()
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')
