@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, ExternalLink, Sparkles, RefreshCw,
-  AlertTriangle, ArrowLeft, Loader2, EyeOff, Tag,
+  AlertTriangle, ArrowLeft, Loader2, EyeOff, Tag, Settings,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 
@@ -252,6 +252,12 @@ export default function ChannelCommentsPage() {
               <AlertTriangle className="w-3 h-3" /> Авто-ответы выключены глобально
             </div>
           )}
+          <Link
+            href={`/comments/youtube/${channelId}/rules`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-accent-surface transition-colors"
+          >
+            <Settings className="w-3 h-3" /> Правила
+          </Link>
           <button
             onClick={loadAll}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-accent-surface transition-colors"
