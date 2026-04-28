@@ -162,17 +162,27 @@ export async function pickContextChunks(
 const BACKFILL_BATCH = 5
 
 export async function backfillMissingEmbeddings(): Promise<{ ok: number; failed: number }> {
-  // Newest-published-first: comment volume drops off fast as a video ages, so
-  // recent uploads are the ones that actually need RAG context. Old archive
-  // videos catch up later in the queue. published_at is what we want here —
-  // updated_at moves on every metadata edit and would re-shuffle ancient
-  // videos to the front whenever a description gets touched.
-  const { data: candidates } = await supabaseAdmin
-    .from('yt_videos')
-    .select('id')
-    .not('transcript', 'is', null)
-    .order('published_at', { ascending: false, nullsFirst: false })
-    .limit(BACKFILL_BATCH * 4) // overshoot — we'll filter in memory
+  // Priority: podcasts → long-form videos → (shorts skipped entirely — their
+  // transcripts always fit inline below the RAG threshold, so embedding them
+  // would burn tokens for zero benefit).
+  // Within each tier, newest published first because comment volume tracks
+  // publish recency. published_at, not updated_at — the latter gets bumped
+  // on metadata edits and would shuffle ancient videos to the front whenever
+  // a description got touched.
+  const fetchByType = (contentType: 'podcast' | 'video') =>
+    supabaseAdmin
+      .from('yt_videos')
+      .select('id')
+      .eq('content_type', contentType)
+      .not('transcript', 'is', null)
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(BACKFILL_BATCH * 2)
+
+  const [{ data: podcasts }, { data: videos }] = await Promise.all([
+    fetchByType('podcast'),
+    fetchByType('video'),
+  ])
+  const candidates = [...(podcasts ?? []), ...(videos ?? [])]
 
   let ok = 0
   let failed = 0
