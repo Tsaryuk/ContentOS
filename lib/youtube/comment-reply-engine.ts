@@ -126,9 +126,12 @@ export async function sendCommentReply(input: SendReplyInput): Promise<SendReply
     .maybeSingle<ChannelRow>()
   const config = resolveConfig(channel?.rules ?? null)
 
-  const dailyCount = await rollingDailyCount(video.channel_id)
-  if (dailyCount >= config.daily_limit) {
-    throw new ReplyError(429, `Daily reply limit reached (${config.daily_limit}/24h)`)
+  // daily_limit === 0 means "no cap" — skip the check entirely.
+  if (config.daily_limit > 0) {
+    const dailyCount = await rollingDailyCount(video.channel_id)
+    if (dailyCount >= config.daily_limit) {
+      throw new ReplyError(429, `Daily reply limit reached (${config.daily_limit}/24h)`)
+    }
   }
 
   // Thread depth — count all "sent" rows in the same root-thread.

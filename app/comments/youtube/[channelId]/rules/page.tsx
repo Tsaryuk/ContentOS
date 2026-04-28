@@ -22,7 +22,7 @@ interface CommentRules {
 const DEFAULTS: CommentRules = {
   enabled: false,
   auto_reply: false,
-  daily_limit: 3,
+  daily_limit: 0,
   tone: '',
   telegram_url: '',
   community_url: '',
@@ -218,11 +218,14 @@ export default function RulesPage() {
                 <input
                   type="number"
                   min={0}
-                  max={50}
+                  max={1000}
                   value={rules.daily_limit}
                   onChange={(e) => setRules((r) => ({ ...r, daily_limit: Number(e.target.value) }))}
                   className={`mt-1 ${inputClass}`}
                 />
+                <div className="text-[10px] text-muted-foreground mt-1">
+                  0 = без лимита. Поставь число, чтобы ограничить дневной поток.
+                </div>
               </div>
               <div>
                 <label className={labelClass}>Макс длина ответа (символы)</label>

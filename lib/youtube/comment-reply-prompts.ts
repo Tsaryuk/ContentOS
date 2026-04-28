@@ -20,7 +20,7 @@ export interface CommentReplyConfig {
 export const DEFAULT_COMMENT_REPLY_CONFIG: CommentReplyConfig = {
   enabled: false,
   auto_reply: false,
-  daily_limit: 3,
+  daily_limit: 0, // 0 = без лимита; задай положительное число, чтобы включить дневной кап
   tone: '',
   cta_frequency: 0.3,
   skip_rules: ['spam', 'owner_reply', 'too_short', 'negative_toxic'],
