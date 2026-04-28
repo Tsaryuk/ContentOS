@@ -1622,7 +1622,15 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   },
   comments_sync_recent: async () => {
     const { syncRecentComments } = await import('./lib/youtube/sync-comments')
+    const { classifyPendingComments } = await import('./lib/youtube/comment-classifier')
     await syncRecentComments()
+    // Batch-classify everything new so the reply queue is already filtered.
+    const r = await classifyPendingComments()
+    console.log(`[worker] classified comments: ok=${r.ok} failed=${r.failed}`)
+  },
+  comment_classify: async (_videoId, data) => {
+    const { classifyComment } = await import('./lib/youtube/comment-classifier')
+    if (data?.commentId) await classifyComment(data.commentId)
   },
 }
 

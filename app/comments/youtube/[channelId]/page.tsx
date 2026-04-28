@@ -5,9 +5,38 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, ExternalLink, Sparkles, RefreshCw,
-  AlertTriangle, ArrowLeft, Loader2,
+  AlertTriangle, ArrowLeft, Loader2, EyeOff, Tag,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+
+interface Classification {
+  category?: string
+  sentiment?: string
+  has_question?: boolean
+  toxicity?: number
+  language?: string
+  skip_reason?: string | null
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  question: 'вопрос',
+  opinion: 'мнение',
+  gratitude: 'благодарность',
+  disagreement: 'несогласие',
+  off_topic: 'оффтоп',
+  spam: 'спам',
+  toxic: 'токсичный',
+}
+
+const CATEGORY_TONE: Record<string, string> = {
+  question: 'bg-blue-500/10 text-blue-600 dark:text-blue-300',
+  opinion: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+  gratitude: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+  disagreement: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+  off_topic: 'bg-muted text-muted-foreground',
+  spam: 'bg-red-500/10 text-red-600 dark:text-red-300',
+  toxic: 'bg-red-500/10 text-red-600 dark:text-red-300',
+}
 
 interface QueueComment {
   id: string
@@ -19,7 +48,7 @@ interface QueueComment {
   like_count: number
   parent_comment_id: string | null
   ai_reply_draft: string | null
-  classification: Record<string, unknown> | null
+  classification: Classification | null
   kind: 'top_level' | 'reply_to_us'
   parent_reply_text: string | null
   video: {
@@ -70,6 +99,8 @@ export default function ChannelCommentsPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState<string | null>(null)
   const [sending, setSending] = useState<string | null>(null)
+  const [skipping, setSkipping] = useState<string | null>(null)
+  const [classifying, setClassifying] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [parentExpanded, setParentExpanded] = useState<string | null>(null)
 
@@ -121,6 +152,49 @@ export default function ChannelCommentsPage() {
       setError(e instanceof Error ? e.message : 'Ошибка генерации')
     } finally {
       setGenerating(null)
+    }
+  }
+
+  async function skipComment(c: QueueComment) {
+    setSkipping(c.id)
+    setError(null)
+    try {
+      const res = await fetch(`/api/comments/${c.id}/skip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'manual' }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? 'Ошибка скрытия')
+      }
+      setComments((cs) => cs.filter((x) => x.id !== c.id))
+      setActiveIndex((i) => Math.min(i, comments.length - 2))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка скрытия')
+    } finally {
+      setSkipping(null)
+    }
+  }
+
+  async function classifyOne(c: QueueComment) {
+    setClassifying(c.id)
+    setError(null)
+    try {
+      const res = await fetch(`/api/comments/${c.id}/classify`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Ошибка классификации')
+      const cls = data.classification as Classification | null
+      if (cls?.skip_reason) {
+        setComments((cs) => cs.filter((x) => x.id !== c.id))
+        setActiveIndex((i) => Math.min(i, comments.length - 2))
+      } else {
+        setComments((cs) => cs.map((x) => (x.id === c.id ? { ...x, classification: cls } : x)))
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка классификации')
+    } finally {
+      setClassifying(null)
     }
   }
 
@@ -217,7 +291,7 @@ export default function ChannelCommentsPage() {
                     <div className="w-8 h-8 rounded-full bg-muted shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                       <span className="text-sm font-medium text-foreground">@{active.author_name}</span>
                       <span className="text-[11px] text-muted-foreground">
                         {timeAgo(active.published_at)}
@@ -225,6 +299,13 @@ export default function ChannelCommentsPage() {
                       {active.kind === 'reply_to_us' && (
                         <span className="text-[9px] uppercase tracking-wider bg-accent/10 text-accent px-1.5 py-0.5 rounded">
                           ответ нам
+                        </span>
+                      )}
+                      {active.classification?.category && (
+                        <span
+                          className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded ${CATEGORY_TONE[active.classification.category] ?? 'bg-muted text-muted-foreground'}`}
+                        >
+                          {CATEGORY_LABEL[active.classification.category] ?? active.classification.category}
                         </span>
                       )}
                     </div>
@@ -256,19 +337,49 @@ export default function ChannelCommentsPage() {
                     rows={3}
                     className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                   />
-                  <div className="flex items-center justify-between mt-2">
-                    <button
-                      onClick={() => generateDraft(active)}
-                      disabled={generating === active.id}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border hover:bg-accent-surface disabled:opacity-50 transition-colors"
-                    >
-                      {generating === active.id ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Sparkles className="w-3 h-3" />
+                  <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => generateDraft(active)}
+                        disabled={generating === active.id}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border hover:bg-accent-surface disabled:opacity-50 transition-colors"
+                      >
+                        {generating === active.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-3 h-3" />
+                        )}
+                        {drafts[active.id] ? 'Перегенерировать' : 'Сгенерировать'}
+                      </button>
+                      {!active.classification && (
+                        <button
+                          onClick={() => classifyOne(active)}
+                          disabled={classifying === active.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border hover:bg-accent-surface disabled:opacity-50 transition-colors"
+                          title="Прогнать классификатор: вопрос/мнение/спам и т.д."
+                        >
+                          {classifying === active.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Tag className="w-3 h-3" />
+                          )}
+                          Классифицировать
+                        </button>
                       )}
-                      {drafts[active.id] ? 'Перегенерировать' : 'Сгенерировать'}
-                    </button>
+                      <button
+                        onClick={() => skipComment(active)}
+                        disabled={skipping === active.id}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border hover:bg-accent-surface disabled:opacity-50 transition-colors"
+                        title="Скрыть комментарий из очереди"
+                      >
+                        {skipping === active.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <EyeOff className="w-3 h-3" />
+                        )}
+                        Скрыть
+                      </button>
+                    </div>
                     <a
                       href={`https://www.youtube.com/watch?v=${active.video.yt_video_id}&lc=${active.yt_comment_id}`}
                       target="_blank"
