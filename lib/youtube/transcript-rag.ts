@@ -162,12 +162,16 @@ export async function pickContextChunks(
 const BACKFILL_BATCH = 5
 
 export async function backfillMissingEmbeddings(): Promise<{ ok: number; failed: number }> {
-  // Pick videos that have a transcript but no embedding rows yet.
+  // Newest-published-first: comment volume drops off fast as a video ages, so
+  // recent uploads are the ones that actually need RAG context. Old archive
+  // videos catch up later in the queue. published_at is what we want here —
+  // updated_at moves on every metadata edit and would re-shuffle ancient
+  // videos to the front whenever a description gets touched.
   const { data: candidates } = await supabaseAdmin
     .from('yt_videos')
     .select('id')
     .not('transcript', 'is', null)
-    .order('updated_at', { ascending: false })
+    .order('published_at', { ascending: false, nullsFirst: false })
     .limit(BACKFILL_BATCH * 4) // overshoot — we'll filter in memory
 
   let ok = 0
