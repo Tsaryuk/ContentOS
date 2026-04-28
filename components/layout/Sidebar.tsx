@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutGrid, Mail, Globe, Settings, Scissors, FileText,
   Play, Send, Camera, GalleryHorizontalEnd, CheckSquare, Calendar,
-  LogOut, Shield, ChevronDown, Sun, Moon,
+  LogOut, Shield, ChevronDown, Sun, Moon, MessageSquare,
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
@@ -142,6 +142,7 @@ export function Sidebar() {
   const isTelegram = pathname.startsWith('/telegram')
   const isNewsletter = pathname.startsWith('/newsletter')
   const isArticles = pathname.startsWith('/articles')
+  const isComments = pathname.startsWith('/comments')
 
   const staticChannelsByPlatform = (platform: Platform) =>
     CHANNELS.filter(c => c.platform === platform)
@@ -174,6 +175,7 @@ export function Sidebar() {
         <NavItem href="/" icon={<LayoutGrid className="w-4 h-4" />} label="Дашборд" active={isDashboard} />
         <NavItem href="/tasks" icon={<CheckSquare className="w-4 h-4" />} label="Задачи" active={isTasks} />
         <NavItem href="/calendar" icon={<Calendar className="w-4 h-4" />} label="Календарь" active={isCalendar} />
+        <NavItem href="/comments" icon={<MessageSquare className="w-4 h-4" />} label="Комментарии" active={isComments} />
       </nav>
 
       <div className="px-3 my-2">
