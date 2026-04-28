@@ -691,6 +691,16 @@ async function handleTranscribe(videoId: string) {
       transcript, transcript_chunks: transcriptChunks, updated_at: new Date().toISOString(),
     }).eq('id', videoId)
 
+    // Embed chunks for the comment-reply RAG path. Failures here are not fatal —
+    // the prompt heuristic falls back to inlining the full text or all chunks.
+    try {
+      const { embedTranscript } = await import('./lib/youtube/transcript-rag')
+      const r = await embedTranscript(videoId)
+      console.log(`[transcribe] embedded ${r.chunks} chunks for ${video.yt_video_id}`)
+    } catch (embedErr: any) {
+      console.error('[transcribe] embed failed (non-fatal):', embedErr?.message ?? embedErr)
+    }
+
     await updateStatus(videoId, 'generating')
     await logJob(videoId, 'transcribe', 'done', { length: transcript.length, chunks: transcriptChunks.length })
     console.log(`[transcribe] OK: ${video.yt_video_id} (${transcriptChunks.length} segments)`)
@@ -1622,7 +1632,24 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   },
   comments_sync_recent: async () => {
     const { syncRecentComments } = await import('./lib/youtube/sync-comments')
+    const { classifyPendingComments } = await import('./lib/youtube/comment-classifier')
     await syncRecentComments()
+    // Batch-classify everything new so the reply queue is already filtered.
+    const r = await classifyPendingComments()
+    console.log(`[worker] classified comments: ok=${r.ok} failed=${r.failed}`)
+  },
+  comment_classify: async (_videoId, data) => {
+    const { classifyComment } = await import('./lib/youtube/comment-classifier')
+    if (data?.commentId) await classifyComment(data.commentId)
+  },
+  comment_auto_reply: async () => {
+    const { runAutoReplyTick } = await import('./lib/youtube/comment-auto-reply')
+    await runAutoReplyTick()
+  },
+  transcript_embeddings_backfill: async () => {
+    const { backfillMissingEmbeddings } = await import('./lib/youtube/transcript-rag')
+    const r = await backfillMissingEmbeddings()
+    console.log(`[backfill] embeddings: ok=${r.ok} failed=${r.failed}`)
   },
 }
 
@@ -1802,5 +1829,34 @@ async function scheduleCommentsSyncRecent() {
   } catch {}
 }
 scheduleCommentsSyncRecent()
+
+// Auto-reply tick — every 30 minutes for channels with rules.comments.auto_reply=true.
+// Honours the COMMENTS_AUTO_REPLY_GLOBAL_DISABLE env kill switch and per-channel
+// daily_limit. Sends within the tick are jittered 5–20 min apart by the runner
+// itself to look human; the cron interval just decides "how often we look".
+async function scheduleCommentAutoReply() {
+  try {
+    await nlQueue.add('comment_auto_reply', {}, {
+      repeat: { every: 30 * 60 * 1000 },
+      jobId: 'comment_auto_reply_cron',
+    })
+    console.log('[worker] Comment auto-reply cron scheduled (every 30m)')
+  } catch {}
+}
+scheduleCommentAutoReply()
+
+// Daily backfill of transcript embeddings. Catches videos that pre-date the
+// pgvector rollout or whose embed job failed transiently; processes a small
+// batch each day so we don't blow the OpenAI token budget at once.
+async function scheduleTranscriptEmbeddingsBackfill() {
+  try {
+    await nlQueue.add('transcript_embeddings_backfill', {}, {
+      repeat: { every: 24 * 60 * 60 * 1000 },
+      jobId: 'transcript_embeddings_backfill_cron',
+    })
+    console.log('[worker] Transcript embeddings backfill cron scheduled (every 24h)')
+  } catch {}
+}
+scheduleTranscriptEmbeddingsBackfill()
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')

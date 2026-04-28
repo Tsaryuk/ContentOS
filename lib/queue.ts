@@ -21,7 +21,20 @@ export function getQueue(): Queue {
   return queue
 }
 
-export type JobName = 'transcribe' | 'generate' | 'thumbnail' | 'publish' | 'produce' | 'telegram_send' | 'newsletter_stats' | 'generate_short_title' | 'regenerate_timecodes'
+export type JobName =
+  | 'transcribe'
+  | 'generate'
+  | 'thumbnail'
+  | 'publish'
+  | 'produce'
+  | 'telegram_send'
+  | 'newsletter_stats'
+  | 'generate_short_title'
+  | 'regenerate_timecodes'
+  | 'comment_classify'
+  | 'comment_draft'
+  | 'comment_auto_reply'
+  | 'transcript_embeddings_backfill'
 
 export interface JobPayload {
   videoId?: string
