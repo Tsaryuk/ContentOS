@@ -287,7 +287,7 @@ export default function ChannelCommentsPage() {
 
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-foreground">Unanswered Comments</h2>
+          <h2 className="text-sm font-semibold text-foreground">Неотвеченные комментарии</h2>
           {stats && (
             <span className="text-[11px] text-muted-foreground tabular-nums">
               {comments.length} в очереди · {stats.replied_total} всего отправлено
@@ -477,7 +477,11 @@ export default function ChannelCommentsPage() {
 
             <button
               onClick={() => sendReply(active)}
-              disabled={sending === active.id || !drafts[active.id]?.trim() || (stats ? stats.daily_used >= stats.daily_limit : false)}
+              disabled={
+                sending === active.id ||
+                !drafts[active.id]?.trim() ||
+                (stats && stats.daily_limit > 0 ? stats.daily_used >= stats.daily_limit : false)
+              }
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-accent to-purple shadow-md shadow-accent/20 hover:shadow-lg hover:shadow-accent/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {sending === active.id ? (
@@ -485,16 +489,18 @@ export default function ChannelCommentsPage() {
               ) : (
                 <Sparkles className="w-4 h-4" />
               )}
-              Send AI Reply
+              Отправить ответ
             </button>
 
             {stats && (
               <div className="text-center">
-                <div className="text-[11px] text-muted-foreground tabular-nums">
-                  {stats.daily_used}/{stats.daily_limit} replies used today
-                </div>
+                {stats.daily_limit > 0 && (
+                  <div className="text-[11px] text-muted-foreground tabular-nums">
+                    Сегодня отправлено: {stats.daily_used}/{stats.daily_limit}
+                  </div>
+                )}
                 <div className="text-[10px] text-muted-foreground/70 mt-0.5">
-                  AI can make mistakes. Review the response before sending.
+                  AI может ошибаться. Проверь ответ перед отправкой.
                 </div>
               </div>
             )}
