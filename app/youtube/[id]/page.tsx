@@ -123,16 +123,6 @@ export default function VideoDetailPage() {
     setTimeout(loadVideo, 3000)
   }
 
-  const runProcess = async (endpoint: string, label: string) => {
-    setProcessing(label)
-    fetch(`/api/process/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ videoId }),
-    }).catch(() => {})
-    setTimeout(loadVideo, 3000)
-  }
-
   const publishVariant = async (variantIndex: number, title: string, thumbnailUrl: string) => {
     setPublishingVariant(variantIndex)
     setProcessing('Публикация')
@@ -644,16 +634,14 @@ export default function VideoDetailPage() {
                   })()}
                 </>
               ) : (
-                <>
-                  <button onClick={() => runProcess('transcribe', 'Транскрипция')} disabled={!(video.status === 'pending' || video.status === 'error') || isProcessing}
-                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors disabled:opacity-30">
-                    Транскрибировать
-                  </button>
-                  <button onClick={() => runProcess('generate', 'AI генерация')} disabled={!((video.status === 'generating' || video.status === 'error') && video.transcript) || isProcessing}
-                    className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors disabled:opacity-30">
-                    Сгенерировать
-                  </button>
-                </>
+                <button
+                  onClick={runProduce}
+                  disabled={!canProduce || isProcessing}
+                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors disabled:opacity-30"
+                >
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
+                  Подготовить выпуск
+                </button>
               )}
             </Card>
 

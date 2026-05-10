@@ -1654,11 +1654,13 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
 }
 
 // --- Stale job cleanup ---
+// Only "actively running" statuses get a timeout. `generating` is a waiting
+// state after transcribe completes (user must click "Generate"/"Produce") —
+// it must NOT be killed by cleanup, otherwise videos with finished transcripts
+// silently rot to error after 15 min if the user steps away.
 // Transcribing can take 15+ min for long podcasts (Whisper chunks), so use 30 min timeout.
-// Other statuses use 15 min.
 const STALE_TIMEOUT: Record<string, number> = {
   transcribing: 30 * 60 * 1000,
-  generating: 15 * 60 * 1000,
   producing: 15 * 60 * 1000,
   publishing: 10 * 60 * 1000,
 }
