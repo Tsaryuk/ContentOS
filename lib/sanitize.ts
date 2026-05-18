@@ -22,11 +22,13 @@ const ARTICLE_OPTIONS: IOptions = {
   ],
   allowedAttributes: {
     a: ['href', 'title', 'target', 'rel'],
-    // class+style on <img> are required by the TipTap editor's ResizableImage
-    // extension — without them stored HTML loses size presets (S/M/L/Full) and
-    // the inline width:100% that keeps images inside the article column.
-    // data-size carries the preset name for re-parsing on next load.
-    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'class', 'style', 'data-size'],
+    // <img> intentionally has no class/style here. Image sizing is owned by
+    // CSS in services/letters-site/assets/article.css (.article-body img)
+    // and in the editor's editorProps. Stripping class/style on every save
+    // is the cleanup step: it normalizes whatever legacy inline widths or
+    // aspect-ratio crops are still floating around in old body_html so the
+    // single CSS rule is the only place layout decisions live.
+    img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
     iframe: ['src', 'title', 'width', 'height', 'allow', 'allowfullscreen', 'frameborder'],
     div: ['class'],
     span: ['class'],
@@ -35,18 +37,6 @@ const ARTICLE_OPTIONS: IOptions = {
   },
   allowedSchemes: ['https', 'mailto'],
   allowedSchemesByTag: { img: ['https', 'data'] },
-  // sanitize-html drops `style` by default unless the value passes allowedStyles
-  // — explicitly allow the layout properties we set on <img>.
-  allowedStyles: {
-    img: {
-      'width': [/.*/],
-      'max-width': [/.*/],
-      'height': [/.*/],
-      'display': [/.*/],
-      'margin': [/.*/],
-      'border-radius': [/.*/],
-    },
-  },
   allowedIframeHostnames: [
     'www.youtube.com',
     'youtube.com',
