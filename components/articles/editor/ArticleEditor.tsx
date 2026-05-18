@@ -14,8 +14,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
-import { ResizableImage } from './extensions/ResizableImage'
 import { InsightBlock } from './extensions/InsightBlock'
 import { QuestionBlock } from './extensions/QuestionBlock'
 import { VideoEmbed } from './extensions/VideoEmbed'
@@ -60,7 +60,14 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
         }),
         Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
         Placeholder.configure({ placeholder: 'Начните писать статью...' }),
-        ResizableImage,
+        // Standard Image — no inline width/style, no S/M/L/Full presets.
+        // Sizing comes from CSS on both the editor (Tailwind utilities below)
+        // and the published page (services/letters-site/assets/article.css):
+        //   max-width: 100%; height: auto; display: block; margin: 32px auto.
+        // This is the only place we control image layout; nothing about size
+        // lives in the persisted HTML, so future renderers can decide for
+        // themselves how to display images.
+        Image,
         InsightBlock,
         QuestionBlock,
         VideoEmbed,
@@ -82,7 +89,11 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
             '[&_.q-text]:italic [&_.q-text]:text-lg [&_.q-text]:text-foreground ' +
             '[&_hr]:border-border [&_hr]:my-6 [&_strong]:text-foreground [&_a]:text-accent ' +
             '[&_.video-embed]:my-6 [&_.video-embed]:rounded-lg [&_.video-embed]:overflow-hidden ' +
-            '[&_iframe]:w-full [&_iframe]:border-0',
+            '[&_iframe]:w-full [&_iframe]:border-0 ' +
+            // Single source of truth for image sizing: max-width clamps to the
+            // article column, height: auto preserves natural ratio, block +
+            // mx-auto centers, responsive by definition.
+            '[&_img]:max-w-full [&_img]:h-auto [&_img]:block [&_img]:mx-auto [&_img]:my-8 [&_img]:rounded-lg',
         },
         // Drag-and-drop image upload: intercept dropped files and route through
         // the upload endpoint instead of letting the browser insert a file://
@@ -133,7 +144,7 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
         getHTML: () => editor?.getHTML() ?? '',
         focus: () => editor?.commands.focus(),
         insertImageUrl: (url: string, alt?: string) => {
-          editor?.chain().focus().insertContent({ type: 'image', attrs: { src: url, alt: alt ?? '', size: 'Full' } }).run()
+          editor?.chain().focus().insertContent({ type: 'image', attrs: { src: url, alt: alt ?? '' } }).run()
         },
         insertYoutubeUrl: (url: string) => {
           if (!editor) return false
@@ -157,7 +168,7 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
           alert('Ошибка загрузки: ' + (data.error ?? res.status))
           return
         }
-        editor.chain().focus().insertContent({ type: 'image', attrs: { src: data.url, alt: '', size: 'Full' } }).run()
+        editor.chain().focus().insertContent({ type: 'image', attrs: { src: data.url, alt: '' } }).run()
       } finally {
         setUploading(false)
       }

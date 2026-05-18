@@ -51,6 +51,12 @@ a:hover{color:var(--text)}
 .article-body a{color:var(--muted);border-bottom:1px dotted var(--dim)}
 .article-body a:hover{color:var(--text)}
 .article-body hr.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+/* Inline images — single rule, no inline styles, no preset classes.
+   max-width:100% means the image never overflows the column on any
+   viewport; height:auto preserves the natural aspect ratio; the !important
+   defends against legacy inline width="100%" left in old body_html that
+   would otherwise force full-bleed on narrow screens. */
+.article-body img{max-width:100%!important;width:auto!important;height:auto!important;display:block;margin:32px auto;border-radius:8px;aspect-ratio:auto!important;object-fit:initial!important}
 
 /* Insight block */
 .insight{border-left:3px solid var(--accent-blue);padding:4px 0 4px 20px;margin:32px 0}
