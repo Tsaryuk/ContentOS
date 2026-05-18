@@ -141,7 +141,15 @@ export default function ArticleEditorPage() {
   }, [article, id, saving, getCurrentHtml])
 
   useEffect(() => {
-    const t = setInterval(() => { if (article?.status === 'draft') handleSave() }, 30000)
+    // Autosave every 30s for both `draft` and `published` articles. Skipping
+    // published was a footgun: edits in the editor looked saved, but if the
+    // user didn't click the Save icon, nothing actually persisted — and the
+    // static blog at letters.tsaryuk.ru kept showing the previous version.
+    // For published articles the PATCH endpoint auto-republishes via
+    // publishArticleFiles(), so every autosave also syncs the public site.
+    const t = setInterval(() => {
+      if (article?.status === 'draft' || article?.status === 'published') handleSave()
+    }, 30000)
     return () => clearInterval(t)
   }, [article?.status, handleSave])
 
