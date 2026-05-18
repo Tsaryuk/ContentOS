@@ -30,6 +30,11 @@ export function SeoPanel({
     setGenerating(true)
     try {
       const textOnly = articleHtml.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 2000)
+      // If user already picked rubrics, freeze them — AI generates SEO only.
+      const hasUserTags = (tags ?? []).length > 0
+      const rubricsBlock = hasUserTags
+        ? ''
+        : `,\n  "category": "одна основная рубрика из списка: ${CATEGORIES.join(', ')}",\n  "tags": ["от 1 до 3 рубрик из того же списка — могут включать category"]`
       const res = await fetch('/api/newsletter/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -45,9 +50,7 @@ export function SeoPanel({
   "seo_title": "SEO заголовок (до 60 символов, с ключевым словом в начале)",
   "seo_description": "Мета-описание (до 160 символов, с CTA, упоминай рассылку Личная Стратегия)",
   "seo_keywords": ["ключ1", "ключ2", "ключ3", "ключ4", "ключ5"],
-  "blog_slug": "url-slug-na-latinitse",
-  "category": "одна основная рубрика из списка: ${CATEGORIES.join(', ')}",
-  "tags": ["от 1 до 3 рубрик из того же списка — могут включать category"]
+  "blog_slug": "url-slug-na-latinitse"${rubricsBlock}
 }`,
         }),
       })
@@ -56,14 +59,22 @@ export function SeoPanel({
         try {
           const clean = data.content.replace(/```json\n?|```\n?/g, '').trim()
           const parsed = JSON.parse(clean)
-          onUpdate({
+          const patch: Record<string, unknown> = {
             seo_title: parsed.seo_title ?? '',
             seo_description: parsed.seo_description ?? '',
             seo_keywords: parsed.seo_keywords ?? [],
             blog_slug: parsed.blog_slug ?? '',
-            category: parsed.category ?? '',
-            tags: parsed.tags ?? [],
-          })
+          }
+          // Only adopt AI rubrics when user hasn't picked any, and clamp to the
+          // closed ARTICLE_CATEGORIES list so we never end up with free-form tags.
+          if (!hasUserTags && Array.isArray(parsed.tags)) {
+            const filtered = parsed.tags.filter((t: unknown): t is string => typeof t === 'string' && (CATEGORIES as readonly string[]).includes(t))
+            if (filtered.length) {
+              patch.tags = filtered
+              patch.category = filtered[0]
+            }
+          }
+          onUpdate(patch)
         } catch {
           // If not valid JSON, just show raw
           onUpdate({ seo_description: data.content })
