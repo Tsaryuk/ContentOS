@@ -629,10 +629,32 @@ export default function ArticleEditorPage() {
                 <h2 className="text-sm font-medium text-foreground flex items-center gap-2"><Globe className="w-4 h-4 text-accent" /> SEO и публикация</h2>
                 <button onClick={async () => {
                   const textOnly = article.body_html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 2000)
+                  // If user already picked rubrics, freeze them — AI generates SEO only,
+                  // not new tags/category. Otherwise let AI propose from the closed list.
+                  const hasUserTags = (article.tags ?? []).length > 0
+                  const rubricsBlock = hasUserTags
+                    ? ''
+                    : `,"category":"одна из: ${CATEGORIES.join(', ')}","tags":["один или несколько из этого же списка"]`
                   setChatLoading(true)
-                  const res = await fetch('/api/articles/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ article_id: id, message: `Сгенерируй SEO для статьи «Личная Стратегия». Тема: "${article.title}"\nТекст: ${textOnly}\nJSON: {"seo_title":"до 60","seo_description":"до 160, CTA","seo_keywords":["ключ1","ключ2"],"blog_slug":"slug","category":"одна из: ${CATEGORIES.join(', ')}","tags":["тег1","тег2"]}` }) })
+                  const res = await fetch('/api/articles/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ article_id: id, message: `Сгенерируй SEO для статьи «Личная Стратегия». Тема: "${article.title}"\nТекст: ${textOnly}\nJSON: {"seo_title":"до 60","seo_description":"до 160, CTA","seo_keywords":["ключ1","ключ2"],"blog_slug":"slug"${rubricsBlock}}` }) })
                   const data = await res.json()
-                  try { const p = JSON.parse(data.content.replace(/```json?\n?|```/g, '').trim()); updateLocal({ seo_title: p.seo_title, seo_description: p.seo_description, seo_keywords: p.seo_keywords, blog_slug: p.blog_slug, category: p.category, tags: p.tags }) } catch {}
+                  try {
+                    const p = JSON.parse(data.content.replace(/```json?\n?|```/g, '').trim())
+                    const patch: Partial<Article> = {
+                      seo_title: p.seo_title,
+                      seo_description: p.seo_description,
+                      seo_keywords: p.seo_keywords,
+                      blog_slug: p.blog_slug,
+                    }
+                    // Only adopt AI rubrics when user hasn't picked any, and clamp to the
+                    // closed ARTICLE_CATEGORIES list so we never end up with free-form tags
+                    // that aren't selectable in the UI.
+                    if (!hasUserTags && Array.isArray(p.tags)) {
+                      const filtered = p.tags.filter((t: unknown): t is string => typeof t === 'string' && (CATEGORIES as readonly string[]).includes(t))
+                      if (filtered.length) { patch.tags = filtered; patch.category = filtered[0] }
+                    }
+                    updateLocal(patch)
+                  } catch {}
                   setChatLoading(false)
                 }} disabled={chatLoading} className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs flex items-center gap-1.5 disabled:opacity-50">
                   {chatLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI-генерация
