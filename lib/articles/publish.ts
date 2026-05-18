@@ -7,6 +7,7 @@ import { readFileSync, existsSync } from 'fs'
 import { join, posix } from 'path'
 import Client from 'ssh2-sftp-client'
 import { sanitizeArticleHtml } from '@/lib/sanitize'
+import { supabaseAdmin } from '@/lib/supabase'
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,100}$/
 
@@ -36,6 +37,9 @@ interface IndexEntry {
   slug: string
   title: string
   date: string
+  /** ISO timestamp used for sorting the index. The human `date` above
+   *  ("18 мая 2026 г.") isn't sortable, so we persist the raw value too. */
+  published_at: string | null
   category: string | null
   /** Secondary rubrics (multi-select). `category` mirrors tags[0] for
    *  backward compat with older filters that only look at `category`. */
@@ -95,16 +99,6 @@ function remoteArticlePath(cfg: SftpConfig, slug: string): string {
   return remotePath(cfg, 'articles', `${slug}.html`)
 }
 
-async function readRemoteJson<T>(sftp: Client, path: string, fallback: T): Promise<T> {
-  try {
-    const buf = await sftp.get(path)
-    const text = Buffer.isBuffer(buf) ? buf.toString('utf-8') : String(buf)
-    return JSON.parse(text) as T
-  } catch {
-    return fallback
-  }
-}
-
 async function writeRemoteString(sftp: Client, path: string, content: string): Promise<void> {
   await sftp.put(Buffer.from(content, 'utf-8'), path)
 }
@@ -114,6 +108,31 @@ function formatDateRu(iso: string | null): string {
   return d.toLocaleDateString('ru-RU', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
+}
+
+/**
+ * Reads every currently-published article from the DB and projects it to the
+ * shape that letters.tsaryuk.ru's index.html / archive.html consume.
+ * Sorted by published_at desc — newest first. Articles without published_at
+ * (legacy rows) fall through to the bottom.
+ */
+async function buildIndexFromDb(): Promise<IndexEntry[]> {
+  const { data, error } = await supabaseAdmin
+    .from('nl_articles')
+    .select('blog_slug, title, published_at, category, tags, cover_url')
+    .eq('status', 'published')
+    .not('blog_slug', 'is', null)
+    .order('published_at', { ascending: false, nullsFirst: false })
+  if (error) throw error
+  return (data ?? []).map((a): IndexEntry => ({
+    slug: a.blog_slug as string,
+    title: (a.title as string) ?? '',
+    date: formatDateRu(a.published_at as string | null),
+    published_at: (a.published_at as string | null) ?? null,
+    category: (a.category as string | null) ?? null,
+    tags: Array.isArray(a.tags) ? (a.tags as string[]) : [],
+    cover: (a.cover_url as string | null) ?? null,
+  }))
 }
 
 interface ArticlePayload {
@@ -199,22 +218,17 @@ export async function publishArticleFiles(
       }
     }
 
+    // Rebuild the public index.json from the database on every publish
+    // instead of patching whatever is currently on reg.ru. The DB is the
+    // source of truth; the remote file is just a cached projection. This
+    // means:
+    //   - chronological order is always correct (sorted by published_at desc)
+    //   - renaming a slug, retracting a status, or deleting a row reflects
+    //     immediately
+    //   - the local "unshift then sort" dance can't drift
     const indexPath = remotePath(cfg, 'articles', 'index.json')
-    const articles = await readRemoteJson<IndexEntry[]>(sftp, indexPath, [])
-
-    const filtered = articles.filter(
-      (a) => a.slug !== article.blog_slug && a.slug !== prev,
-    )
-    filtered.unshift({
-      slug: article.blog_slug!,
-      title: article.title,
-      date: payload.date,
-      category: payload.category || null,
-      tags: payload.tags,
-      cover: article.cover_url || null,
-    })
-
-    await writeRemoteString(sftp, indexPath, JSON.stringify(filtered, null, 2))
+    const indexEntries = await buildIndexFromDb()
+    await writeRemoteString(sftp, indexPath, JSON.stringify(indexEntries, null, 2))
 
     // Bootstrap the shell files: .htaccess rewrite rules + article.php
     // renderer. Overwriting them on every publish keeps the hosting in sync
@@ -286,11 +300,10 @@ export async function unpublishArticleFiles(slug: string): Promise<void> {
       }
     }
 
+    // Rebuild from DB so the index reflects the just-applied status change
+    // (the caller flipped status to 'draft' / deleted the row before us).
     const indexPath = remotePath(cfg, 'articles', 'index.json')
-    const articles = await readRemoteJson<IndexEntry[]>(sftp, indexPath, [])
-    const filtered = articles.filter((a) => a.slug !== slug)
-    if (filtered.length !== articles.length) {
-      await writeRemoteString(sftp, indexPath, JSON.stringify(filtered, null, 2))
-    }
+    const indexEntries = await buildIndexFromDb()
+    await writeRemoteString(sftp, indexPath, JSON.stringify(indexEntries, null, 2))
   })
 }

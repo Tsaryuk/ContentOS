@@ -22,7 +22,7 @@ import { VideoEmbed } from './extensions/VideoEmbed'
 import { Divider } from './extensions/Divider'
 import {
   Bold, Italic, Heading2, Quote, Link2, Minus, Image as ImageIcon, Play, Lightbulb,
-  MessageCircleQuestion, Undo2, Redo2, Sparkles, Upload, Loader2,
+  MessageCircleQuestion, Undo2, Redo2, Sparkles, Upload, Loader2, Code,
 } from 'lucide-react'
 
 export interface ArticleEditorHandle {
@@ -46,6 +46,12 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
   function ArticleEditor({ value, onChange, articleId, youtubeUrl, onRequestAiImage }, ref) {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
+    // HTML source view: editing raw markup directly. Useful when something
+    // wedges the document or you need to fix a specific tag the WYSIWYG
+    // toolbar can't reach. Persists through TipTap's setContent on save so
+    // the two views stay in sync.
+    const [htmlMode, setHtmlMode] = useState(false)
+    const [htmlBuffer, setHtmlBuffer] = useState('')
 
     const editor = useEditor({
       // Render on the client only — TipTap's SSR is fine but the page already
@@ -180,6 +186,18 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
       cmd?.(youtubeUrl)
     }
 
+    function enterHtmlMode(): void {
+      if (!editor) return
+      setHtmlBuffer(editor.getHTML())
+      setHtmlMode(true)
+    }
+    function exitHtmlMode(save: boolean): void {
+      if (save && editor) {
+        editor.commands.setContent(htmlBuffer, { emitUpdate: true })
+      }
+      setHtmlMode(false)
+    }
+
     function promptLink(): void {
       if (!editor) return
       const raw = window.prompt('URL:')
@@ -238,6 +256,23 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
             className={btnBase}><Undo2 className="w-4 h-4" /></button>
           <button title="Вернуть (⌘⇧Z)" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}
             className={btnBase}><Redo2 className="w-4 h-4" /></button>
+          <span className="w-px h-5 bg-border mx-1" />
+          <button
+            title={htmlMode ? 'Вернуться в визуальный режим' : 'Редактировать HTML'}
+            onClick={htmlMode ? () => exitHtmlMode(true) : enterHtmlMode}
+            className={`${btnBase} ${htmlMode ? btnActive : ''}`}
+          >
+            <Code className="w-4 h-4" />
+          </button>
+          {htmlMode && (
+            <button
+              title="Отменить правки HTML"
+              onClick={() => exitHtmlMode(false)}
+              className={`${btnBase} text-muted-foreground`}
+            >
+              ✕
+            </button>
+          )}
         </div>
         <input
           ref={fileInputRef}
@@ -250,7 +285,17 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
             e.target.value = ''
           }}
         />
-        <EditorContent editor={editor} className="flex-1 overflow-y-auto" />
+        {htmlMode ? (
+          <textarea
+            value={htmlBuffer}
+            onChange={(e) => setHtmlBuffer(e.target.value)}
+            spellCheck={false}
+            className="flex-1 p-4 font-mono text-xs leading-relaxed bg-card/30 text-foreground focus:outline-none resize-none border-0"
+            style={{ minHeight: '50vh' }}
+          />
+        ) : (
+          <EditorContent editor={editor} className="flex-1 overflow-y-auto" />
+        )}
       </div>
     )
   },
