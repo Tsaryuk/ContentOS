@@ -8,19 +8,33 @@
 import Image from '@tiptap/extension-image'
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
 import { mergeAttributes } from '@tiptap/core'
+import type { CSSProperties } from 'react'
 
 export type ImageSize = 'S' | 'M' | 'L' | 'Full'
 
 const SIZE_TO_PCT: Record<ImageSize, number> = { S: 33, M: 50, L: 75, Full: 100 }
 
-function widthStyle(size: ImageSize): string {
+// Inline-style string used in the persisted HTML (must match exactly what
+// letters.tsaryuk.ru's static renderer expects). Object form below is for
+// React rendering — React 18 throws on string `style`.
+function widthStyleString(size: ImageSize): string {
   return `width:${SIZE_TO_PCT[size]}%;max-width:100%;height:auto;display:block;margin:32px auto;border-radius:8px`
+}
+
+function widthStyleObject(size: ImageSize): CSSProperties {
+  return {
+    width: `${SIZE_TO_PCT[size]}%`,
+    maxWidth: '100%',
+    height: 'auto',
+    display: 'block',
+    margin: '32px auto',
+    borderRadius: 8,
+  }
 }
 
 function ImageNodeView({ node, updateAttributes, deleteNode, selected }: NodeViewProps) {
   const attrs = node.attrs as { src: string; alt?: string; size?: ImageSize }
   const size: ImageSize = attrs.size ?? 'Full'
-  const baseStyle = widthStyle(size)
   return (
     <NodeViewWrapper
       as="div"
@@ -32,7 +46,7 @@ function ImageNodeView({ node, updateAttributes, deleteNode, selected }: NodeVie
         borderRadius: 8,
       }}
     >
-      <img src={attrs.src} alt={attrs.alt ?? ''} className="article-cover" style={baseStyle as never} draggable={false} />
+      <img src={attrs.src} alt={attrs.alt ?? ''} className="article-cover" style={widthStyleObject(size)} draggable={false} />
       {selected && (
         <div
           contentEditable={false}
@@ -114,7 +128,7 @@ export const ResizableImage = Image.extend({
         },
         renderHTML: (attrs: { size?: ImageSize }) => ({
           'data-size': attrs.size ?? 'Full',
-          style: widthStyle(attrs.size ?? 'Full'),
+          style: widthStyleString(attrs.size ?? 'Full'),
         }),
       },
     }
