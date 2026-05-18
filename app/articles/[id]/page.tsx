@@ -5,12 +5,12 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, Loader2, Save, Image, Play, Globe, Mail, Sparkles,
-  Bold, Italic, Heading2, Quote, Link2, Minus, Send, Mic, MicOff,
-  ExternalLink, Smartphone, Monitor, Upload, Undo2, Redo2, FileText
+  Send, Mic, MicOff, ExternalLink, Smartphone, Monitor, Upload, FileText
 } from 'lucide-react'
 import { WhitePaper } from '@/components/articles/WhitePaper'
 import { ThreadsPanel } from '@/components/articles/ThreadsPanel'
 import { VideoScriptPanel } from '@/components/articles/VideoScriptPanel'
+import { ArticleEditor, type ArticleEditorHandle } from '@/components/articles/editor/ArticleEditor'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
@@ -62,7 +62,6 @@ export default function ArticleEditorPage() {
   const [imagePrompt, setImagePrompt] = useState('')
   const [genImage, setGenImage] = useState(false)
   const [formatting, setFormatting] = useState(false)
-  const savedRangeRef = useRef<Range | null>(null)
   const [showWhitePaper, setShowWhitePaper] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [creatingEmail, setCreatingEmail] = useState(false)
@@ -72,7 +71,7 @@ export default function ArticleEditorPage() {
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const editorRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<ArticleEditorHandle | null>(null)
   const chatInputRef = useRef<HTMLInputElement>(null)
 
   const chatInsert = useInsertAtCaret(chatInputRef, chatInput, setChatInput)
@@ -113,22 +112,22 @@ export default function ArticleEditorPage() {
     updateLocal({ tags: next, category: next[0] ?? null })
   }
 
-  function syncEditor() {
-    if (editorRef.current) updateLocal({ body_html: editorRef.current.innerHTML })
-  }
+  // Pull the current HTML from the TipTap editor (ground truth between edits)
+  // and fall back to the React state if the editor hasn't mounted yet.
+  const getCurrentHtml = useCallback((): string => {
+    return editorRef.current?.getHTML() ?? article?.body_html ?? ''
+  }, [article?.body_html])
 
   const handleSave = useCallback(async () => {
     if (!article || saving) return
-    if (editorRef.current) {
-      article.body_html = editorRef.current.innerHTML
-    }
+    const bodyHtml = getCurrentHtml()
     setSaving(true)
     try {
       const res = await fetch(`/api/articles/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: article.title, subtitle: article.subtitle, body_html: article.body_html,
+          title: article.title, subtitle: article.subtitle, body_html: bodyHtml,
           cover_url: article.cover_url, youtube_url: article.youtube_url,
           category: article.category, tags: article.tags,
           seo_title: article.seo_title, seo_description: article.seo_description,
@@ -137,97 +136,23 @@ export default function ArticleEditorPage() {
         }),
       })
       const data = await res.json()
-      if (data.article) updateLocal({ version: data.article.version })
+      if (data.article) updateLocal({ version: data.article.version, body_html: bodyHtml })
     } finally { setSaving(false) }
-  }, [article, id, saving])
+  }, [article, id, saving, getCurrentHtml])
 
   useEffect(() => {
     const t = setInterval(() => { if (article?.status === 'draft') handleSave() }, 30000)
     return () => clearInterval(t)
   }, [article?.status, handleSave])
 
-  // Undo/Redo history
-  const undoStack = useRef<string[]>([])
-  const redoStack = useRef<string[]>([])
-
-  function pushUndo() {
-    const html = editorRef.current?.innerHTML ?? ''
-    if (undoStack.current[undoStack.current.length - 1] !== html) {
-      undoStack.current.push(html)
-      if (undoStack.current.length > 50) undoStack.current.shift()
-      redoStack.current = []
-    }
-  }
-
-  // Formatting
-  function execCmd(cmd: string, value?: string) {
-    pushUndo()
-    document.execCommand(cmd, false, value)
-    editorRef.current?.focus()
-  }
-
-  function handleUndo() {
-    if (undoStack.current.length === 0) return
-    const current = editorRef.current?.innerHTML ?? ''
-    redoStack.current.push(current)
-    const prev = undoStack.current.pop()!
-    if (editorRef.current) editorRef.current.innerHTML = prev
-    updateLocal({ body_html: prev })
-  }
-
-  function handleRedo() {
-    if (redoStack.current.length === 0) return
-    const current = editorRef.current?.innerHTML ?? ''
-    undoStack.current.push(current)
-    const next = redoStack.current.pop()!
-    if (editorRef.current) editorRef.current.innerHTML = next
-    updateLocal({ body_html: next })
-  }
-
-  // Insert YouTube embed at cursor position in editor
-  // Save cursor position before opening dialog
-  function saveSelection() {
-    const sel = window.getSelection()
-    if (sel && sel.rangeCount > 0) {
-      savedRangeRef.current = sel.getRangeAt(0).cloneRange()
-    }
-  }
-
-  function restoreSelection(): Selection | null {
-    editorRef.current?.focus()
-    const sel = window.getSelection()
-    if (sel && savedRangeRef.current) {
-      sel.removeAllRanges()
-      sel.addRange(savedRangeRef.current)
-    }
-    return sel
-  }
-
-  // Link insertion: prompt() blurs the editor, so native execCommand('createLink')
-  // loses the original selection and silently does nothing. Save range first,
-  // restore after prompt, then wrap selection — or insert the URL as link text
-  // when the cursor is collapsed so the button always produces something.
-  function insertLink(): void {
-    saveSelection()
-    const raw = prompt('URL:')
-    if (!raw) return
-    const trimmed = raw.trim()
-    if (!trimmed) return
-    const url = /^https?:\/\//i.test(trimmed) || trimmed.startsWith('mailto:')
-      ? trimmed
-      : `https://${trimmed}`
-    const sel = restoreSelection()
-    if (!sel || sel.isCollapsed) {
-      // No selection — insert the URL itself as the link text.
-      execCmd('insertHTML', `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
-      return
-    }
-    execCmd('createLink', url)
-  }
+  // Undo/Redo, link insertion, selection bookkeeping all live inside the
+  // TipTap editor now — see components/articles/editor/ArticleEditor.tsx.
+  // What stays here is the AI formatter and the AI image-gen modal, because
+  // both need access to page-level state (article fields, modal visibility).
 
   async function handleFormat(): Promise<void> {
     if (!article || formatting) return
-    const currentHtml = editorRef.current?.innerHTML ?? article.body_html
+    const currentHtml = getCurrentHtml()
     // Convert current HTML to plain text to re-format from scratch (paragraphs preserved)
     const plain = currentHtml
       .replace(/<\/p>/gi, '\n\n')
@@ -289,23 +214,22 @@ export default function ArticleEditorPage() {
       }
 
       if (!html) { alert('Модель вернула пустой результат'); return }
-      pushUndo()
 
       // Only adopt AI-suggested title/subtitle when the corresponding field is
       // still empty — otherwise users would lose their own hand-picked heading
-      // every time they re-run "Оформить AI".
+      // every time they re-run "Оформить AI". The body_html update flows into
+      // ArticleEditor through its `value` prop and is synced via setContent
+      // inside its useEffect — no manual DOM write needed.
       const patch: Partial<Article> = { body_html: html }
       if (titleMatch && !article.title.trim()) patch.title = titleMatch[1].trim()
       if (subtitleMatch && !article.subtitle.trim()) patch.subtitle = subtitleMatch[1].trim()
       updateLocal(patch)
-      if (editorRef.current) editorRef.current.innerHTML = html
     } catch (e) {
       alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
     } finally { setFormatting(false) }
   }
 
   function openImageDialog() {
-    saveSelection()
     setImagePrompt('')
     setShowImageDialog(true)
   }
@@ -322,30 +246,10 @@ export default function ArticleEditorPage() {
       const data = await res.json()
       if (data.error) { alert(data.error); return }
       if (data.url) {
-        // Restore cursor + insert image
-        editorRef.current?.focus()
-        const sel = window.getSelection()
-        if (sel && savedRangeRef.current) {
-          sel.removeAllRanges()
-          sel.addRange(savedRangeRef.current)
-        }
-        pushUndo()
-        document.execCommand('insertHTML', false,
-          `<img class="article-cover draggable-img" src="${data.url}" alt="${imagePrompt.replace(/"/g, '&quot;').slice(0, 100)}" draggable="true" style="width:100%;border-radius:8px;margin:32px 0;aspect-ratio:16/9;object-fit:cover;display:block;cursor:grab"><p></p>`
-        )
-        syncEditor()
+        editorRef.current?.insertImageUrl(data.url, imagePrompt.slice(0, 100))
         setShowImageDialog(false)
       }
     } finally { setGenImage(false) }
-  }
-
-  function insertYoutubeEmbed() {
-    const url = article?.youtube_url
-    if (!url) return
-    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?\s]+)/)
-    if (!match) return
-    execCmd('insertHTML', `<div class="video-embed" contenteditable="false"><iframe src="https://www.youtube.com/embed/${match[1]}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:16/9;border:0;border-radius:8px"></iframe></div><p></p>`)
-    syncEditor()
   }
 
   // Cover generation — API now returns 3 variants with different prompts
@@ -475,8 +379,8 @@ export default function ArticleEditorPage() {
   function insertFromChat(text: string) {
     let html = text.replace(/^```html?\n?/i, '').replace(/\n?```$/i, '').trim()
     if (!html.includes('<')) html = text.split('\n').map(l => l.trim() ? `<p>${l}</p>` : '').join('\n')
+    // Update React state; TipTap picks up the new value via its useEffect.
     updateLocal({ body_html: (article?.body_html ?? '') + '\n' + html })
-    if (editorRef.current) editorRef.current.innerHTML = (article?.body_html ?? '') + '\n' + html
   }
 
   function slugFromTitle() {
@@ -639,7 +543,10 @@ export default function ArticleEditorPage() {
                     {ytId && <span className="text-[10px] text-emerald-500 flex items-center gap-1 shrink-0"><Play className="w-3 h-3" /></span>}
                   </div>
                   {ytId && (
-                    <button onClick={insertYoutubeEmbed}
+                    <button
+                      onClick={() => {
+                        if (article?.youtube_url) editorRef.current?.insertYoutubeUrl(article.youtube_url)
+                      }}
                       className="w-full px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 justify-center">
                       <Play className="w-3 h-3" /> Вставить видео в текст
                     </button>
@@ -669,57 +576,19 @@ export default function ArticleEditorPage() {
               </div>
             </div>
 
-            {/* Editor scroll area: toolbar sticky + content scrolls */}
+            {/* Editor scroll area: page-level controls (AI-format, preview switch) sit
+                above the TipTap editor. The editor brings its own toolbar inside. */}
             <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border/50 sticky top-0 bg-background z-10">
-              <button onClick={handleUndo} title="Отменить (Ctrl+Z)" className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded">
-                <Undo2 className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={handleRedo} title="Вернуть (Ctrl+Y)" className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded">
-                <Redo2 className="w-3.5 h-3.5" />
-              </button>
-              <div className="w-px h-4 bg-border mx-1" />
-              {[
-                { icon: Bold, cmd: () => execCmd('bold'), title: 'Жирный' },
-                { icon: Italic, cmd: () => execCmd('italic'), title: 'Курсив' },
-                { icon: Heading2, cmd: () => execCmd('formatBlock', 'h2'), title: 'Заголовок' },
-                { icon: Quote, cmd: () => execCmd('formatBlock', 'blockquote'), title: 'Цитата' },
-                { icon: Link2, cmd: insertLink, title: 'Ссылка' },
-                { icon: Minus, cmd: () => execCmd('insertHTML', '<hr class="divider">'), title: 'Разделитель' },
-              ].map(({ icon: Icon, cmd, title }, i) => (
-                <button
-                  key={i}
-                  // onMouseDown + preventDefault keeps focus inside the
-                  // contentEditable editor so the current selection survives
-                  // the click. Without this the Link button would lose the
-                  // user's selection before prompt() fired, and createLink
-                  // had nothing to wrap → link got inserted at the document
-                  // start instead of around the highlighted word.
-                  onMouseDown={(e) => { e.preventDefault(); cmd() }}
-                  title={title}
-                  className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded"
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                </button>
-              ))}
-              <div className="w-px h-4 bg-border mx-1" />
-              <button onClick={openImageDialog} title="AI картинка в тексте"
-                className="p-1.5 text-muted-foreground/60 hover:text-accent hover:bg-accent-surface rounded">
-                <Image className="w-3.5 h-3.5" />
-              </button>
+            <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border/50 sticky top-0 bg-background z-10">
               <button onClick={handleFormat} disabled={formatting} title="AI-оформитель: добавит H2, цитаты, инсайты, вопросы"
                 className="px-2 py-1 text-[10px] text-accent hover:bg-accent/10 rounded font-medium flex items-center gap-1 disabled:opacity-40">
                 {formatting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 Оформить AI
               </button>
-              <div className="w-px h-4 bg-border mx-1" />
-              {[
-                { label: 'Инсайт', html: '<div class="insight"><div class="ins-label">Главная мысль</div><p class="ins-text">Текст</p></div>' },
-                { label: 'Вопрос', html: '<div class="qblock"><div class="q-label">Вопрос для размышления</div><div class="q-text">Текст</div></div>' },
-              ].map(b => (
-                <button key={b.label} onClick={() => execCmd('insertHTML', b.html)}
-                  className="px-2 py-1 text-[10px] text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded font-medium">{b.label}</button>
-              ))}
+              <button onClick={openImageDialog} title="AI картинка в тексте"
+                className="px-2 py-1 text-[10px] text-muted-foreground/70 hover:text-accent hover:bg-accent-surface rounded font-medium flex items-center gap-1">
+                <Image className="w-3 h-3" /> AI картинка
+              </button>
               <div className="flex-1" />
               <div className="flex gap-1">
                 {(['editor', 'desktop', 'mobile'] as const).map(m => (
@@ -734,49 +603,14 @@ export default function ArticleEditorPage() {
             {/* Editor / Preview */}
             <div>
               {preview === 'editor' ? (
-                <div ref={editorRef} contentEditable suppressContentEditableWarning
-                  className="p-6 min-h-full text-foreground text-sm leading-relaxed focus:outline-none prose prose-invert max-w-none
-                    [&_h2]:text-xs [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:font-bold [&_h2]:text-accent [&_h2]:mt-8 [&_h2]:mb-3
-                    [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
-                    [&_.insight]:border-l-2 [&_.insight]:border-accent [&_.insight]:pl-4 [&_.insight]:my-6
-                    [&_.ins-label]:text-[10px] [&_.ins-label]:uppercase [&_.ins-label]:tracking-wider [&_.ins-label]:text-accent [&_.ins-label]:mb-1
-                    [&_.ins-text]:italic [&_.ins-text]:text-foreground
-                    [&_.qblock]:border-y [&_.qblock]:border-border [&_.qblock]:py-5 [&_.qblock]:my-6
-                    [&_.q-label]:text-[10px] [&_.q-label]:uppercase [&_.q-label]:tracking-wider [&_.q-label]:text-muted-foreground/60 [&_.q-label]:mb-2
-                    [&_.q-text]:italic [&_.q-text]:text-lg [&_.q-text]:text-foreground
-                    [&_hr]:border-border [&_hr]:my-6 [&_strong]:text-foreground [&_a]:text-accent
-                    [&_.video-embed]:my-6 [&_.video-embed]:rounded-lg [&_.video-embed]:overflow-hidden
-                    [&_iframe]:w-full [&_iframe]:border-0"
-                  dangerouslySetInnerHTML={{ __html: article.body_html || '<p style="color:#555">Начните писать статью...</p>' }}
-                  onBlur={syncEditor}
-                  onInput={() => { pushUndo() }}
-                  onKeyDown={e => {
-                    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo() }
-                    if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleRedo() }
-                    // Delete selected image with Backspace/Delete
-                    if ((e.key === 'Backspace' || e.key === 'Delete')) {
-                      const selected = editorRef.current?.querySelector('img.selected-img')
-                      if (selected) {
-                        e.preventDefault()
-                        pushUndo()
-                        selected.remove()
-                        syncEditor()
-                      }
-                    }
-                  }}
-                  onClick={e => {
-                    // Toggle selection on images
-                    const target = e.target as HTMLElement
-                    // Clear previous selection
-                    editorRef.current?.querySelectorAll('img.selected-img').forEach(img => {
-                      img.classList.remove('selected-img')
-                      ;(img as HTMLElement).style.outline = ''
-                    })
-                    if (target.tagName === 'IMG') {
-                      target.classList.add('selected-img')
-                      target.style.outline = '3px solid #2d5a3f'
-                    }
-                  }} />
+                <ArticleEditor
+                  ref={editorRef}
+                  value={article.body_html}
+                  onChange={(html) => updateLocal({ body_html: html })}
+                  articleId={article.id}
+                  youtubeUrl={article.youtube_url}
+                  onRequestAiImage={openImageDialog}
+                />
               ) : (
                 <div className="p-6 flex justify-center">
                   <div className={`bg-black rounded-lg shadow-lg overflow-hidden ${preview === 'mobile' ? 'w-[375px]' : 'w-[680px]'}`}>
@@ -951,8 +785,8 @@ export default function ArticleEditorPage() {
           onClose={() => setShowWhitePaper(false)}
           onDraftSave={draft => updateLocal({ draft_text: draft })}
           onDone={html => {
+            // TipTap picks up the new value via its useEffect — no manual DOM write.
             updateLocal({ body_html: html })
-            if (editorRef.current) editorRef.current.innerHTML = html
             setShowWhitePaper(false)
           }}
         />
