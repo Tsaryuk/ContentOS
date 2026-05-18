@@ -8,6 +8,32 @@ import { join, posix } from 'path'
 import Client from 'ssh2-sftp-client'
 import { sanitizeArticleHtml } from '@/lib/sanitize'
 import { supabaseAdmin } from '@/lib/supabase'
+import { logger } from '@/lib/logger'
+
+const log = logger.child({ module: 'articles/publish' })
+
+/**
+ * Retry an SFTP call on transient network failures. ssh2-sftp-client throws
+ * generic Errors with messages like "Connection lost" / "Channel closed" —
+ * we treat those as retryable. Anything else (e.g. permission denied) is
+ * a real failure and surfaces immediately.
+ */
+async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastErr: unknown
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastErr = err
+      const msg = err instanceof Error ? err.message : String(err)
+      const transient = /lost|closed|reset|timeout|ECONN|EAI_AGAIN/i.test(msg)
+      log.warn({ label, attempt: i, attempts, err: msg, transient }, 'sftp call failed')
+      if (!transient || i === attempts) break
+      await new Promise((r) => setTimeout(r, 250 * 2 ** (i - 1)))
+    }
+  }
+  throw lastErr
+}
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,100}$/
 
@@ -100,7 +126,7 @@ function remoteArticlePath(cfg: SftpConfig, slug: string): string {
 }
 
 async function writeRemoteString(sftp: Client, path: string, content: string): Promise<void> {
-  await sftp.put(Buffer.from(content, 'utf-8'), path)
+  await withRetry(`put ${path}`, () => sftp.put(Buffer.from(content, 'utf-8'), path))
 }
 
 function formatDateRu(iso: string | null): string {
@@ -187,6 +213,8 @@ export async function publishArticleFiles(
 
   const payload = buildArticlePayload(article)
   const prev = opts.previousSlug
+  const startedAt = Date.now()
+  log.info({ articleId: article.id, slug: article.blog_slug, previousSlug: prev }, 'publish started')
 
   await withSftp(async (sftp, cfg) => {
     const articlesDir = remotePath(cfg, 'articles')
@@ -236,6 +264,11 @@ export async function publishArticleFiles(
     await syncSiteAssets(sftp, cfg)
   })
 
+  log.info({
+    articleId: article.id,
+    slug: article.blog_slug,
+    durationMs: Date.now() - startedAt,
+  }, 'publish ok')
   return { url: `https://letters.tsaryuk.ru/articles/${article.blog_slug}` }
 }
 
@@ -280,8 +313,12 @@ async function syncSiteAssets(sftp: Client, cfg: SftpConfig): Promise<void> {
       if (!existsSync(local)) continue
       const content = readFileSync(local, 'utf-8')
       await writeRemoteString(sftp, remote, content)
-    } catch {
-      // shell sync is best-effort; logs elsewhere
+    } catch (err) {
+      // Shell-sync is best-effort: the per-article JSON already uploaded.
+      // We log loudly though — silent swallow here is what hid the burger-
+      // menu / CSS regressions in the past.
+      const msg = err instanceof Error ? err.message : String(err)
+      log.error({ local, remote, err: msg }, 'site asset sync failed')
     }
   }
 }
