@@ -46,7 +46,7 @@ function ImageNodeView({ node, updateAttributes, deleteNode, selected }: NodeVie
         borderRadius: 8,
       }}
     >
-      <img src={attrs.src} alt={attrs.alt ?? ''} className="article-cover" style={widthStyleObject(size)} draggable={false} />
+      <img src={attrs.src} alt={attrs.alt ?? ''} className="article-inline-img" style={widthStyleObject(size)} draggable={false} />
       {selected && (
         <div
           contentEditable={false}
@@ -135,7 +135,10 @@ export const ResizableImage = Image.extend({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['img', mergeAttributes(HTMLAttributes, { class: 'article-cover' })]
+    // Use a dedicated class for inline images — `article-cover` in
+    // letters.tsaryuk.ru's stylesheet forces 16:9 + object-fit:cover on the
+    // main cover image, which would crop and stretch our inline pictures.
+    return ['img', mergeAttributes(HTMLAttributes, { class: 'article-inline-img' })]
   },
 
   addNodeView() {
