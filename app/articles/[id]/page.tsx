@@ -579,7 +579,7 @@ export default function ArticleEditorPage() {
             {/* Editor scroll area: page-level controls (AI-format, preview switch) sit
                 above the TipTap editor. The editor brings its own toolbar inside. */}
             <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border/50 sticky top-0 bg-background z-10">
+            <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border/50 bg-background">
               <button onClick={handleFormat} disabled={formatting} title="AI-оформитель: добавит H2, цитаты, инсайты, вопросы"
                 className="px-2 py-1 text-[10px] text-accent hover:bg-accent/10 rounded font-medium flex items-center gap-1 disabled:opacity-40">
                 {formatting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}

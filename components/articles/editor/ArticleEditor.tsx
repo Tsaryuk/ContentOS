@@ -190,7 +190,7 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
 
     return (
       <div className="flex flex-col h-full">
-        <div className="flex items-center gap-1 flex-wrap p-2 border-b border-border bg-card/30 sticky top-0 z-20">
+        <div className="flex items-center gap-1 flex-wrap p-2 border-b border-border bg-background sticky top-0 z-20">
           <button title="Жирный (⌘B)" onClick={() => editor.chain().focus().toggleBold().run()}
             className={`${btnBase} ${editor.isActive('bold') ? btnActive : ''}`}><Bold className="w-4 h-4" /></button>
           <button title="Курсив (⌘I)" onClick={() => editor.chain().focus().toggleItalic().run()}
