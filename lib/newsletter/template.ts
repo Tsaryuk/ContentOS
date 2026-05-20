@@ -30,6 +30,9 @@ blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size
 .q-text { font-style: italic; font-size: 19px; color: #111; line-height: 1.4; }
 a { color: #2d5a3f; text-decoration: none; border-bottom: 1px dotted #2d5a3f; }
 .teaser-label { font-family: Helvetica, Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #999; }
+.cta-article { text-align: center; margin: 36px 0 28px; }
+.cta-article a.cta-button { display: inline-block; background: #2d5a3f; color: #ffffff; padding: 14px 28px; font-family: Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; text-decoration: none; border-bottom: none; border-radius: 6px; }
+.cta-article .cta-hint { font-family: Helvetica, Arial, sans-serif; font-size: 12px; color: #999; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
 .footer { border-top: 1px dotted #ccc; padding: 16px 0 10px; font-family: Helvetica, Arial, sans-serif; color: #aaa; font-size: 12px; line-height: 2; }
 .footer a { color: #2d5a3f; border-bottom: 1px dotted #2d5a3f; font-size: 12px; }
 .muted { color: #888; font-size: 15px; }

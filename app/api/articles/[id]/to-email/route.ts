@@ -6,7 +6,7 @@ import { AI_MODELS } from '@/lib/ai-models'
 import { getSession } from '@/lib/session'
 import { EMAIL_WRITER_PROMPT } from '@/lib/articles/prompts'
 import { nextIssueNumber } from '@/lib/newsletter/issue-number'
-import { renderEmailBody, type SectionKind } from '@/lib/newsletter/sections'
+import { renderEmailBody, buildArticleCta, type SectionKind } from '@/lib/newsletter/sections'
 
 const anthropic = new Anthropic()
 
@@ -82,6 +82,12 @@ export async function POST(
     const sectionContent: Partial<Record<SectionKind, string>> = {}
     if (payload.digest_html) sectionContent.digest = payload.digest_html
     if (payload.practice_html) sectionContent.practice = payload.practice_html
+    // CTA back to the published article — bottom-of-email block, not embedded
+    // in digest. Only seeded when we have a blog_slug; otherwise the section
+    // stays as its placeholder ("ссылка добавится при сохранении") and the
+    // editor surfaces a warning.
+    const ctaHtml = buildArticleCta(article.blog_slug)
+    if (ctaHtml) sectionContent.cta_article = ctaHtml
     const bodyHtml = renderEmailBody(sectionContent)
 
     // Create email issue linked to article.
