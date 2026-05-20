@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Smartphone, Monitor, Save, Upload, Calendar, Loader2, Sparkles,
-  ClipboardCopy, Check,
+  ClipboardCopy, Check, RefreshCw,
 } from 'lucide-react'
 import { ARTICLE_CATEGORIES } from '@/lib/articles/categories'
 import { ArticleEditor, type ArticleEditorHandle } from '@/components/articles/editor/ArticleEditor'
@@ -69,6 +69,7 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
   const [scheduleDate, setScheduleDate] = useState('')
   const [showSchedule, setShowSchedule] = useState(false)
   const [enhancing, setEnhancing] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
   const [copying, setCopying] = useState(false)
   const [justCopied, setJustCopied] = useState(false)
   const editorRef = useRef<ArticleEditorHandle | null>(null)
@@ -134,6 +135,36 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
       ${issue.body_html || '<p style="color:#999">Начните писать...</p>'}
     `
   }, [issue.tag, issue.subject, issue.subtitle, issue.body_html])
+
+  // Regenerate the AI-filled sections (digest, practice, cta_article) from
+  // the linked article using the current EMAIL_WRITER_PROMPT. Other sections
+  // (philosophy, lifehack, anons, signoff) are not touched — they hold the
+  // user's hand-written content. Useful when the prompt has evolved and the
+  // user wants to re-run an existing draft against the new shape.
+  async function handleRegenerate() {
+    if (regenerating) return
+    const ok = window.confirm(
+      'Перегенерировать секции "Главное из статьи", "Практическое задание" и CTA из связанной статьи?\nВручную написанные секции (Личная философия, Лайфхак, Анонс) затронуты не будут.',
+    )
+    if (!ok) return
+    setRegenerating(true)
+    try {
+      // Save first so any in-flight edits don't get overwritten by the
+      // server's response.
+      await onSave()
+      const res = await fetch(`/api/newsletter/issues/${issue.id}/regenerate-from-article`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Не удалось: ${data.error ?? res.status}`)
+        return
+      }
+      if (data.issue?.body_html) onUpdate({ body_html: data.issue.body_html })
+    } catch (e) {
+      alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setRegenerating(false)
+    }
+  }
 
   // AI Enhance — sends current body_html to the newsletter AI endpoint and
   // replaces the body with the model's response. The TipTap value prop
@@ -236,6 +267,15 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-dim">v{issue.version}</span>
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            title="Перегенерировать AI-секции (digest + practice + CTA) из связанной статьи"
+            className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted hover:text-cream disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {regenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+            Перегенерировать
+          </button>
           <button
             onClick={handleEnhance}
             disabled={enhancing}
