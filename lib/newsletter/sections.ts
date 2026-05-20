@@ -14,6 +14,7 @@ export const SECTION_KINDS = [
   'philosophy',
   'lifehack',
   'anons',
+  'cta_article',
   'signoff',
 ] as const
 
@@ -51,6 +52,15 @@ export const SECTIONS: Record<SectionKind, SectionMeta> = {
     heading: 'Анонс следующего выпуска',
     placeholder: '<p class="muted"><em>Заполнится через AI-ассистента — нажми «Анонс» и опиши тему следующего выпуска.</em></p>',
   },
+  cta_article: {
+    kind: 'cta_article',
+    heading: '',
+    // Real CTA gets injected at email-creation time in
+    // app/api/articles/[id]/to-email/route.ts with the actual blog slug.
+    // The placeholder here just covers the legacy "create an empty email"
+    // path so renderEmailBody never returns a broken section.
+    placeholder: '<p><em>Ссылка на полную статью добавится при сохранении.</em></p>',
+  },
   signoff: {
     kind: 'signoff',
     heading: '',
@@ -58,6 +68,20 @@ export const SECTIONS: Record<SectionKind, SectionMeta> = {
 <p>До следующего понедельника.</p>
 <p><strong>— Денис</strong></p>`,
   },
+}
+
+// CTA-block linking back to the published article. Used by /api/articles/[id]/to-email
+// to fill the `cta_article` section with the actual slug at email-creation time.
+// The CTA lives in its own section at the bottom of the email, *not* inside
+// the digest, so the digest reads as a self-contained newsletter rather than
+// "click here to read the real thing".
+export function buildArticleCta(blogSlug: string | null): string {
+  if (!blogSlug) return ''
+  const url = `https://letters.tsaryuk.ru/articles/${blogSlug}`
+  return `<div class="cta-article">
+  <a class="cta-button" href="${url}">Читать полную версию →</a>
+  <div class="cta-hint">Письмо — это половина мысли. На сайте — полностью.</div>
+</div>`
 }
 
 // Build a single section's HTML fragment. If `content` is omitted, the
