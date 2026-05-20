@@ -99,7 +99,7 @@ $ogImage   = $coverUrl;
   <p class="article-sub"><?= esc($subtitle) ?></p>
 
   <div class="author">
-    <img class="author-photo" src="/assets/img/author.jpg" alt="Денис Царюк">
+    <img class="author-photo" src="/assets/img/author.jpg?v=<?= @filemtime(__DIR__ . '/assets/img/author.jpg') ?: 1 ?>" alt="Денис Царюк">
     <div class="author-info">
       <span class="author-name">Денис Царюк</span>
       <span class="author-date"><?= esc($date) ?></span>
