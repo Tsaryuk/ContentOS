@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Loader2, Save, Image, Play, Globe, Mail, Sparkles,
+  ArrowLeft, Loader2, Save, Image, Play, Globe, Sparkles,
   Send, Mic, MicOff, ExternalLink, Smartphone, Monitor, Upload, FileText
 } from 'lucide-react'
 import { WhitePaper } from '@/components/articles/WhitePaper'
 import { ThreadsPanel } from '@/components/articles/ThreadsPanel'
 import { VideoScriptPanel } from '@/components/articles/VideoScriptPanel'
 import { ArticleEditor, type ArticleEditorHandle } from '@/components/articles/editor/ArticleEditor'
+import { EmailStatusCard } from '@/components/articles/EmailStatusCard'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
@@ -714,27 +715,11 @@ export default function ArticleEditorPage() {
           {tab === 'distribute' && (
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <h2 className="text-sm font-medium text-foreground mb-4">Дистрибуция из статьи</h2>
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-accent" />
-                    <span className="text-xs font-medium text-foreground">Email рассылка</span>
-                  </div>
-                  {article.email_issue_id ? (
-                    <Button variant="outline" size="sm" asChild className="bg-accent/10 text-accent border-accent/20 hover:bg-accent/20">
-                      <Link href={`/newsletter/editor/${article.email_issue_id}`}>
-                        <ExternalLink /> Открыть письмо
-                      </Link>
-                    </Button>
-                  ) : (
-                    <Button variant="brand" size="sm" onClick={handleToEmail} disabled={creatingEmail}>
-                      {creatingEmail ? <Loader2 className="animate-spin" /> : <Mail />}
-                      Создать письмо
-                    </Button>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground/60 mt-2">AI сократит статью до email-формата и добавит ссылку на полную версию</p>
-              </Card>
+              <EmailStatusCard
+                articleId={article.id}
+                onCreateEmail={handleToEmail}
+                creating={creatingEmail}
+              />
               <VideoScriptPanel articleId={article.id} articleTitle={article.title} hasBody={Boolean(article.body_html?.trim())} />
               <Card className="p-4 opacity-60">
                 <div className="flex items-center gap-2">
