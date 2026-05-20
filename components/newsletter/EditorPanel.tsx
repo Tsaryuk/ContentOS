@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Eye, Smartphone, Monitor, Save, Upload, Calendar, Loader2, Sparkles,
-  Bold, Italic, Heading2, Quote, Link2, List, Minus, Type, ClipboardCopy, Check
+  Smartphone, Monitor, Save, Upload, Calendar, Loader2, Sparkles,
+  ClipboardCopy, Check,
 } from 'lucide-react'
 import { ARTICLE_CATEGORIES } from '@/lib/articles/categories'
+import { ArticleEditor, type ArticleEditorHandle } from '@/components/articles/editor/ArticleEditor'
+import { EmailSection } from '@/components/articles/editor/extensions/EmailSection'
 
 interface Issue {
   id: string
@@ -35,6 +37,33 @@ type PreviewMode = 'edit' | 'desktop' | 'mobile'
 
 const CATEGORIES = ARTICLE_CATEGORIES
 
+// Register the email-section extension once outside the component so React
+// doesn't re-instantiate the schema on every parent re-render. Same for the
+// extension list arg to ArticleEditor — keeping the reference stable keeps
+// useEditor's deps stable.
+const NEWSLETTER_EXTRA_EXTENSIONS = [EmailSection]
+
+// Strip the on-disk email shell (DOCTYPE/<head>/<style>/<body>/.wrap div/
+// .footer) so the editor only renders the section content. body_html in
+// nl_issues currently stores either:
+//   (a) just the body — recent rows produced by renderEmailBody()
+//   (b) a full pre-render template — legacy rows from before the section
+//       split was introduced. We keep this helper so opening such legacy
+//       issues doesn't show the raw shell as text.
+function stripEmailWrapper(html: string): string {
+  if (!html) return ''
+  let clean = html
+  clean = clean.replace(/<!DOCTYPE[^>]*>/gi, '')
+  clean = clean.replace(/<html[^>]*>/gi, '').replace(/<\/html>/gi, '')
+  clean = clean.replace(/<head[\s\S]*?<\/head>/gi, '')
+  clean = clean.replace(/<style[\s\S]*?<\/style>/gi, '')
+  clean = clean.replace(/<body[^>]*>/gi, '').replace(/<\/body>/gi, '')
+  clean = clean.replace(/<div class="preheader"[\s\S]*?<\/div>/gi, '')
+  clean = clean.replace(/<div class="wrap">/gi, '').replace(/<\/div>\s*$/gi, '')
+  clean = clean.replace(/<div class="footer"[\s\S]*$/gi, '')
+  return clean.trim()
+}
+
 export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, saving }: EditorPanelProps) {
   const [preview, setPreview] = useState<PreviewMode>('edit')
   const [scheduleDate, setScheduleDate] = useState('')
@@ -42,7 +71,7 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
   const [enhancing, setEnhancing] = useState(false)
   const [copying, setCopying] = useState(false)
   const [justCopied, setJustCopied] = useState(false)
-  const editorRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<ArticleEditorHandle | null>(null)
   const autoSaveTimer = useRef<NodeJS.Timeout | null>(null)
 
   // Fetch the fully template-wrapped email HTML and drop it on the clipboard
@@ -52,8 +81,6 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
     if (copying) return
     setCopying(true)
     try {
-      // Save pending edits first so the copied HTML reflects what's in the
-      // editor right now, not what was last auto-saved.
       await onSave()
       const res = await fetch(`/api/newsletter/issues/${issue.id}/html`)
       if (!res.ok) {
@@ -65,7 +92,6 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(html)
       } else {
-        // Legacy fallback (e.g. non-secure contexts).
         const ta = document.createElement('textarea')
         ta.value = html
         ta.style.position = 'fixed'
@@ -84,29 +110,17 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
     }
   }
 
+  // Autosave every 30s — matches the article editor's behaviour. Covers
+  // draft + uploaded so a quick fix after upload (typo in subject etc.)
+  // still gets persisted.
   useEffect(() => {
     autoSaveTimer.current = setInterval(() => {
-      if (issue.status === 'draft') onSave()
+      if (issue.status === 'draft' || issue.status === 'uploaded') onSave()
     }, 30000)
     return () => {
       if (autoSaveTimer.current) clearInterval(autoSaveTimer.current)
     }
   }, [issue.status, onSave])
-
-  // Sync the contentEditable DOM with body_html when the parent updates it
-  // externally — e.g. after the chat wizard fills a section server-side.
-  // Without this the editor would keep its stale innerHTML because React
-  // doesn't re-run dangerouslySetInnerHTML when the DOM was mutated by the
-  // user's typing.
-  useEffect(() => {
-    const el = editorRef.current
-    if (!el) return
-    const next = stripEmailWrapper(issue.body_html) || ''
-    if (el.innerHTML !== next) {
-      el.innerHTML = next
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [issue.body_html])
 
   const getPreviewHtml = useCallback(() => {
     const tag = issue.tag || 'Разговор о...'
@@ -121,106 +135,12 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
     `
   }, [issue.tag, issue.subject, issue.subtitle, issue.body_html])
 
-  function getSelectedText(): string {
-    const sel = window.getSelection()
-    return sel ? sel.toString() : ''
-  }
-
-  useEffect(() => {
-    (window as any).__nlGetSelectedText = getSelectedText
-  }, [])
-
-  // Formatting commands
-  // Strip email wrapper (DOCTYPE, head, style, body, .wrap div) — show only content
-  function stripEmailWrapper(html: string): string {
-    if (!html) return ''
-    let clean = html
-    // Remove DOCTYPE, html, head, style tags
-    clean = clean.replace(/<!DOCTYPE[^>]*>/gi, '')
-    clean = clean.replace(/<html[^>]*>/gi, '').replace(/<\/html>/gi, '')
-    clean = clean.replace(/<head[\s\S]*?<\/head>/gi, '')
-    clean = clean.replace(/<style[\s\S]*?<\/style>/gi, '')
-    clean = clean.replace(/<body[^>]*>/gi, '').replace(/<\/body>/gi, '')
-    // Remove preheader hidden div
-    clean = clean.replace(/<div class="preheader"[\s\S]*?<\/div>/gi, '')
-    // Unwrap .wrap div
-    clean = clean.replace(/<div class="wrap">/gi, '').replace(/<\/div>\s*$/gi, '')
-    // Remove footer
-    clean = clean.replace(/<div class="footer"[\s\S]*$/gi, '')
-    return clean.trim()
-  }
-
-  function execCmd(cmd: string, value?: string) {
-    document.execCommand(cmd, false, value)
-    editorRef.current?.focus()
-    syncHtml()
-  }
-
-  function syncHtml() {
-    if (editorRef.current) {
-      onUpdate({ body_html: editorRef.current.innerHTML })
-    }
-  }
-
-  function insertHeading() {
-    execCmd('formatBlock', 'h2')
-  }
-
-  function insertBlockquote() {
-    execCmd('formatBlock', 'blockquote')
-  }
-
-  function insertDivider() {
-    execCmd('insertHTML', '<hr class="divider">')
-  }
-
-  function insertInsightBlock() {
-    execCmd('insertHTML', `
-      <div class="insight">
-        <div class="ins-label">Главная мысль</div>
-        <p class="ins-text">Ваша ключевая мысль здесь</p>
-      </div>
-    `)
-  }
-
-  function insertQuestionBlock() {
-    execCmd('insertHTML', `
-      <div class="qblock">
-        <div class="q-label">Вопрос недели</div>
-        <div class="q-text">Ваш вопрос здесь</div>
-      </div>
-    `)
-  }
-
-  function insertLink() {
-    // Same pattern as article editor: prompt() blurs the editor, so we save
-    // the range first and restore it after. If selection is collapsed, drop
-    // the URL itself as link text instead of silently doing nothing.
-    const sel0 = window.getSelection()
-    const saved = sel0 && sel0.rangeCount > 0 ? sel0.getRangeAt(0).cloneRange() : null
-    const raw = prompt('URL ссылки:')
-    if (!raw) return
-    const trimmed = raw.trim()
-    if (!trimmed) return
-    const url = /^https?:\/\//i.test(trimmed) || trimmed.startsWith('mailto:')
-      ? trimmed
-      : `https://${trimmed}`
-    editorRef.current?.focus()
-    const sel = window.getSelection()
-    if (sel && saved) {
-      sel.removeAllRanges()
-      sel.addRange(saved)
-    }
-    if (!sel || sel.isCollapsed) {
-      execCmd('insertHTML', `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
-      return
-    }
-    execCmd('createLink', url)
-  }
-
-  // AI Enhance
+  // AI Enhance — sends current body_html to the newsletter AI endpoint and
+  // replaces the body with the model's response. The TipTap value prop
+  // pushes the new HTML into the editor through ArticleEditor's internal
+  // useEffect(value).
   async function handleEnhance() {
-    const currentHtml = editorRef.current?.innerHTML ?? issue.body_html
+    const currentHtml = editorRef.current?.getHTML() ?? issue.body_html
     if (!currentHtml?.trim()) return
 
     setEnhancing(true)
@@ -242,33 +162,13 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
       })
       const data = await res.json()
       if (data.content) {
-        // Remove possible markdown code blocks
-        let html = data.content.replace(/^```html?\n?/i, '').replace(/\n?```$/i, '').trim()
+        const html = data.content.replace(/^```html?\n?/i, '').replace(/\n?```$/i, '').trim()
         onUpdate({ body_html: html })
-        if (editorRef.current) {
-          editorRef.current.innerHTML = html
-        }
       }
     } finally {
       setEnhancing(false)
     }
   }
-
-  const formatButtons = [
-    { icon: Bold, title: 'Жирный', action: () => execCmd('bold') },
-    { icon: Italic, title: 'Курсив', action: () => execCmd('italic') },
-    { icon: Heading2, title: 'Заголовок H2', action: insertHeading },
-    { icon: Quote, title: 'Цитата', action: insertBlockquote },
-    { icon: Link2, title: 'Ссылка', action: insertLink },
-    { icon: List, title: 'Список', action: () => execCmd('insertUnorderedList') },
-    { icon: Minus, title: 'Разделитель', action: insertDivider },
-  ]
-
-  const blockButtons = [
-    { label: 'Инсайт', action: insertInsightBlock },
-    { label: 'Вопрос', action: insertQuestionBlock },
-    { label: 'P', action: () => execCmd('formatBlock', 'p'), title: 'Абзац' },
-  ]
 
   return (
     <div className="flex flex-col h-full">
@@ -319,43 +219,6 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
         </div>
       </div>
 
-      {/* Formatting toolbar */}
-      <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border/50">
-        {formatButtons.map(({ icon: Icon, title, action }) => (
-          <button
-            key={title}
-            // onMouseDown + preventDefault keeps the contentEditable
-            // selection intact while clicking the toolbar — essential for
-            // createLink via prompt() which otherwise gets an empty range.
-            onMouseDown={(e) => { e.preventDefault(); action() }}
-            title={title}
-            className="p-1.5 text-dim hover:text-cream hover:bg-white/5 rounded transition-colors"
-          >
-            <Icon className="w-3.5 h-3.5" />
-          </button>
-        ))}
-        <div className="w-px h-4 bg-border mx-1" />
-        {blockButtons.map(({ label, action, title }) => (
-          <button
-            key={label}
-            onMouseDown={(e) => { e.preventDefault(); action() }}
-            title={title ?? label}
-            className="px-2 py-1 text-[10px] text-dim hover:text-cream hover:bg-white/5 rounded transition-colors font-medium"
-          >
-            {label}
-          </button>
-        ))}
-        <div className="flex-1" />
-        <button
-          onClick={handleEnhance}
-          disabled={enhancing}
-          className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs hover:bg-accent/20 disabled:opacity-50 flex items-center gap-1.5"
-        >
-          {enhancing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-          Улучшить AI
-        </button>
-      </div>
-
       {/* View mode + actions */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
         <div className="flex gap-1">
@@ -373,6 +236,14 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-dim">v{issue.version}</span>
+          <button
+            onClick={handleEnhance}
+            disabled={enhancing}
+            className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs hover:bg-accent/20 disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {enhancing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            Улучшить AI
+          </button>
           <button
             onClick={onSave}
             disabled={saving}
@@ -442,25 +313,15 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
       </div>
 
       {/* Content area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {preview === 'edit' ? (
-          <div
+          <ArticleEditor
             ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            className="p-6 min-h-full text-cream text-sm leading-relaxed focus:outline-none prose prose-invert max-w-none
-              [&_h2]:text-xs [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:font-bold [&_h2]:text-accent [&_h2]:mt-8 [&_h2]:mb-3
-              [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted
-              [&_.insight]:border-l-2 [&_.insight]:border-accent [&_.insight]:pl-4 [&_.insight]:my-6
-              [&_.ins-label]:text-[10px] [&_.ins-label]:uppercase [&_.ins-label]:tracking-wider [&_.ins-label]:text-accent [&_.ins-label]:mb-1
-              [&_.ins-text]:italic [&_.ins-text]:text-cream
-              [&_.qblock]:border-y [&_.qblock]:border-border [&_.qblock]:py-5 [&_.qblock]:my-6
-              [&_.q-label]:text-[10px] [&_.q-label]:uppercase [&_.q-label]:tracking-wider [&_.q-label]:text-dim [&_.q-label]:mb-2
-              [&_.q-text]:italic [&_.q-text]:text-lg [&_.q-text]:text-cream
-              [&_hr]:border-border [&_hr]:my-6
-              [&_strong]:text-cream [&_a]:text-accent"
-            dangerouslySetInnerHTML={{ __html: stripEmailWrapper(issue.body_html) || '' }}
-            onBlur={syncHtml}
+            value={stripEmailWrapper(issue.body_html)}
+            onChange={(html) => onUpdate({ body_html: html })}
+            articleId={issue.id}
+            extraExtensions={NEWSLETTER_EXTRA_EXTENSIONS}
+            placeholder="Текст письма…"
           />
         ) : (
           <div className="p-6 flex justify-center">
@@ -491,6 +352,10 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
                     a { color: #2d5a3f; text-decoration: none; border-bottom: 1px dotted #2d5a3f; }
                     .muted { color: #888; font-size: 15px; }
                     strong { color: #111; }
+                    img { max-width: 100%; height: auto; display: block; margin: 24px auto; border-radius: 6px; }
+                    .cta-article { text-align: center; margin: 32px 0 24px; }
+                    .cta-article a.cta-button { display: inline-block; background: #2d5a3f; color: #fff; padding: 12px 24px; border-radius: 6px; font-family: Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; border: none; }
+                    .cta-article .cta-hint { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #999; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
                   </style>
                   <div class="wrap">${getPreviewHtml()}</div>
                 `}

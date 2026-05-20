@@ -12,6 +12,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
+import type { Extensions } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
@@ -40,10 +41,23 @@ interface ArticleEditorProps {
   youtubeUrl?: string | null
   /** Callback to open the AI image-gen modal (kept external — uses existing UI). */
   onRequestAiImage?: () => void
+  /**
+   * Optional extra TipTap extensions appended to the base set. Used by the
+   * newsletter editor to register `<section data-kind="…">` as a structural
+   * node so it survives serialization round-trips. ArticleEditor itself never
+   * uses this — keeping ArticleEditor's own extension list closed is enough
+   * for the blog flow.
+   */
+  extraExtensions?: Extensions
+  /** Override placeholder text when used outside the blog flow. */
+  placeholder?: string
 }
 
 export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>(
-  function ArticleEditor({ value, onChange, articleId, youtubeUrl, onRequestAiImage }, ref) {
+  function ArticleEditor(
+    { value, onChange, articleId, youtubeUrl, onRequestAiImage, extraExtensions, placeholder = 'Начните писать статью...' },
+    ref,
+  ) {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
     // HTML source view: editing raw markup directly. Useful when something
@@ -65,7 +79,7 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
           // Cmd+Z undoes words/blocks instead of single keystrokes.
         }),
         Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
-        Placeholder.configure({ placeholder: 'Начните писать статью...' }),
+        Placeholder.configure({ placeholder }),
         // Standard Image — no inline width/style, no S/M/L/Full presets.
         // Sizing comes from CSS on both the editor (Tailwind utilities below)
         // and the published page (services/letters-site/assets/article.css):
@@ -78,6 +92,7 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
         QuestionBlock,
         VideoEmbed,
         Divider,
+        ...(extraExtensions ?? []),
       ],
       content: value || '',
       onUpdate: ({ editor }) => onChange(editor.getHTML()),
