@@ -39,7 +39,17 @@ export async function GET(
     return NextResponse.json({ error: 'Выпуск не найден' }, { status: 404 })
   }
 
-  return NextResponse.json({ issue: data })
+  // Reverse lookup: find the article that links to this issue (if any).
+  // The newsletter editor uses this to surface a "Источник: статья X" badge
+  // so the author can jump back to the underlying article. There's at most
+  // one — nl_articles.email_issue_id is a many-to-one FK in practice.
+  const { data: sourceArticle } = await supabaseAdmin
+    .from('nl_articles')
+    .select('id, title, blog_slug, status')
+    .eq('email_issue_id', id)
+    .maybeSingle()
+
+  return NextResponse.json({ issue: data, sourceArticle: sourceArticle ?? null })
 }
 
 export async function PATCH(

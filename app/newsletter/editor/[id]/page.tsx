@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Trash2, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { EditorPanel } from '@/components/newsletter/EditorPanel'
 import { AiChat } from '@/components/newsletter/AiChat'
@@ -24,10 +24,18 @@ interface Issue {
   ai_messages: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
+interface SourceArticle {
+  id: string
+  title: string
+  blog_slug: string | null
+  status: string
+}
+
 export default function NewsletterEditorPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [issue, setIssue] = useState<Issue | null>(null)
+  const [sourceArticle, setSourceArticle] = useState<SourceArticle | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -54,6 +62,7 @@ export default function NewsletterEditorPage() {
       const res = await fetch(`/api/newsletter/issues/${id}`)
       const data = await res.json()
       if (data.issue) setIssue(data.issue)
+      if (data.sourceArticle) setSourceArticle(data.sourceArticle)
       setLoading(false)
     }
     load()
@@ -133,6 +142,16 @@ export default function NewsletterEditorPage() {
            issue.status === 'uploaded' ? 'Загружено' :
            issue.status === 'scheduled' ? 'Запланировано' : 'Отправлено'}
         </span>
+        {sourceArticle && (
+          <Link
+            href={`/articles/${sourceArticle.id}`}
+            title={`Источник: статья «${sourceArticle.title}»`}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-accent/10 text-accent hover:bg-accent/20 text-[10px] max-w-[280px]"
+          >
+            <FileText className="w-3 h-3 shrink-0" />
+            <span className="truncate">Из статьи: {sourceArticle.title}</span>
+          </Link>
+        )}
         <div className="flex-1" />
         <button
           onClick={handleDelete}
