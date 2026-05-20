@@ -10,9 +10,9 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Mail, ExternalLink, Loader2 } from 'lucide-react'
+import { Mail, ExternalLink, Loader2, RefreshCw } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -83,21 +83,42 @@ function statusLabel(status: string | null): { label: string; tone: 'accent' | '
 export function EmailStatusCard({ articleId, onCreateEmail, creating }: Props) {
   const [status, setStatus] = useState<ArticleEmailStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const loadStatus = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setLoading(true)
+    try {
+      const r = await fetch(`/api/articles/${articleId}/email-status`)
+      const d: ArticleEmailStatus | { error: string } = await r.json()
+      if ('error' in d) setStatus({ hasIssue: false, issue: null, campaign: null })
+      else setStatus(d)
+    } catch {
+      setStatus({ hasIssue: false, issue: null, campaign: null })
+    } finally {
+      if (showSpinner) setLoading(false)
+    }
+  }, [articleId])
+
+  // Refresh = run the Unisender import scoped to this issue's subject,
+  // then re-fetch local status to surface any newly-attached campaign or
+  // updated open/click counts. Triggers the "copy + send via Unisender UI"
+  // reconciliation path described in app/api/newsletter/import/route.ts.
+  const refresh = useCallback(async () => {
+    if (refreshing || !status?.issue) return
+    setRefreshing(true)
+    try {
+      const subject = status.issue.subject
+      const params = new URLSearchParams({ issueId: status.issue.id, subject })
+      await fetch(`/api/newsletter/import?${params}`, { method: 'POST' })
+      await loadStatus(false)
+    } finally {
+      setRefreshing(false)
+    }
+  }, [refreshing, status?.issue, loadStatus])
 
   useEffect(() => {
-    let alive = true
-    setLoading(true)
-    fetch(`/api/articles/${articleId}/email-status`)
-      .then((r) => r.json())
-      .then((d: ArticleEmailStatus | { error: string }) => {
-        if (!alive) return
-        if ('error' in d) setStatus({ hasIssue: false, issue: null, campaign: null })
-        else setStatus(d)
-      })
-      .catch(() => alive && setStatus({ hasIssue: false, issue: null, campaign: null }))
-      .finally(() => alive && setLoading(false))
-    return () => { alive = false }
-  }, [articleId])
+    loadStatus(true)
+  }, [loadStatus])
 
   // Case 1: no email at all.
   if (!loading && status && !status.hasIssue) {
@@ -164,11 +185,21 @@ export function EmailStatusCard({ articleId, onCreateEmail, creating }: Props) {
             {label}
           </span>
         </div>
-        <Button variant="outline" size="sm" asChild className="bg-accent/10 text-accent border-accent/20 hover:bg-accent/20">
-          <Link href={`/newsletter/editor/${issue.id}`}>
-            <ExternalLink /> Открыть
-          </Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            title="Подтянуть статус из Unisender (например, после копии + отправки в новом редакторе)"
+            className="p-1.5 text-muted-foreground/60 hover:text-foreground hover:bg-accent-surface rounded disabled:opacity-30"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <Button variant="outline" size="sm" asChild className="bg-accent/10 text-accent border-accent/20 hover:bg-accent/20">
+            <Link href={`/newsletter/editor/${issue.id}`}>
+              <ExternalLink /> Открыть
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="text-[11px] text-muted-foreground/80 line-clamp-2">{issue.subject}</div>
