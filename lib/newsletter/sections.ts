@@ -129,14 +129,20 @@ export function replaceSection(
   }
   // Section wasn't in the body yet — append before the final signoff if
   // present, otherwise at the end. The wizard calls this shortly after
-  // email creation, so the section should always exist; fallback is just a
-  // safety net.
-  const signoffRe = /<hr class=\"divider\">\s*<section\b[^>]*\bdata-kind=\"signoff\"/i
+  // email creation, so the section should always exist; fallback is just
+  // a safety net.
+  //
+  // TipTap's DOMSerializer emits the divider as `<hr class="divider" />`
+  // (self-closing with space). The old regex required `<hr class="divider">`
+  // and never matched once an issue had been round-tripped through the
+  // editor — that's how the regenerate flow stopped adding cta_article to
+  // existing newsletters. Allow optional whitespace + slash before `>`.
+  const signoffRe = /<hr class=\"divider\"\s*\/?\s*>\s*<section\b[^>]*\bdata-kind=\"signoff\"/i
   if (signoffRe.test(bodyHtml)) {
     return bodyHtml.replace(
       signoffRe,
-      `<hr class="divider">\n${next}\n<hr class="divider">\n<section class="e-section e-signoff" data-kind="signoff"`,
+      `<hr class="divider" />\n${next}\n<hr class="divider" />\n<section class="e-section e-signoff" data-kind="signoff"`,
     )
   }
-  return `${bodyHtml}\n<hr class="divider">\n${next}`
+  return `${bodyHtml}\n<hr class="divider" />\n${next}`
 }
