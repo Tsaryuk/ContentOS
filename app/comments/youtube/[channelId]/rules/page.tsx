@@ -17,6 +17,9 @@ interface CommentRules {
   skip_rules: string[]
   max_reply_length: number
   thread_depth: number
+  per_run_limit: number
+  delay_min_ms: number
+  delay_max_ms: number
 }
 
 const DEFAULTS: CommentRules = {
@@ -30,6 +33,9 @@ const DEFAULTS: CommentRules = {
   skip_rules: ['spam', 'owner_reply', 'too_short', 'negative_toxic'],
   max_reply_length: 350,
   thread_depth: 1,
+  per_run_limit: 5,
+  delay_min_ms: 5 * 60 * 1000,
+  delay_max_ms: 20 * 60 * 1000,
 }
 
 const SKIP_OPTIONS = [
@@ -239,6 +245,44 @@ export default function RulesPage() {
                   }
                   className={`mt-1 ${inputClass}`}
                 />
+              </div>
+              <div>
+                <label className={labelClass}>Ответов за один цикл cron</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={rules.per_run_limit}
+                  onChange={(e) => setRules((r) => ({ ...r, per_run_limit: Number(e.target.value) }))}
+                  className={`mt-1 ${inputClass}`}
+                />
+                <div className="text-[10px] text-muted-foreground mt-1">
+                  Сколько ответов в одном проходе авторесайклера. Дефолт 5.
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={labelClass}>Пауза от (мин)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={Math.round(rules.delay_min_ms / 60000)}
+                    onChange={(e) => setRules((r) => ({ ...r, delay_min_ms: Number(e.target.value) * 60000 }))}
+                    className={`mt-1 ${inputClass}`}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>до (мин)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={Math.round(rules.delay_max_ms / 60000)}
+                    onChange={(e) => setRules((r) => ({ ...r, delay_max_ms: Number(e.target.value) * 60000 }))}
+                    className={`mt-1 ${inputClass}`}
+                  />
+                </div>
               </div>
             </div>
           </Card>

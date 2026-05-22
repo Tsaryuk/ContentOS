@@ -128,9 +128,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     })
   }
 
-  // Merge + sort by published_at desc, cap at limit.
+  // Priority sort: replies-to-us first (the human is waiting on a response
+  // from us specifically), then question-type comments, then everything
+  // else by recency. Within the same priority bucket, newer comes first.
+  // This is what makes the queue useful as a work-list rather than just
+  // a timeline.
   const merged = [...topLevel, ...threadReplies]
     .sort((a, b) => {
+      const pa = priorityScore(a)
+      const pb = priorityScore(b)
+      if (pa !== pb) return pa - pb
       const ad = a.published_at ? Date.parse(a.published_at) : 0
       const bd = b.published_at ? Date.parse(b.published_at) : 0
       return bd - ad
@@ -138,6 +145,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .slice(0, limit)
 
   return NextResponse.json({ comments: merged })
+}
+
+function priorityScore(c: QueueComment): number {
+  // Lower number = higher priority (sorted ascending).
+  if (c.kind === 'reply_to_us') return 0
+  const cls = c.classification as { category?: string; has_question?: boolean } | null
+  if (cls?.has_question || cls?.category === 'question') return 1
+  if (cls?.category === 'opinion' || cls?.category === 'disagreement') return 2
+  return 3 // gratitude / off_topic / unclassified
 }
 
 function toQueueItem(
