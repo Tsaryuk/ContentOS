@@ -21,12 +21,16 @@ import {
 } from '@/lib/youtube/comment-reply-engine'
 import { classifyComment } from '@/lib/youtube/comment-classifier'
 import { pickContextChunks } from '@/lib/youtube/transcript-rag'
+import { loadRecentReplyExamples } from '@/lib/youtube/recent-reply-examples'
 
 const anthropic = new Anthropic()
 
-const PER_RUN_LIMIT = 5
-const DELAY_MIN_MS = 5 * 60 * 1000
-const DELAY_MAX_MS = 20 * 60 * 1000
+// Defaults used when channel.rules.comments doesn't override them. The
+// previous constants stay here as the floor so a missing/zero value in
+// the DB still produces sane behaviour.
+const DEFAULT_PER_RUN_LIMIT = 5
+const DEFAULT_DELAY_MIN_MS = 5 * 60 * 1000
+const DEFAULT_DELAY_MAX_MS = 20 * 60 * 1000
 
 interface ChannelRow {
   id: string
@@ -83,13 +87,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-function jitterDelay(): number {
-  return DELAY_MIN_MS + Math.floor(Math.random() * (DELAY_MAX_MS - DELAY_MIN_MS))
+function jitterDelay(min: number, max: number): number {
+  const lo = Math.max(0, Math.min(min, max))
+  const hi = Math.max(lo, max)
+  return lo + Math.floor(Math.random() * (hi - lo))
 }
 
 async function generateDraft(
   candidate: CandidateRow,
   config: CommentReplyConfig,
+  channelId: string,
   channelTitle: string,
   channelHandle: string | null,
 ): Promise<string | null> {
@@ -105,6 +112,7 @@ async function generateDraft(
     if (parent?.is_owner_reply) parentReplyText = parent.text
   }
 
+  const examples = await loadRecentReplyExamples(channelId, 5)
   const system = buildCommentReplySystemPrompt({
     channelTitle,
     channelHandle,
@@ -113,6 +121,7 @@ async function generateDraft(
     communityUrl: config.community_url,
     maxLength: config.max_reply_length,
     shouldIncludeCta,
+    examples,
   })
   const ragChunks = await pickContextChunks(
     candidate.video.id,
@@ -230,7 +239,13 @@ export async function runAutoReplyTick(): Promise<AutoReplyResult> {
     if (!config.auto_reply) continue
     channelCount += 1
 
-    const candidates = await loadCandidates(ch.id, PER_RUN_LIMIT)
+    // Per-channel limits with sane fallbacks. A 0 or missing field
+    // collapses back to the default rather than disabling sends entirely.
+    const perRun = config.per_run_limit > 0 ? config.per_run_limit : DEFAULT_PER_RUN_LIMIT
+    const delayMin = config.delay_min_ms > 0 ? config.delay_min_ms : DEFAULT_DELAY_MIN_MS
+    const delayMax = config.delay_max_ms > 0 ? config.delay_max_ms : DEFAULT_DELAY_MAX_MS
+
+    const candidates = await loadCandidates(ch.id, perRun)
     if (candidates.length === 0) continue
 
     for (const c of candidates) {
@@ -254,7 +269,7 @@ export async function runAutoReplyTick(): Promise<AutoReplyResult> {
       let draft = c.ai_reply_draft
       if (!draft) {
         try {
-          draft = await generateDraft(c, config, ch.title, ch.handle)
+          draft = await generateDraft(c, config, ch.id, ch.title, ch.handle)
         } catch (err) {
           console.error('[auto-reply] draft failed', c.id, err instanceof Error ? err.message : err)
           failed += 1
@@ -290,7 +305,7 @@ export async function runAutoReplyTick(): Promise<AutoReplyResult> {
       }
 
       // Human-like spread between sends within the same channel.
-      await sleep(jitterDelay())
+      await sleep(jitterDelay(delayMin, delayMax))
     }
   }
 

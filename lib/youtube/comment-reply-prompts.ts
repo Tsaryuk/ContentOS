@@ -15,6 +15,12 @@ export interface CommentReplyConfig {
   skip_rules: string[]
   max_reply_length: number
   thread_depth: number
+  /** Max replies per cron run. Was hard-coded PER_RUN_LIMIT=5. */
+  per_run_limit: number
+  /** Min delay between sends inside a single run, ms. Anti-bot jitter. */
+  delay_min_ms: number
+  /** Max delay between sends, ms. Random uniform between min and max. */
+  delay_max_ms: number
 }
 
 export const DEFAULT_COMMENT_REPLY_CONFIG: CommentReplyConfig = {
@@ -26,6 +32,20 @@ export const DEFAULT_COMMENT_REPLY_CONFIG: CommentReplyConfig = {
   skip_rules: ['spam', 'owner_reply', 'too_short', 'negative_toxic'],
   max_reply_length: 350,
   thread_depth: 1,
+  per_run_limit: 5,
+  delay_min_ms: 5 * 60 * 1000,
+  delay_max_ms: 20 * 60 * 1000,
+}
+
+/**
+ * Few-shot example: an actual past pair (viewer comment → author reply)
+ * pulled from comment_reply_log. We feed up to 5 of these into the system
+ * prompt so the model anchors on the author's real voice rather than the
+ * tone description alone.
+ */
+export interface ReplyExample {
+  question: string
+  reply: string
 }
 
 // Legacy and current writers use different field names; accept both so old
@@ -46,6 +66,8 @@ export interface SystemPromptInput {
   communityUrl?: string
   maxLength: number
   shouldIncludeCta: boolean
+  /** Past viewer-comment → author-reply pairs to anchor voice. */
+  examples?: ReplyExample[]
 }
 
 export interface UserPromptInput {
@@ -108,6 +130,14 @@ export function buildCommentReplySystemPrompt(input: SystemPromptInput): string 
     ? buildCtaBlock(input.telegramUrl, input.communityUrl)
     : 'CTA не вставляй. Просто отвечай по существу.'
 
+  const examplesBlock = input.examples && input.examples.length > 0
+    ? `\n\nПРИМЕРЫ ТВОИХ ПРОШЛЫХ ОТВЕТОВ (учись по ним — тон, длина, ритм):
+${input.examples
+  .slice(0, 5)
+  .map((ex, i) => `${i + 1}. КОММЕНТ: «${ex.question.replace(/\s+/g, ' ').trim().slice(0, 220)}»\n   ОТВЕТ: «${ex.reply.replace(/\s+/g, ' ').trim().slice(0, 280)}»`)
+  .join('\n')}`
+    : ''
+
   return `Ты — автор YouTube-канала «${input.channelTitle}»${input.channelHandle ? ` (${input.channelHandle})` : ''}.
 Отвечаешь на комментарий зрителя ПОД ТВОИМ ВИДЕО — не как саппорт, а как сам автор.
 
@@ -128,7 +158,7 @@ ${tone}
 - Фраз вроде «Спасибо за комментарий!», «Рад, что вам понравилось!», «Подписывайтесь на канал».
 - Повторения мысли комментатора своими словами в начале ответа.
 
-${ctaBlock}
+${ctaBlock}${examplesBlock}
 
 ВЫХОД: только текст ответа, без кавычек и преамбулы.`
 }
