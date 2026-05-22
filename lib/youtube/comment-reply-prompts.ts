@@ -21,6 +21,12 @@ export interface CommentReplyConfig {
   delay_min_ms: number
   /** Max delay between sends, ms. Random uniform between min and max. */
   delay_max_ms: number
+  /**
+   * Projects allowed as CTA targets for replies on this channel. The AI
+   * picks 0 or 1 from this list. Empty array = fall back to the legacy
+   * telegram_url / community_url block.
+   */
+  cta_project_ids: string[]
 }
 
 export const DEFAULT_COMMENT_REPLY_CONFIG: CommentReplyConfig = {
@@ -35,6 +41,7 @@ export const DEFAULT_COMMENT_REPLY_CONFIG: CommentReplyConfig = {
   per_run_limit: 5,
   delay_min_ms: 5 * 60 * 1000,
   delay_max_ms: 20 * 60 * 1000,
+  cta_project_ids: [],
 }
 
 /**
@@ -58,6 +65,14 @@ export interface TranscriptChunk {
   text: string
 }
 
+export interface CtaProject {
+  id: string
+  name: string
+  url: string
+  description: string
+  audience: string[]
+}
+
 export interface SystemPromptInput {
   channelTitle: string
   channelHandle?: string | null
@@ -68,6 +83,13 @@ export interface SystemPromptInput {
   shouldIncludeCta: boolean
   /** Past viewer-comment → author-reply pairs to anchor voice. */
   examples?: ReplyExample[]
+  /**
+   * Project-level CTA targets the AI may pick from. If non-empty, the
+   * prompt switches from "use telegramUrl/communityUrl" to "pick the
+   * most relevant project (or none)". The legacy two-URL block is the
+   * fallback when this list is empty.
+   */
+  ctaProjects?: CtaProject[]
 }
 
 export interface UserPromptInput {
@@ -127,7 +149,9 @@ export function buildCommentReplySystemPrompt(input: SystemPromptInput): string 
   const tone = input.tone.trim() || 'Спокойный, прямой, без лекторства. Пишу как равный, не как эксперт сверху.'
 
   const ctaBlock = input.shouldIncludeCta
-    ? buildCtaBlock(input.telegramUrl, input.communityUrl)
+    ? input.ctaProjects && input.ctaProjects.length > 0
+      ? buildProjectsCtaBlock(input.ctaProjects)
+      : buildCtaBlock(input.telegramUrl, input.communityUrl)
     : 'CTA не вставляй. Просто отвечай по существу.'
 
   const examplesBlock = input.examples && input.examples.length > 0
@@ -176,6 +200,25 @@ function buildCtaBlock(telegramUrl?: string, communityUrl?: string): string {
 - Можно мягко позвать в ${parts.join(' или ')}.
 - НЕ вставляй CTA, если человек злится, спорит или комментарий короткий ритуальный («спасибо», «класс»).
 - Один CTA на ответ, в конце, естественной фразой.`
+}
+
+function buildProjectsCtaBlock(projects: CtaProject[]): string {
+  const list = projects.map((p, i) => {
+    const audience = p.audience.length > 0 ? ` Темы: ${p.audience.join(', ')}.` : ''
+    const desc = p.description ? ` ${p.description}` : ''
+    return `${i + 1}. «${p.name}» — ${p.url}.${desc}${audience}`
+  }).join('\n')
+
+  return `CTA — у автора несколько проектов. Выбери максимум ОДИН, который реально подходит под тему видео и комментария, и мягко упомяни его в конце ответа. Если ни один не подходит — НЕ ВСТАВЛЯЙ CTA вообще, лучше пусто чем не в тему.
+
+Доступные проекты (выбирай по соответствию темы):
+${list}
+
+Правила:
+- Один проект на ответ, максимум. Никаких списков «вот ещё это».
+- Указывай URL целиком, как написано выше. Никаких сокращений.
+- НЕ вставляй CTA, если человек злится, спорит, благодарит коротко или комментарий ритуальный.
+- CTA — это естественная фраза в конце, не блок «подписывайтесь / переходите».`
 }
 
 export function buildCommentReplyUserPrompt(input: UserPromptInput): string {
