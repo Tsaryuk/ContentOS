@@ -8,10 +8,22 @@ import {
   Play, FolderOpen, User, Check, LogOut, Trash2, RotateCcw,
   AlertCircle, Cog, Mic, Copy, Download,
 } from 'lucide-react'
+import { Megaphone } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ProjectCtaEditor } from '@/components/settings/ProjectCtaEditor'
 
-interface Project { id: string; name: string; color: string; slug: string }
+interface Project {
+  id: string
+  name: string
+  color: string
+  slug: string
+  is_active?: boolean
+  cta_url?: string | null
+  cta_description?: string | null
+  cta_audience_keywords?: string[] | null
+  cta_priority?: number | null
+}
 interface Channel {
   id: string; title: string; handle: string | null
   thumbnail_url: string | null; project_id: string | null
@@ -118,6 +130,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
 
+  // Per-project CTA editor expand state
+  const [expandedProjectCta, setExpandedProjectCta] = useState<string | null>(null)
+
   useEffect(() => {
     loadData()
     fetch('/api/auth/session').then(r => r.json()).then(s => setSessionRole(s.userRole))
@@ -185,7 +200,17 @@ export default function SettingsPage() {
     setCreatingProject(false)
   }
 
-  async function updateProject(id: string, patch: { name?: string; color?: string }) {
+  async function updateProject(
+    id: string,
+    patch: {
+      name?: string
+      color?: string
+      cta_url?: string
+      cta_description?: string
+      cta_audience_keywords?: string[]
+      cta_priority?: number
+    },
+  ) {
     setSavingProjectId(id)
     const res = await fetch(`/api/projects/${id}`, {
       method: 'PATCH',
@@ -552,6 +577,15 @@ export default function SettingsPage() {
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    title={expandedProjectCta === proj.id ? 'Скрыть CTA' : 'Настроить CTA для AI-комментариев'}
+                    className={proj.cta_url ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}
+                    onClick={() => setExpandedProjectCta(expandedProjectCta === proj.id ? null : proj.id)}
+                  >
+                    <Megaphone />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     className="text-muted-foreground hover:text-destructive"
                     onClick={async () => {
                       if (!confirm(`Удалить проект "${proj.name}"? Каналы останутся без проекта.`)) return
@@ -568,6 +602,21 @@ export default function SettingsPage() {
                     <Trash2 />
                   </Button>
                 </div>
+                {expandedProjectCta === proj.id && (
+                  <ProjectCtaEditor
+                    initial={{
+                      cta_url: proj.cta_url ?? '',
+                      cta_description: proj.cta_description ?? '',
+                      cta_audience_keywords: proj.cta_audience_keywords ?? [],
+                      cta_priority: proj.cta_priority ?? 0,
+                    }}
+                    saving={savingProjectId === proj.id}
+                    onSave={async (next) => {
+                      await updateProject(proj.id, next)
+                      await loadData()
+                    }}
+                  />
+                )}
                 {totalChannels > 0 && (
                   <div className="border-t border-border px-5 py-2 space-y-1.5">
                     {projYtChannels.map(ch => (

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const { data: projects } = await supabaseAdmin
     .from('projects')
-    .select('id, name, color, slug')
+    .select('id, name, color, slug, is_active, cta_url, cta_description, cta_audience_keywords, cta_priority')
     .order('name')
 
   let ytQuery = supabaseAdmin

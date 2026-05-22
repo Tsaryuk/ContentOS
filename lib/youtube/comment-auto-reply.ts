@@ -22,6 +22,7 @@ import {
 import { classifyComment } from '@/lib/youtube/comment-classifier'
 import { pickContextChunks } from '@/lib/youtube/transcript-rag'
 import { loadRecentReplyExamples } from '@/lib/youtube/recent-reply-examples'
+import { loadCtaTargets } from '@/lib/youtube/cta-targets'
 
 const anthropic = new Anthropic()
 
@@ -112,7 +113,10 @@ async function generateDraft(
     if (parent?.is_owner_reply) parentReplyText = parent.text
   }
 
-  const examples = await loadRecentReplyExamples(channelId, 5)
+  const [examples, ctaProjects] = await Promise.all([
+    loadRecentReplyExamples(channelId, 5),
+    loadCtaTargets(config.cta_project_ids ?? []),
+  ])
   const system = buildCommentReplySystemPrompt({
     channelTitle,
     channelHandle,
@@ -122,6 +126,7 @@ async function generateDraft(
     maxLength: config.max_reply_length,
     shouldIncludeCta,
     examples,
+    ctaProjects,
   })
   const ragChunks = await pickContextChunks(
     candidate.video.id,

@@ -205,6 +205,12 @@ export async function sendCommentReply(input: SendReplyInput): Promise<SendReply
     .update({ status: 'replied', ai_reply_sent_at: nowIso, ai_reply_yt_id: reply.id })
     .eq('id', parentComment.id)
 
+  // CTA attribution: if the reply text contains one of the project URLs
+  // this channel is allowed to promote, log which project. NULL = either
+  // no CTA in the reply or no project matched (legacy CTAs via telegram_url
+  // also land here as NULL, which is fine — they're not tracked).
+  const ctaProjectId = await detectCtaProject(config.cta_project_ids ?? [], input.text)
+
   await supabaseAdmin.from('comment_reply_log').insert({
     channel_id: video.channel_id,
     comment_id: parentComment.id,
@@ -212,7 +218,17 @@ export async function sendCommentReply(input: SendReplyInput): Promise<SendReply
     mode: input.mode,
     status: 'sent',
     yt_reply_id: reply.id,
+    cta_project_id: ctaProjectId,
   })
 
   return { success: true, replyId: reply.id, status: 200 }
+}
+
+async function detectCtaProject(allowedIds: string[], replyText: string): Promise<string | null> {
+  if (!allowedIds.length || !replyText) return null
+  // Lazy import to keep the engine module free of higher-level deps —
+  // detectUsedTarget reads project rows from the DB on demand.
+  const { loadCtaTargets, detectUsedTarget } = await import('./cta-targets')
+  const targets = await loadCtaTargets(allowedIds)
+  return detectUsedTarget(replyText, targets)?.id ?? null
 }

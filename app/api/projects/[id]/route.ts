@@ -22,7 +22,7 @@ export async function PATCH(
   const { id } = await params
 
   const body = await req.json().catch(() => ({}))
-  const update: Record<string, string> = {}
+  const update: Record<string, unknown> = {}
 
   if (typeof body.name === 'string') {
     const name = body.name.trim()
@@ -35,6 +35,29 @@ export async function PATCH(
     update.color = body.color
   }
 
+  // CTA fields — drive what the AI commenter knows about the project.
+  // URL is the destination the AI will paste in a reply; description is
+  // the one-sentence pitch the prompt shows; audience_keywords are topical
+  // tags ("команда", "выгорание") the AI matches against the video/comment.
+  if (typeof body.cta_url === 'string') {
+    const trimmed = body.cta_url.trim()
+    update.cta_url = trimmed === '' ? null : trimmed
+  }
+  if (typeof body.cta_description === 'string') {
+    const trimmed = body.cta_description.trim()
+    update.cta_description = trimmed === '' ? null : trimmed
+  }
+  if (Array.isArray(body.cta_audience_keywords)) {
+    update.cta_audience_keywords = (body.cta_audience_keywords as unknown[])
+      .filter((x): x is string => typeof x === 'string')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .slice(0, 20)
+  }
+  if (typeof body.cta_priority === 'number' && Number.isFinite(body.cta_priority)) {
+    update.cta_priority = Math.max(0, Math.min(100, Math.floor(body.cta_priority)))
+  }
+
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: 'Нечего обновлять' }, { status: 400 })
   }
@@ -43,7 +66,7 @@ export async function PATCH(
     .from('projects')
     .update(update)
     .eq('id', id)
-    .select('id, name, color, slug')
+    .select('id, name, color, slug, cta_url, cta_description, cta_audience_keywords, cta_priority')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

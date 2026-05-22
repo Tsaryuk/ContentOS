@@ -20,6 +20,15 @@ interface CommentRules {
   per_run_limit: number
   delay_min_ms: number
   delay_max_ms: number
+  cta_project_ids: string[]
+}
+
+interface ProjectOption {
+  id: string
+  name: string
+  color: string
+  cta_url: string | null
+  cta_description: string | null
 }
 
 const DEFAULTS: CommentRules = {
@@ -36,6 +45,7 @@ const DEFAULTS: CommentRules = {
   per_run_limit: 5,
   delay_min_ms: 5 * 60 * 1000,
   delay_max_ms: 20 * 60 * 1000,
+  cta_project_ids: [],
 }
 
 const SKIP_OPTIONS = [
@@ -81,16 +91,18 @@ export default function RulesPage() {
   const [testCommentId, setTestCommentId] = useState<string>('')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<string | null>(null)
+  const [projects, setProjects] = useState<ProjectOption[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [chRes, queueRes] = await Promise.all([
+      const [chRes, queueRes, projRes] = await Promise.all([
         fetch(`/api/channels/${channelId}`).then((r) => r.json()),
         fetch(`/api/comments/queue?platform=youtube&channelId=${channelId}&limit=20`).then((r) =>
           r.json(),
         ),
+        fetch('/api/projects?all=true').then((r) => r.json()),
       ])
       const ch = chRes as ChannelData
       setChannel(ch)
@@ -99,6 +111,7 @@ export default function RulesPage() {
       const qs: QueueItem[] = queueRes.comments ?? []
       setQueue(qs)
       if (qs[0]) setTestCommentId(qs[0].yt_comment_id)
+      setProjects((projRes.projects as ProjectOption[]) ?? [])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка загрузки')
     } finally {
@@ -302,7 +315,67 @@ export default function RulesPage() {
           </Card>
 
           <Card className="p-5 space-y-3">
-            <div className="text-sm font-medium text-foreground mb-1">CTA в Telegram / сообщество</div>
+            <div className="text-sm font-medium text-foreground mb-1">Проекты для CTA</div>
+            <div className="text-xs text-muted-foreground -mt-1">
+              Какие проекты AI может упоминать в ответах. Подтянутся описание и темы из настроек проекта в Настройках. Если ничего не выбрано — будут использованы Telegram / сообщество ниже.
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {projects.length === 0 ? (
+                <div className="text-xs text-muted-foreground">
+                  Нет проектов. <Link href="/settings?section=projects" className="underline">Создать в настройках</Link>.
+                </div>
+              ) : (
+                projects.map((p) => {
+                  const checked = rules.cta_project_ids.includes(p.id)
+                  const hasUrl = Boolean(p.cta_url)
+                  return (
+                    <label
+                      key={p.id}
+                      className={`flex items-start gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                        checked ? 'border-accent bg-accent-surface' : 'border-border hover:bg-card/50'
+                      } ${!hasUrl ? 'opacity-60' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!hasUrl}
+                        onChange={() => {
+                          setRules((r) => ({
+                            ...r,
+                            cta_project_ids: checked
+                              ? r.cta_project_ids.filter((id) => id !== p.id)
+                              : [...r.cta_project_ids, p.id],
+                          }))
+                        }}
+                        className="mt-0.5 w-4 h-4 rounded border-border text-accent focus:ring-2 focus:ring-ring"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
+                          <span className="text-sm text-foreground font-medium">{p.name}</span>
+                          {!hasUrl && (
+                            <span className="text-[10px] text-amber-500">URL не задан — настрой в Настройках → Проекты</span>
+                          )}
+                        </div>
+                        {p.cta_description && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{p.cta_description}</div>
+                        )}
+                        {p.cta_url && (
+                          <div className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">{p.cta_url}</div>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5 space-y-3">
+            <div className="text-sm font-medium text-foreground mb-1">CTA в Telegram / сообщество (фолбэк)</div>
+            <div className="text-xs text-muted-foreground -mt-1">
+              Используется когда выше не выбран ни один проект.
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Telegram URL</label>

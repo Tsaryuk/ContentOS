@@ -13,6 +13,7 @@ import {
 } from '@/lib/youtube/comment-reply-prompts'
 import { pickContextChunks } from '@/lib/youtube/transcript-rag'
 import { loadRecentReplyExamples } from '@/lib/youtube/recent-reply-examples'
+import { loadCtaTargets } from '@/lib/youtube/cta-targets'
 
 const anthropic = new Anthropic()
 
@@ -92,10 +93,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const shouldIncludeCta = decideCta(config.cta_frequency)
 
     // Pull 5 most recent (viewer comment → author reply) pairs to anchor
-    // the model on the author's actual voice. Cheap query, runs in
-    // parallel with the LLM call below would be even better but the
-    // current SDK invocation is synchronous on the message build.
-    const examples = await loadRecentReplyExamples(channel?.id ?? video.channel_id, 5)
+    // the model on the author's actual voice + the project CTA targets
+    // whitelisted on this channel. Both are cheap parallel queries.
+    const [examples, ctaProjects] = await Promise.all([
+      loadRecentReplyExamples(channel?.id ?? video.channel_id, 5),
+      loadCtaTargets(config.cta_project_ids ?? []),
+    ])
 
     const system = buildCommentReplySystemPrompt({
       channelTitle: channel?.title ?? '',
@@ -106,6 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       maxLength: config.max_reply_length,
       shouldIncludeCta,
       examples,
+      ctaProjects,
     })
 
     const ragChunks = await pickContextChunks(
