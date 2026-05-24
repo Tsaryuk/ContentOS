@@ -46,15 +46,38 @@ process.on('uncaughtException', (err) => {
   process.exit(1)
 })
 
-process.on('SIGTERM', async () => {
-  console.log('[worker] SIGTERM received, shutting down gracefully...')
-  process.exit(0)
-})
-
-process.on('SIGINT', async () => {
-  console.log('[worker] SIGINT received, shutting down gracefully...')
-  process.exit(0)
-})
+// Graceful shutdown. PM2 sends SIGTERM with a 1600ms grace period by
+// default; we extend that to a longer wait by replying to a healthcheck
+// only after worker.close() resolves. Without this, the previous
+// process.exit(0) killed the process immediately and any in-flight job
+// (transcription up to 15min, SFTP-publish, comment send) ended up in
+// BullMQ's "active" state until lockDuration (480s) expired — silently
+// orphaned and never retried until the next poll.
+//
+// The `worker` reference is hoisted into a deferred-init closure via
+// `getWorker()` to handle the chicken-and-egg: the const declaration is
+// later in the file. Once it's set, both signal handlers can await it.
+let _worker: import('bullmq').Worker | null = null
+function registerWorker(w: import('bullmq').Worker): void {
+  _worker = w
+}
+async function shutdown(signal: string, exitCode: number): Promise<void> {
+  console.log(`[worker] ${signal} received, draining active jobs...`)
+  try {
+    if (_worker) {
+      // BullMQ Worker.close() waits for currently-processing jobs to
+      // finish (or until force=true). We don't force — better to let PM2
+      // SIGKILL us after its grace window than to abort a publish midway.
+      await _worker.close()
+    }
+  } catch (err) {
+    console.error('[worker] error during close()', err)
+  } finally {
+    process.exit(exitCode)
+  }
+}
+process.on('SIGTERM', () => { void shutdown('SIGTERM', 0) })
+process.on('SIGINT', () => { void shutdown('SIGINT', 0) })
 
 // --- Config ---
 
@@ -1646,6 +1669,31 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const { runAutoReplyTick } = await import('./lib/youtube/comment-auto-reply')
     await runAutoReplyTick()
   },
+  // Individual send dispatched by runAutoReplyTick. The cron preparing
+  // the batch finishes within seconds and frees its worker slot; the
+  // actual send waits in the BullMQ delayed queue and runs here when
+  // its scheduled time arrives. Errors are not retried — the engine
+  // already de-dupes and logs to comment_reply_log.
+  comment_send_reply: async (_videoId, data) => {
+    const { sendCommentReply, ReplyError } = await import('./lib/youtube/comment-reply-engine')
+    if (!data?.ytCommentId || !data?.videoId || !data?.text) return
+    try {
+      await sendCommentReply({
+        ytCommentId: data.ytCommentId,
+        videoId: data.videoId,
+        text: data.text,
+        mode: 'auto',
+      })
+    } catch (err) {
+      // 429 (daily/thread limit) and 409 (already replied) are expected
+      // race outcomes — log as info, not error, to avoid pager noise.
+      if (err instanceof ReplyError && (err.status === 429 || err.status === 409)) {
+        console.log(`[comment_send_reply] skipped ${data.ytCommentId}: ${err.message}`)
+        return
+      }
+      throw err
+    }
+  },
   transcript_embeddings_backfill: async () => {
     const { backfillMissingEmbeddings } = await import('./lib/youtube/transcript-rag')
     const r = await backfillMissingEmbeddings()
@@ -1753,6 +1801,10 @@ const worker = new Worker(
 worker.on('failed', (job, err) => {
   console.error(`[worker] Job ${job?.name} failed:`, err.message)
 })
+
+// Hand the worker reference to the SIGTERM/SIGINT handlers declared at
+// the top of this file so they can await worker.close() on shutdown.
+registerWorker(worker)
 
 worker.on('completed', (job) => {
   console.log(`[worker] Job ${job.name} completed`)
