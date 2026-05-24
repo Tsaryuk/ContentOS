@@ -1,11 +1,20 @@
 // Cron-driven auto-reply runner. Picks N candidates from the queue for
-// channels with rules.comments.auto_reply=true, generates a draft if missing,
-// and sends with a human-like jittered delay between sends. Hard-stops on
-// daily_limit or kill switch.
+// channels with rules.comments.auto_reply=true, generates the draft (if
+// missing) NOW, and enqueues each send as a separate BullMQ job with a
+// staggered delay (5-20 min jitter per channel by default).
+//
+// Why enqueue instead of sleep-in-place: previously this function held
+// onto a worker concurrency slot for up to 100 minutes while it slept
+// between sends. With 4 total slots and several channels that
+// effectively blocked the worker from processing transcription /
+// publish / anything else. Decoupling the prepare-vs-send paths gives
+// up that slot the moment drafts are ready.
 
+import { Queue } from 'bullmq'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AI_MODELS } from '@/lib/ai-models'
+import { getRedisConnection } from '@/lib/queue'
 import {
   DEFAULT_COMMENT_REPLY_CONFIG,
   buildCommentReplySystemPrompt,
@@ -14,11 +23,7 @@ import {
   type CommentReplyConfig,
   type TranscriptChunk,
 } from '@/lib/youtube/comment-reply-prompts'
-import {
-  sendCommentReply,
-  isAutoReplyGloballyDisabled,
-  ReplyError,
-} from '@/lib/youtube/comment-reply-engine'
+import { isAutoReplyGloballyDisabled } from '@/lib/youtube/comment-reply-engine'
 import { classifyComment } from '@/lib/youtube/comment-classifier'
 import { pickContextChunks } from '@/lib/youtube/transcript-rag'
 import { loadRecentReplyExamples } from '@/lib/youtube/recent-reply-examples'
@@ -32,6 +37,24 @@ const anthropic = new Anthropic()
 const DEFAULT_PER_RUN_LIMIT = 5
 const DEFAULT_DELAY_MIN_MS = 5 * 60 * 1000
 const DEFAULT_DELAY_MAX_MS = 20 * 60 * 1000
+
+// Sends are routed through this queue. The worker has a matching
+// `comment_send_reply` handler (see worker.ts handlers map). Lazy-init
+// keeps test environments without Redis happy.
+let _sendQueue: Queue | null = null
+function sendQueue(): Queue {
+  if (!_sendQueue) {
+    _sendQueue = new Queue('contentos', { connection: getRedisConnection() })
+  }
+  return _sendQueue
+}
+
+export interface CommentSendJob {
+  ytCommentId: string
+  videoId: string
+  text: string
+  channelId: string
+}
 
 interface ChannelRow {
   id: string
@@ -84,14 +107,33 @@ interface RawCandidate {
   } | null
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms))
-}
-
-function jitterDelay(min: number, max: number): number {
-  const lo = Math.max(0, Math.min(min, max))
-  const hi = Math.max(lo, max)
-  return lo + Math.floor(Math.random() * (hi - lo))
+/**
+ * Compute the cumulative delay (in ms) for the Nth scheduled send within
+ * a channel's batch. Each send picks a fresh random offset in
+ * [delayMin, delayMax], so the gap between consecutive sends is jittered
+ * but the total spread grows monotonically.
+ *
+ *   0th send: 0
+ *   1st: random(min, max)
+ *   2nd: 1st's window + another random(min, max)
+ *   ...
+ *
+ * This keeps the "human-like spread" semantics of the previous inline
+ * sleep loop, just with BullMQ doing the waiting instead of the worker
+ * thread.
+ */
+function perChannelDelay(index: number, delayMin: number, delayMax: number): number {
+  let total = 0
+  for (let i = 0; i < index; i++) {
+    const lo = Math.max(0, Math.min(delayMin, delayMax))
+    const hi = Math.max(lo, delayMax)
+    total += lo + Math.floor(Math.random() * (hi - lo))
+  }
+  // First send (index=0): tiny delay so the BullMQ engine actually
+  // schedules it as a job rather than tries to process immediately
+  // back-to-back. Keeps the worker queue uniform.
+  if (index === 0) return 1_000
+  return total
 }
 
 async function generateDraft(
@@ -253,6 +295,10 @@ export async function runAutoReplyTick(): Promise<AutoReplyResult> {
     const candidates = await loadCandidates(ch.id, perRun)
     if (candidates.length === 0) continue
 
+    // Counter per channel: each scheduled send gets stacked on top of
+    // the previous one's delay window so the human-spread is preserved
+    // across the channel's batch.
+    let channelSendsScheduled = 0
     for (const c of candidates) {
       attempted += 1
 
@@ -286,31 +332,40 @@ export async function runAutoReplyTick(): Promise<AutoReplyResult> {
         continue
       }
 
+      // Enqueue the send as a delayed job. Each subsequent send within
+      // this channel gets a cumulative delay so the spread is preserved,
+      // but unlike before this runner returns immediately and frees its
+      // worker slot. The worker's `comment_send_reply` handler then runs
+      // sendCommentReply with whatever delay each job was scheduled for.
       try {
-        await sendCommentReply({
-          ytCommentId: c.yt_comment_id,
-          videoId: c.video.id,
-          text: draft,
-          mode: 'auto',
-        })
+        const delayMs = perChannelDelay(channelSendsScheduled, delayMin, delayMax)
+        await sendQueue().add(
+          'comment_send_reply',
+          {
+            ytCommentId: c.yt_comment_id,
+            videoId: c.video.id,
+            text: draft,
+            channelId: ch.id,
+          } satisfies CommentSendJob,
+          {
+            delay: delayMs,
+            jobId: `auto_reply:${c.id}`,
+            removeOnComplete: true,
+            removeOnFail: { count: 100 },
+            attempts: 1, // ReplyError 429/409 isn't retryable; engine logs failure
+          },
+        )
+        channelSendsScheduled += 1
         sent += 1
       } catch (err) {
-        if (err instanceof ReplyError && err.status === 429) {
-          // Daily/thread limit — stop processing this channel for this tick.
-          console.log(`[auto-reply] limit hit for channel ${ch.id}: ${err.message}`)
-          break
-        }
         console.error(
-          '[auto-reply] send failed',
+          '[auto-reply] enqueue failed',
           c.id,
           err instanceof Error ? err.message : err,
         )
         failed += 1
         continue
       }
-
-      // Human-like spread between sends within the same channel.
-      await sleep(jitterDelay(delayMin, delayMax))
     }
   }
 
