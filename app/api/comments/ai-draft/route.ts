@@ -14,6 +14,7 @@ import {
 import { pickContextChunks } from '@/lib/youtube/transcript-rag'
 import { loadRecentReplyExamples } from '@/lib/youtube/recent-reply-examples'
 import { loadCtaTargets } from '@/lib/youtube/cta-targets'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 const anthropic = new Anthropic()
 
@@ -45,6 +46,12 @@ interface CommentRow {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  // 60/min is higher than other AI buckets because manual review of comment
+  // drafts naturally bursts (user clicks through a queue). Auto-reply goes
+  // through the worker, not this endpoint, so cron traffic doesn't count.
+  const rl = await rateLimit('ai:comment-draft', clientIp(req), 60, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   try {
     const { commentId, videoId } = await req.json()

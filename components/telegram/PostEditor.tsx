@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Send, Clock, Image, Link, X, Loader2, Sparkles, Eye, Code } from 'lucide-react'
 import type { TgChannelRow } from '@/lib/telegram/types'
+import { sanitizeTelegramPostHtml } from '@/lib/sanitize'
 
 interface PostEditorProps {
   channels: TgChannelRow[]
@@ -122,20 +123,24 @@ export function PostEditor({
     setShowMediaInput(false)
   }
 
-  // Convert Telegram HTML to safe preview HTML
+  // Convert Telegram HTML to safe preview HTML.
+  //
+  // The previous version was a hand-rolled escape-then-unescape with regex,
+  // which let `<a href="javascript:...">` slip through because the href
+  // capture group ($1) wasn't scheme-validated. Reuse the central
+  // sanitizeTelegramPostHtml allowlist instead — it enforces the same
+  // tag set Telegram itself accepts and restricts URL schemes to
+  // https / mailto / tg. We then wrap the allowlisted output with
+  // preview-only classes (background pills for <code>/<pre>, underline +
+  // accent color for <a>) and convert newlines to <br/>.
   function renderPreview(html: string): string {
-    return html
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      // Restore allowed Telegram tags
-      .replace(/&lt;b&gt;([\s\S]*?)&lt;\/b&gt;/g, '<strong>$1</strong>')
-      .replace(/&lt;i&gt;([\s\S]*?)&lt;\/i&gt;/g, '<em>$1</em>')
-      .replace(/&lt;code&gt;([\s\S]*?)&lt;\/code&gt;/g, '<code class="bg-white/10 px-1 rounded text-xs">$1</code>')
-      .replace(/&lt;pre&gt;([\s\S]*?)&lt;\/pre&gt;/g, '<pre class="bg-white/10 p-2 rounded text-xs overflow-x-auto">$1</pre>')
-      .replace(/&lt;a href=&quot;([\s\S]*?)&quot;&gt;([\s\S]*?)&lt;\/a&gt;/g, '<a href="$1" class="text-accent underline" target="_blank" rel="noopener">$2</a>')
-      .replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g, '<u>$1</u>')
-      .replace(/&lt;s&gt;([\s\S]*?)&lt;\/s&gt;/g, '<s>$1</s>')
+    const safe = sanitizeTelegramPostHtml(html)
+    return safe
+      .replace(/<b>/g, '<strong>').replace(/<\/b>/g, '</strong>')
+      .replace(/<i>/g, '<em>').replace(/<\/i>/g, '</em>')
+      .replace(/<code>/g, '<code class="bg-white/10 px-1 rounded text-xs">')
+      .replace(/<pre>/g, '<pre class="bg-white/10 p-2 rounded text-xs overflow-x-auto">')
+      .replace(/<a /g, '<a class="text-accent underline" target="_blank" ')
       .replace(/\n/g, '<br/>')
   }
 

@@ -43,8 +43,11 @@ export async function POST(req: NextRequest) {
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     })
   } catch (err: unknown) {
+    // Log full detail server-side but never leak DB driver / hostname /
+    // stack to the client. An attacker probing login should only ever
+    // see a generic 500.
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[LOGIN ERROR]', msg, err)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })
   }
 }

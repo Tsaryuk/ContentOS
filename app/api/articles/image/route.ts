@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fal } from '@fal-ai/client'
 import { compressArticleImage } from '@/lib/articles/image-compress'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,9 @@ interface ImageRequest {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  const rl = await rateLimit('ai:inline-image', clientIp(req), 10, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   try {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })
