@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
+import { sanitizeArticleHtml } from '@/lib/sanitize'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth()
@@ -34,12 +35,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const session = await getSession()
 
+    // Run user-supplied body_html through the same sanitizer the PATCH
+    // path uses. Without this, a POST request can plant raw <script> in
+    // a fresh article and the next read renders it via
+    // dangerouslySetInnerHTML.
     const { data, error } = await supabaseAdmin
       .from('nl_articles')
       .insert({
         title: body.title ?? '',
         subtitle: body.subtitle ?? '',
-        body_html: body.body_html ?? '',
+        body_html: sanitizeArticleHtml(body.body_html ?? ''),
         category: body.category ?? null,
         tags: body.tags ?? [],
         project_id: session.activeProjectId ?? null,

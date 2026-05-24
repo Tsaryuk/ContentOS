@@ -4,12 +4,16 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from '@/lib/ai-models'
 import { NEWSLETTER_SYSTEM_PROMPT, buildChatUserPrompt } from '@/lib/newsletter/prompts'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 const anthropic = new Anthropic()
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  const rl = await rateLimit('ai:newsletter', clientIp(req), 30, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   try {
     const { issue_id, message, current_html, selected_text } = await req.json()

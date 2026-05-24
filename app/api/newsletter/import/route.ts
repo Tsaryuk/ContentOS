@@ -28,6 +28,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getCampaigns, getCampaignStats, getMessage } from '@/lib/unisender'
 import { getSession } from '@/lib/session'
 import { logger } from '@/lib/logger'
+import { sanitizeNewsletterHtml } from '@/lib/sanitize'
 
 const log = logger.child({ module: 'newsletter/import' })
 const MIN_DATE = '2026-04-13' // Only import campaigns from this date
@@ -204,13 +205,18 @@ export async function POST(req: NextRequest) {
         bodyHtml = msg.body ?? ''
       } catch { /* body may not be available */ }
 
+      // Sanitize Unisender-fetched HTML before storing. body_html and
+      // article_html are both rendered through dangerouslySetInnerHTML in
+      // the admin UI; without this a compromised Unisender response or
+      // MITM could plant <script> straight into the DOM.
+      const safeBody = sanitizeNewsletterHtml(bodyHtml)
       const { data: issue } = await supabaseAdmin
         .from('nl_issues')
         .insert({
           subject: camp.subject,
           tag: '',
-          body_html: bodyHtml,
-          article_html: bodyHtml,
+          body_html: safeBody,
+          article_html: safeBody,
           status: 'sent',
           sent_at: camp.start_time ? new Date(camp.start_time + 'Z').toISOString() : null,
           issue_number: null,

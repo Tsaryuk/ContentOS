@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from '@/lib/ai-models'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 const anthropic = new Anthropic()
 
@@ -45,6 +46,11 @@ const SYSTEM_PROMPT = `Ты — AI-ассистент Дениса Царюка,
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  // Cap Anthropic spend per client. 30/min is generous for normal chat usage
+  // but cuts off runaway loops (a stuck client retrying every 200ms).
+  const rl = await rateLimit('ai:articles', clientIp(req), 30, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   try {
     const { article_id, message, current_html, selected_text } = await req.json()

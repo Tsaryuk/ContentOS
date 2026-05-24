@@ -15,6 +15,7 @@ import { fal } from '@fal-ai/client'
 import { compressArticleImage } from '@/lib/articles/image-compress'
 import { isAllowedUrl } from '@/lib/url-whitelist'
 import { trackUsage } from '@/lib/cost'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
@@ -94,6 +95,11 @@ async function generateVariant(
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  // Each call fires 3 parallel fal.ai generations (~$0.04 total). 5/min keeps
+  // the cost cap at ~$12/hour worst case even if a client loops.
+  const rl = await rateLimit('ai:cover', clientIp(req), 5, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   try {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })

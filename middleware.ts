@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getIronSession } from 'iron-session'
 import { sessionOptions, type SessionData } from '@/lib/session'
 
+// Unauthenticated paths. The OAuth callback stays public because Google
+// redirects users here with no session cookie; CSRF protection is
+// enforced via the `state` cookie inside the route handler. The OAuth
+// START endpoint, however, used to be public — that let anyone hit our
+// Google client_id and burn redirect quota. It's now auth-only so only
+// logged-in admins can kick off the flow.
 const PUBLIC_PATHS = [
   '/login',
   '/forgot-password',
@@ -12,7 +18,6 @@ const PUBLIC_PATHS = [
   '/api/auth/start',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
-  '/api/youtube/oauth/start',
   '/api/youtube/oauth/callback',
   '/letters',
   '/api/newsletter/subscribe',

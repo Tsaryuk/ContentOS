@@ -4,7 +4,42 @@ const { withSentryConfig } = require('@sentry/nextjs')
 let gitSha = 'dev'
 try { gitSha = execSync('git rev-parse --short HEAD').toString().trim() } catch {}
 
+// Content Security Policy.
+// Reasoning per directive:
+//   script-src — 'unsafe-inline'+'unsafe-eval' are required by Next.js for
+//     client-side hydration (it ships inline boot script). Tightening this
+//     properly needs nonce-based CSP via middleware — leave for a follow-up.
+//     Whitelisted hosts: Sentry (error tracking), tsaryuk.ru (external menu
+//     bundle used by the public letters site), Yandex Metrika.
+//   style-src — Tailwind ships some inline styles; same as script-src needs
+//     nonce work to remove unsafe-inline.
+//   img-src — wide-open https: because users upload covers from many CDNs
+//     (Supabase storage, YouTube thumbnails, Telegram media).
+//   connect-src — XHR to Anthropic and Supabase from server only; client
+//     XHR is same-origin. Allow https: + wss: for safety on websockets.
+//   frame-src — YouTube embeds in articles + Google login overlays.
+//   object-src 'none' — eliminate Flash/PDF plugin XSS surface.
+//   base-uri 'self' — block <base href> hijacks.
+//   frame-ancestors 'self' — equivalent to X-Frame-Options: SAMEORIGIN
+//     (browsers ignore the older header when CSP is present).
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.sentry.io https://tsaryuk.ru https://mc.yandex.ru https://*.youtube.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
+  "connect-src 'self' https: wss:",
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://accounts.google.com",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join('; ')
+
 const securityHeaders = [
+  { key: 'Content-Security-Policy', value: csp },
   { key: 'X-Frame-Options',        value: 'SAMEORIGIN' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy',        value: 'strict-origin-when-cross-origin' },
