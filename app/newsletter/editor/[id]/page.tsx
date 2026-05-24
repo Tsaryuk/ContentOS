@@ -6,6 +6,8 @@ import { ArrowLeft, Loader2, Trash2, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { EditorPanel } from '@/components/newsletter/EditorPanel'
 import { AiChat } from '@/components/newsletter/AiChat'
+import { toast, toastConfirm } from '@/lib/toast'
+import { useUnsavedChanges } from '@/lib/hooks/useUnsavedChanges'
 
 interface Issue {
   id: string
@@ -39,16 +41,22 @@ export default function NewsletterEditorPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  useUnsavedChanges(dirty)
 
   async function handleDelete() {
     if (deleting) return
-    if (!confirm('Удалить этот выпуск? Связь со статьёй будет снята, письмо исчезнет, статью можно будет пересоздать.')) return
+    const ok = await toastConfirm(
+      'Удалить этот выпуск? Связь со статьёй снимется, статью можно будет пересоздать.',
+      { okLabel: 'Удалить', cancelLabel: 'Отмена', destructive: true },
+    )
+    if (!ok) return
     setDeleting(true)
     try {
       const res = await fetch(`/api/newsletter/issues/${id}`, { method: 'DELETE' })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(`Ошибка ${res.status}: ${data.error ?? 'не удалось удалить'}`)
+        toast.error(`Не удалось удалить: ${data.error ?? res.status}`)
         return
       }
       router.push('/newsletter')
@@ -70,6 +78,10 @@ export default function NewsletterEditorPage() {
 
   function updateLocal(fields: Partial<Issue>) {
     setIssue(prev => prev ? { ...prev, ...fields } : prev)
+    // Bumps from a successful save (version/status only) shouldn't flip
+    // dirty back on. Everything else is a user-initiated change.
+    const onlyServerFields = Object.keys(fields).every(k => k === 'version' || k === 'status')
+    if (!onlyServerFields) setDirty(true)
   }
 
   const handleSave = useCallback(async () => {
@@ -91,7 +103,10 @@ export default function NewsletterEditorPage() {
         }),
       })
       const data = await res.json()
-      if (data.issue) setIssue(prev => prev ? { ...prev, version: data.issue.version } : prev)
+      if (data.issue) {
+        setIssue(prev => prev ? { ...prev, version: data.issue.version } : prev)
+        setDirty(false)
+      }
     } finally {
       setSaving(false)
     }
@@ -101,8 +116,11 @@ export default function NewsletterEditorPage() {
     await handleSave()
     const res = await fetch(`/api/newsletter/issues/${id}/upload`, { method: 'POST' })
     const data = await res.json()
-    if (data.error) alert(data.error)
-    else setIssue(prev => prev ? { ...prev, status: 'uploaded' } : prev)
+    if (data.error) toast.error(data.error)
+    else {
+      setIssue(prev => prev ? { ...prev, status: 'uploaded' } : prev)
+      toast.success('Загружено в Unisender')
+    }
   }
 
   async function handleSchedule(startTime?: string) {
@@ -112,8 +130,11 @@ export default function NewsletterEditorPage() {
       body: JSON.stringify({ start_time: startTime }),
     })
     const data = await res.json()
-    if (data.error) alert(data.error)
-    else setIssue(prev => prev ? { ...prev, status: 'scheduled' } : prev)
+    if (data.error) toast.error(data.error)
+    else {
+      setIssue(prev => prev ? { ...prev, status: 'scheduled' } : prev)
+      toast.success(startTime ? `Запланировано на ${startTime}` : 'Отправка запущена')
+    }
   }
 
   function handleInsertText(text: string) {

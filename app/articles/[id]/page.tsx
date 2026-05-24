@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
 import { useInsertAtCaret } from '@/lib/hooks/useInsertAtCaret'
 import { ARTICLE_CATEGORIES } from '@/lib/articles/categories'
+import { toast, toastConfirm } from '@/lib/toast'
+import { useUnsavedChanges } from '@/lib/hooks/useUnsavedChanges'
 
 interface Article {
   id: string; title: string; subtitle: string; body_html: string
@@ -48,6 +50,8 @@ export default function ArticleEditorPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [article, setArticle] = useState<Article | null>(null)
+  const [dirty, setDirty] = useState(false)
+  useUnsavedChanges(dirty)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState<Tab>('edit')
@@ -99,6 +103,12 @@ export default function ArticleEditorPage() {
 
   function updateLocal(fields: Partial<Article>) {
     setArticle(prev => prev ? { ...prev, ...fields } : prev)
+    // `version` is the only field updated as a side-effect of a successful
+    // server save — bumping it shouldn't mark the doc dirty. Everything
+    // else is a user edit (or AI-formatter output that needs persisting).
+    if (!('version' in fields) || Object.keys(fields).length > 1) {
+      setDirty(true)
+    }
   }
 
   // Rubric selection lives in `tags[]` (multi). `category` is kept in sync
@@ -137,7 +147,12 @@ export default function ArticleEditorPage() {
         }),
       })
       const data = await res.json()
-      if (data.article) updateLocal({ version: data.article.version, body_html: bodyHtml })
+      if (data.article) {
+        // Bump version locally without flipping `dirty` back on — updateLocal
+        // ignores version-only patches for that reason.
+        updateLocal({ version: data.article.version, body_html: bodyHtml })
+        setDirty(false)
+      }
     } finally { setSaving(false) }
   }, [article, id, saving, getCurrentHtml])
 
@@ -174,7 +189,11 @@ export default function ArticleEditorPage() {
       .replace(/\n{3,}/g, '\n\n')
       .trim()
     if (!plain) return
-    if (!confirm('AI-оформитель переразметит текст: добавит H2, цитаты, инсайты, вопросы. Слова автора не меняются. Продолжить?')) return
+    const ok = await toastConfirm(
+      'AI-оформитель переразметит текст: добавит H2, цитаты, инсайты, вопросы. Слова автора не меняются. Продолжить?',
+      { okLabel: 'Оформить', cancelLabel: 'Отмена' },
+    )
+    if (!ok) return
     setFormatting(true)
     try {
       const res = await fetch('/api/articles/structure', {
@@ -184,10 +203,10 @@ export default function ArticleEditorPage() {
       })
       if (!res.ok) {
         const t = await res.text().catch(() => '')
-        alert(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
+        toast.error(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
         return
       }
-      if (!res.body) { alert('Пустой ответ сервера'); return }
+      if (!res.body) { toast.error('Пустой ответ сервера'); return }
 
       // Stream chunks as they arrive so Safari's ~60s fetch timeout can't
       // abort the connection while Anthropic is still generating markup.
@@ -202,7 +221,7 @@ export default function ArticleEditorPage() {
       accumulated += decoder.decode()
 
       const errMatch = accumulated.match(/\n\n\[\[STRUCTURE_ERROR\]\] ([\s\S]+)$/)
-      if (errMatch) { alert('Ошибка: ' + errMatch[1].trim()); return }
+      if (errMatch) { toast.error(errMatch[1].trim()); return }
 
       let html = accumulated
         .replace(/\u200B/g, '')
@@ -222,7 +241,7 @@ export default function ArticleEditorPage() {
           .trim()
       }
 
-      if (!html) { alert('Модель вернула пустой результат'); return }
+      if (!html) { toast.error('Модель вернула пустой результат'); return }
 
       // Only adopt AI-suggested title/subtitle when the corresponding field is
       // still empty — otherwise users would lose their own hand-picked heading
@@ -234,7 +253,7 @@ export default function ArticleEditorPage() {
       if (subtitleMatch && !article.subtitle.trim()) patch.subtitle = subtitleMatch[1].trim()
       updateLocal(patch)
     } catch (e) {
-      alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error(e instanceof Error ? e.message : String(e))
     } finally { setFormatting(false) }
   }
 
@@ -253,7 +272,7 @@ export default function ArticleEditorPage() {
         body: JSON.stringify({ article_id: article.id, prompt: imagePrompt }),
       })
       const data = await res.json()
-      if (data.error) { alert(data.error); return }
+      if (data.error) { toast.error(data.error); return }
       if (data.url) {
         editorRef.current?.insertImageUrl(data.url, imagePrompt.slice(0, 100))
         setShowImageDialog(false)
@@ -280,13 +299,13 @@ export default function ArticleEditorPage() {
 
       if (!res.ok) {
         const text = await res.text().catch(() => '')
-        alert(`Ошибка сервера ${res.status}: ${text.slice(0, 200)}`)
+        toast.error(`Ошибка ${res.status}: ${text.slice(0, 200)}`)
         return
       }
 
       const data = await res.json()
       if (data.error) {
-        alert('Ошибка: ' + data.error)
+        toast.error(data.error)
       } else if (Array.isArray(data.variants) && data.variants.length > 0) {
         const urls = data.variants.map((v: { url: string }) => v.url)
         const labels = data.variants.map((v: { label: string }) => v.label)
@@ -301,10 +320,10 @@ export default function ArticleEditorPage() {
         setSelectedCoverIdx(0)
         await selectCover(data.urls[0])
       } else {
-        alert('Модель не вернула изображений')
+        toast.error('Модель не вернула изображений')
       }
     } catch (e) {
-      alert('Не удалось загрузить: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error('Не удалось загрузить: ' + (e instanceof Error ? e.message : String(e)))
     } finally { setGenCover(false) }
   }
 
@@ -333,16 +352,33 @@ export default function ArticleEditorPage() {
     } finally { setPersistingCover(false) }
   }
 
-  // Cover upload via file input
-  function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  // Cover upload via file input. Previously this dumped the file as a
+  // base-64 data: URL straight into article.cover_url which then went
+  // into the DB on every save — a 500 KB cover bloated body fetches and
+  // could push past Postgres TOAST thresholds. Now we POST through the
+  // multipart endpoint (sharp resize + Supabase storage) and store only
+  // the resulting CDN URL, same as AI-generated covers.
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      // For now store as data URL; in production would upload to Supabase storage
-      updateLocal({ cover_url: reader.result as string })
+    if (!file || !article) return
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('article_id', article.id)
+    try {
+      const res = await fetch('/api/articles/image/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok || !data.url) {
+        toast.error('Ошибка загрузки: ' + (data.error ?? res.status))
+        return
+      }
+      updateLocal({ cover_url: data.url })
+      toast.success('Обложка загружена')
+    } catch (err) {
+      toast.error('Не удалось загрузить: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      // Reset input value so re-selecting the same file fires onChange again.
+      e.target.value = ''
     }
-    reader.readAsDataURL(file)
   }
 
   // Publish
@@ -352,8 +388,14 @@ export default function ArticleEditorPage() {
     try {
       const res = await fetch(`/api/articles/${id}/publish`, { method: 'POST' })
       const data = await res.json()
-      if (data.error) alert(data.error)
-      else { updateLocal({ status: 'published', published_at: new Date().toISOString() }); alert(`Опубликовано: ${data.url}`) }
+      if (data.error) toast.error(data.error)
+      else {
+        updateLocal({ status: 'published', published_at: new Date().toISOString() })
+        toast.success('Опубликовано', {
+          description: data.url,
+          action: { label: 'Открыть', onClick: () => window.open(data.url, '_blank') },
+        })
+      }
     } finally { setPublishing(false) }
   }
 
@@ -364,7 +406,7 @@ export default function ArticleEditorPage() {
     try {
       const res = await fetch(`/api/articles/${id}/to-email`, { method: 'POST' })
       const data = await res.json()
-      if (data.error) alert(data.error)
+      if (data.error) toast.error(data.error)
       else { updateLocal({ email_issue_id: data.issue.id }); router.push(`/newsletter/editor/${data.issue.id}`) }
     } finally { setCreatingEmail(false) }
   }
@@ -435,7 +477,14 @@ export default function ArticleEditorPage() {
           ))}
         </div>
         <div className="flex-1" />
-        <span className="text-[10px] text-muted-foreground/60 tabular-nums">v{article.version}</span>
+        <span
+          className={`text-[10px] tabular-nums transition-colors ${
+            dirty ? 'text-amber-500' : 'text-muted-foreground/60'
+          }`}
+          title={dirty ? 'Есть несохранённые изменения' : 'Всё сохранено'}
+        >
+          {dirty ? '● ' : ''}v{article.version}
+        </span>
         <Button
           variant="outline"
           size="sm"
@@ -460,7 +509,13 @@ export default function ArticleEditorPage() {
             </a>
           </Button>
         ) : (
-          <Button variant="brand" size="sm" onClick={handlePublish} disabled={publishing || !article.blog_slug}>
+          <Button
+            variant="brand"
+            size="sm"
+            onClick={handlePublish}
+            disabled={publishing || !article.blog_slug}
+            title={!article.blog_slug ? 'Сначала заполни slug в SEO-табе' : ''}
+          >
             {publishing ? <Loader2 className="animate-spin" /> : <Globe />}
             Опубликовать
           </Button>

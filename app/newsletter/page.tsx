@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { toast, toastConfirm } from '@/lib/toast'
 
 interface Campaign {
   total_sent: number
@@ -52,7 +53,11 @@ export default function NewsletterPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
 
   async function handleDelete(issueId: string) {
-    if (!confirm('Удалить этот выпуск?')) return
+    const ok = await toastConfirm('Удалить этот выпуск?', {
+      okLabel: 'Удалить',
+      destructive: true,
+    })
+    if (!ok) return
     setDeleting(issueId)
     await fetch(`/api/newsletter/issues/${issueId}`, { method: 'DELETE' })
     setDeleting(null)
@@ -60,10 +65,23 @@ export default function NewsletterPage() {
   }
 
   async function handleDeleteAll() {
-    if (!confirm(`Удалить все ${issues.length} выпусков? Это действие необратимо.`)) return
+    // Two-step confirm — the first explains scope, the second is the actual
+    // confirmation. A single confirm felt too easy to fat-finger when the
+    // list has dozens of issues.
+    const ok = await toastConfirm(
+      `Удалить ВСЕ ${issues.length} выпусков? Это действие необратимо.`,
+      { okLabel: `Удалить ${issues.length}`, destructive: true },
+    )
+    if (!ok) return
+    const total = issues.length
+    let done = 0
+    const id = toast.loading(`Удаляю выпуски… (0/${total})`)
     for (const issue of issues) {
       await fetch(`/api/newsletter/issues/${issue.id}`, { method: 'DELETE' })
+      done += 1
+      toast.loading(`Удаляю выпуски… (${done}/${total})`, { id })
     }
+    toast.success(`Удалено ${done} выпусков`, { id })
     fetchIssues()
   }
 

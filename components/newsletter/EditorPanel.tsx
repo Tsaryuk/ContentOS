@@ -8,6 +8,7 @@ import {
 import { ARTICLE_CATEGORIES } from '@/lib/articles/categories'
 import { ArticleEditor, type ArticleEditorHandle } from '@/components/articles/editor/ArticleEditor'
 import { EmailSection } from '@/components/articles/editor/extensions/EmailSection'
+import { toast, toastConfirm } from '@/lib/toast'
 
 interface Issue {
   id: string
@@ -86,7 +87,7 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
       const res = await fetch(`/api/newsletter/issues/${issue.id}/html`)
       if (!res.ok) {
         const t = await res.text().catch(() => '')
-        alert(`Ошибка ${res.status}: ${t.slice(0, 200)}`)
+        toast.error(`Ошибка ${res.status}: ${t.slice(0, 200)}`)
         return
       }
       const html = await res.text()
@@ -105,7 +106,7 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
       setJustCopied(true)
       setTimeout(() => setJustCopied(false), 2000)
     } catch (e) {
-      alert('Не скопировалось: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error('Не скопировалось: ' + (e instanceof Error ? e.message : String(e)))
     } finally {
       setCopying(false)
     }
@@ -143,8 +144,9 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
   // user wants to re-run an existing draft against the new shape.
   async function handleRegenerate() {
     if (regenerating) return
-    const ok = window.confirm(
-      'Перегенерировать секции "Главное из статьи", "Практическое задание" и CTA из связанной статьи?\nВручную написанные секции (Личная философия, Лайфхак, Анонс) затронуты не будут.',
+    const ok = await toastConfirm(
+      'Перегенерировать digest + practice + CTA из связанной статьи? Ваши секции (философия, лайфхак, анонс) не затронуты.',
+      { okLabel: 'Перегенерировать' },
     )
     if (!ok) return
     setRegenerating(true)
@@ -155,12 +157,15 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
       const res = await fetch(`/api/newsletter/issues/${issue.id}/regenerate-from-article`, { method: 'POST' })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(`Не удалось: ${data.error ?? res.status}`)
+        toast.error(`Не удалось: ${data.error ?? res.status}`)
         return
       }
-      if (data.issue?.body_html) onUpdate({ body_html: data.issue.body_html })
+      if (data.issue?.body_html) {
+        onUpdate({ body_html: data.issue.body_html })
+        toast.success('Секции перегенерированы')
+      }
     } catch (e) {
-      alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error(e instanceof Error ? e.message : String(e))
     } finally {
       setRegenerating(false)
     }
@@ -317,6 +322,11 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
             <button
               onClick={() => setShowSchedule(!showSchedule)}
               disabled={issue.status !== 'uploaded'}
+              title={
+                issue.status !== 'uploaded'
+                  ? 'Сначала загрузи письмо в Unisender'
+                  : ''
+              }
               className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs hover:bg-accent/90 disabled:opacity-50 flex items-center gap-1.5"
             >
               <Calendar className="w-3 h-3" />

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Toaster } from 'sonner'
 import './globals.css'
 import { LayoutShell } from '@/components/layout/LayoutShell'
 
@@ -36,6 +37,11 @@ export default function RootLayout({
         ` }} />
       </head>
       <LayoutShell>{children}</LayoutShell>
+      {/* Single global toast portal. theme="dark" matches the default
+          app shell; sonner picks up system theme automatically when
+          theme="system" but we want consistent contrast against the
+          dark editor surfaces. richColors enables success/error tinting. */}
+      <Toaster theme="dark" richColors position="top-right" duration={4000} />
     </html>
   )
 }
