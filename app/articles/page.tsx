@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, FileText, Loader2, RefreshCw, Trash2, Eye } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { toastConfirm } from '@/lib/toast'
 
 interface Article {
   id: string; title: string; subtitle: string; category: string | null
@@ -35,7 +36,11 @@ export default function ArticlesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Удалить статью?')) return
+    const ok = await toastConfirm('Удалить статью?', {
+      okLabel: 'Удалить',
+      destructive: true,
+    })
+    if (!ok) return
     await fetch(`/api/articles/${id}`, { method: 'DELETE' })
     fetchArticles()
   }

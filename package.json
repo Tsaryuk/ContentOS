@@ -46,6 +46,7 @@
     "react-dom": "^18.3.0",
     "sanitize-html": "^2.17.3",
     "sharp": "^0.34.5",
+    "sonner": "^2.0.7",
     "ssh2-sftp-client": "^12.1.1",
     "tailwind-merge": "^3.5.0",
     "telegram": "^2.26.22",
