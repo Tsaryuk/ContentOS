@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutGrid, Mail, Globe, Settings, Scissors, FileText,
   Play, Send, Camera, GalleryHorizontalEnd, CheckSquare, Calendar,
-  LogOut, Shield, ChevronDown, Sun, Moon, MessageSquare,
+  LogOut, Shield, ChevronDown, Sun, Moon, MessageSquare, Sparkles,
 } from 'lucide-react'
 import { CHANNELS, Platform } from '@/lib/channels'
 import { SidebarFlyout } from './SidebarFlyout'
@@ -142,6 +142,7 @@ export function Sidebar() {
   const isTelegram = pathname.startsWith('/telegram')
   const isNewsletter = pathname.startsWith('/newsletter')
   const isArticles = pathname.startsWith('/articles')
+  const isIdeas = pathname.startsWith('/ideas')
   const isComments = pathname.startsWith('/comments')
 
   const staticChannelsByPlatform = (platform: Platform) =>
@@ -237,6 +238,7 @@ export function Sidebar() {
         <NavItem href="/clips" icon={<Scissors className="w-4 h-4" />} label="Клипы" active={isClips} />
         <NavItem href="/carousels" icon={<GalleryHorizontalEnd className="w-4 h-4" />} label="Карусели" active={isCarousels} />
         <NavItem href="/telegram" icon={<Send className="w-4 h-4" />} label="Telegram" active={isTelegram} />
+        <NavItem href="/ideas" icon={<Sparkles className="w-4 h-4" />} label="Идеи" active={isIdeas} />
         <NavItem href="/articles" icon={<FileText className="w-4 h-4" />} label="Статьи" active={isArticles} />
         <NavItem href="/newsletter" icon={<Mail className="w-4 h-4" />} label="Рассылка" active={isNewsletter} />
 
