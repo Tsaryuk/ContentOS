@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { Textarea } from '@/components/ui/textarea'
 import { toast, toastConfirm } from '@/lib/toast'
 
 interface Similar {
@@ -155,7 +156,7 @@ export default function IdeaInboxPage() {
 
       {/* Capture */}
       <Card className="p-4 mb-6">
-        <textarea
+        <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -166,7 +167,6 @@ export default function IdeaInboxPage() {
           }}
           placeholder="Что вертится в голове? Можно одной строкой, можно абзацем. Cmd+Enter — сохранить."
           rows={3}
-          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
         />
         <div className="flex items-center justify-between mt-3">
           <span className="text-[11px] text-muted-foreground">

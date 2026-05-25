@@ -69,10 +69,14 @@ interface QueueItem {
   video: { id: string; title: string | null }
 }
 
+// Visual contract matches components/ui/input.tsx / textarea.tsx — kept
+// inline here because this page has 12+ controls and a wholesale JSX
+// rewrite is more risk than reward. Same focus ring (border + 30% ring),
+// same transition, tabular-nums for number cells.
 const inputClass =
-  'w-full h-9 px-3 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring'
+  'block w-full h-9 px-3 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground/60 tabular-nums transition-[border-color,box-shadow] duration-150 focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 const textareaClass =
-  'w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none'
+  'block w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground/60 resize-none transition-[border-color,box-shadow] duration-150 focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 const labelClass =
   'text-[10px] text-muted-foreground uppercase tracking-wider font-medium'
 

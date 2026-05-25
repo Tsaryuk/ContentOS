@@ -78,7 +78,7 @@ export default function ArticleEditorPage() {
   const [chatLoading, setChatLoading] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<ArticleEditorHandle | null>(null)
-  const chatInputRef = useRef<HTMLInputElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
 
   const chatInsert = useInsertAtCaret(chatInputRef, chatInput, setChatInput)
   const chatVoice = useVoiceDictation({ onFinal: chatInsert.insert })
@@ -531,15 +531,15 @@ export default function ArticleEditorPage() {
             <div className="p-4 border-b border-border space-y-3 shrink-0 max-h-[280px] overflow-y-auto">
               <input placeholder="Заголовок статьи" value={article.title}
                 onChange={e => updateLocal({ title: e.target.value })}
-                className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground focus:outline-none focus:border-accent" />
+                className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm font-medium text-foreground transition-colors duration-150 focus:outline-none focus:border-accent" />
               <input placeholder="Подзаголовок / интрига" value={article.subtitle}
                 onChange={e => updateLocal({ subtitle: e.target.value })}
-                className="w-full px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-muted-foreground focus:outline-none focus:border-accent" />
+                className="w-full px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-muted-foreground transition-colors duration-150 focus:outline-none focus:border-accent" />
               <div className="flex gap-3 items-start">
                 <div className="flex-1 space-y-2">
                   <div className="flex gap-2">
                     <input placeholder="URL обложки" value={article.cover_url ?? ''} onChange={e => updateLocal({ cover_url: e.target.value })}
-                      className="flex-1 px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" />
+                      className="flex-1 px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-foreground transition-colors duration-150 focus:outline-none focus:border-accent" />
                     <label className="px-3 py-1.5 border border-border rounded-lg text-xs text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1.5">
                       <Upload className="w-3 h-3" /> Загрузить
                       <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
@@ -558,7 +558,7 @@ export default function ArticleEditorPage() {
                       onChange={e => setCoverPrompt(e.target.value)}
                       placeholder="Промпт для сцены (на английском). Например: A lone figure standing at a crossroads in a misty forest, ancient stone pillars. Wide cinematic composition, 16:9. Пусто = сгенерируется из темы."
                       rows={3}
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[11px] text-muted-foreground focus:outline-none focus:border-accent resize-none font-mono" />
+                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[11px] text-muted-foreground transition-colors duration-150 focus:outline-none focus:border-accent resize-none font-mono" />
                   )}
                   {coverOptions.length > 0 && (
                     <div className="flex gap-2">
@@ -604,7 +604,7 @@ export default function ArticleEditorPage() {
                 <div className="w-64 space-y-2 shrink-0">
                   <div className="flex gap-2 items-center">
                     <input placeholder="YouTube URL" value={article.youtube_url ?? ''} onChange={e => updateLocal({ youtube_url: e.target.value })}
-                      className="flex-1 px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" />
+                      className="flex-1 px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-foreground transition-colors duration-150 focus:outline-none focus:border-accent" />
                     {ytId && <span className="text-[10px] text-emerald-500 flex items-center gap-1 shrink-0"><Play className="w-3 h-3" /></span>}
                   </div>
                   {ytId && (
@@ -726,9 +726,9 @@ export default function ArticleEditorPage() {
                 </button>
               </div>
               <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">SEO Title ({article.seo_title.length}/60)</label>
-                <input value={article.seo_title} onChange={e => updateLocal({ seo_title: e.target.value })} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" /></div>
+                <input value={article.seo_title} onChange={e => updateLocal({ seo_title: e.target.value })} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground transition-colors duration-150 focus:outline-none focus:border-accent" /></div>
               <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Meta Description ({article.seo_description.length}/160)</label>
-                <textarea value={article.seo_description} onChange={e => updateLocal({ seo_description: e.target.value })} rows={3} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent resize-none" /></div>
+                <textarea value={article.seo_description} onChange={e => updateLocal({ seo_description: e.target.value })} rows={3} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground transition-colors duration-150 focus:outline-none focus:border-accent resize-none" /></div>
               <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">URL slug</label>
                 <div className="flex gap-2">
                   <div className="flex-1 flex items-center bg-card border border-border rounded-lg overflow-hidden">
@@ -740,7 +740,7 @@ export default function ArticleEditorPage() {
                 </div>
               </div>
               <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Ключевые слова</label>
-                <input value={article.seo_keywords.join(', ')} onChange={e => updateLocal({ seo_keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent" /></div>
+                <input value={article.seo_keywords.join(', ')} onChange={e => updateLocal({ seo_keywords: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground transition-colors duration-150 focus:outline-none focus:border-accent" /></div>
               <div><label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Рубрики (можно несколько)</label>
                 <div className="flex flex-wrap gap-1.5">
                   {CATEGORIES.map(c => {
@@ -829,13 +829,22 @@ export default function ArticleEditorPage() {
               >
                 {chatVoice.listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>
-              <input
+              <textarea
                 ref={chatInputRef}
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat(chatInput)}
-                placeholder="Спросить AI..."
-                className="flex-1 px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent"
+                onKeyDown={e => {
+                  // Enter — send, Shift+Enter — newline. Previously this
+                  // was an <input> which ignored Shift+Enter entirely,
+                  // so multi-line prompts had no way in.
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendChat(chatInput)
+                  }
+                }}
+                placeholder="Спросить AI... (Shift+Enter — перенос строки)"
+                rows={1}
+                className="flex-1 min-h-[36px] max-h-32 px-3 py-2 bg-card border border-border rounded-lg text-xs text-foreground resize-none transition-colors duration-150 focus:outline-none focus:border-accent"
               />
               <button
                 onClick={() => sendChat(chatInput)}
@@ -882,7 +891,7 @@ export default function ArticleEditorPage() {
               placeholder="A lone tree on a cliff edge, storm clouds swirling above, waves crashing below"
               rows={4}
               autoFocus
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:border-accent resize-none font-mono mb-4"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs text-foreground transition-colors duration-150 focus:outline-none focus:border-accent resize-none font-mono mb-4"
             />
             <div className="flex gap-2 justify-end">
               <button

@@ -70,8 +70,8 @@ const DEFAULT_RULES: ChannelRules = {
   shorts_count: 3, clip_max_minutes: 10,
 }
 
-const inputClass = 'w-full h-9 px-3 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring'
-const textareaClass = 'w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none'
+const inputClass = 'block w-full h-9 px-3 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground/60 tabular-nums transition-[border-color,box-shadow] duration-150 focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
+const textareaClass = 'block w-full px-3 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground/60 resize-none transition-[border-color,box-shadow] duration-150 focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 const labelClass = 'text-[10px] text-muted-foreground uppercase tracking-wider font-medium'
 
 function OAuthBanner() {

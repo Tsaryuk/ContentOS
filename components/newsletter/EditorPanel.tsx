@@ -216,18 +216,18 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
             placeholder="№"
             value={issue.issue_number ?? ''}
             onChange={e => onUpdate({ issue_number: e.target.value ? parseInt(e.target.value) : null })}
-            className="w-16 px-2 py-1.5 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent"
+            className="w-16 px-2 py-1.5 bg-surface border border-border rounded-lg text-xs text-cream transition-colors duration-150 focus:outline-none focus:border-accent"
           />
           <input
             placeholder="Тег (напр. Разговор о...)"
             value={issue.tag}
             onChange={e => onUpdate({ tag: e.target.value })}
-            className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-cream focus:outline-none focus:border-accent"
+            className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-cream transition-colors duration-150 focus:outline-none focus:border-accent"
           />
           <select
             value={issue.category ?? ''}
             onChange={e => onUpdate({ category: e.target.value || null })}
-            className="px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent"
+            className="px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted transition-colors duration-150 focus:outline-none focus:border-accent"
           >
             <option value="">Категория</option>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -237,20 +237,20 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
           placeholder="Тема письма"
           value={issue.subject}
           onChange={e => onUpdate({ subject: e.target.value })}
-          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm font-medium text-cream focus:outline-none focus:border-accent"
+          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm font-medium text-cream transition-colors duration-150 focus:outline-none focus:border-accent"
         />
         <div className="flex gap-3">
           <input
             placeholder="Прехедер (текст после темы в инбоксе)"
             value={issue.preheader}
             onChange={e => onUpdate({ preheader: e.target.value })}
-            className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent"
+            className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted transition-colors duration-150 focus:outline-none focus:border-accent"
           />
           <input
             placeholder="Подзаголовок / интрига"
             value={issue.subtitle}
             onChange={e => onUpdate({ subtitle: e.target.value })}
-            className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted focus:outline-none focus:border-accent"
+            className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-muted transition-colors duration-150 focus:outline-none focus:border-accent"
           />
         </div>
       </div>
