@@ -11,25 +11,16 @@
 // up that slot the moment drafts are ready.
 
 import { Queue } from 'bullmq'
-import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
-import { AI_MODELS } from '@/lib/ai-models'
 import { getRedisConnection } from '@/lib/queue'
 import {
   DEFAULT_COMMENT_REPLY_CONFIG,
-  buildCommentReplySystemPrompt,
-  buildCommentReplyUserPrompt,
-  decideCta,
   type CommentReplyConfig,
   type TranscriptChunk,
 } from '@/lib/youtube/comment-reply-prompts'
 import { isAutoReplyGloballyDisabled } from '@/lib/youtube/comment-reply-engine'
 import { classifyComment } from '@/lib/youtube/comment-classifier'
-import { pickContextChunks } from '@/lib/youtube/transcript-rag'
-import { loadRecentReplyExamples } from '@/lib/youtube/recent-reply-examples'
-import { loadCtaTargets } from '@/lib/youtube/cta-targets'
-
-const anthropic = new Anthropic()
+import { generateCommentDraft } from '@/lib/youtube/comment-draft'
 
 // Defaults used when channel.rules.comments doesn't override them. The
 // previous constants stay here as the floor so a missing/zero value in
@@ -143,74 +134,21 @@ async function generateDraft(
   channelTitle: string,
   channelHandle: string | null,
 ): Promise<string | null> {
-  const shouldIncludeCta = decideCta(config.cta_frequency)
-
-  let parentReplyText: string | null = null
-  if (candidate.parent_comment_id) {
-    const { data: parent } = await supabaseAdmin
-      .from('yt_comments')
-      .select('text, is_owner_reply')
-      .eq('yt_comment_id', candidate.parent_comment_id)
-      .maybeSingle<{ text: string; is_owner_reply: boolean }>()
-    if (parent?.is_owner_reply) parentReplyText = parent.text
-  }
-
-  const [examples, ctaProjects] = await Promise.all([
-    loadRecentReplyExamples(channelId, 5),
-    loadCtaTargets(config.cta_project_ids ?? []),
-  ])
-  const system = buildCommentReplySystemPrompt({
-    channelTitle,
-    channelHandle,
-    tone: config.tone,
-    telegramUrl: config.telegram_url,
-    communityUrl: config.community_url,
-    maxLength: config.max_reply_length,
-    shouldIncludeCta,
-    examples,
-    ctaProjects,
+  // Thin adapter — full generation lives in lib/youtube/comment-draft.ts
+  // so the manual /api/comments/ai-draft endpoint and this cron runner
+  // share one source of truth for prompt + retrieval behaviour.
+  const { draft } = await generateCommentDraft({
+    comment: {
+      id: candidate.id,
+      text: candidate.text,
+      author_name: candidate.author_name,
+      parent_comment_id: candidate.parent_comment_id,
+    },
+    video: candidate.video,
+    channel: { id: channelId, title: channelTitle, handle: channelHandle },
+    config,
   })
-  const ragChunks = await pickContextChunks(
-    candidate.video.id,
-    candidate.video.transcript,
-    candidate.text,
-    candidate.video.transcript_chunks,
-  )
-
-  const user = buildCommentReplyUserPrompt({
-    videoTitle: candidate.video.current_title ?? '',
-    videoDescription: candidate.video.current_description,
-    transcript: ragChunks ? null : candidate.video.transcript,
-    transcriptChunks: ragChunks ?? candidate.video.transcript_chunks,
-    commentText: candidate.text,
-    commentAuthor: candidate.author_name,
-    parentReplyText,
-    shouldIncludeCta,
-  })
-
-  const msg = await anthropic.messages.create({
-    model: AI_MODELS.claude,
-    max_tokens: 800,
-    system,
-    messages: [{ role: 'user', content: user }],
-  })
-  const draft = msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
-    .trim()
-
-  if (!draft) return null
-
-  await supabaseAdmin
-    .from('yt_comments')
-    .update({
-      ai_reply_draft: draft,
-      ai_reply_model: AI_MODELS.claude,
-      ai_reply_generated_at: new Date().toISOString(),
-    })
-    .eq('id', candidate.id)
-  return draft
+  return draft || null
 }
 
 async function loadCandidates(channelId: string, limit: number): Promise<CandidateRow[]> {
