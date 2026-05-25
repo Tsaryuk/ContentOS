@@ -1701,6 +1701,14 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const r = await backfillMissingEmbeddings()
     console.log(`[backfill] embeddings: ok=${r.ok} failed=${r.failed}`)
   },
+  // Weekly resurface tick. Picks one well-performing old article and
+  // drops a resurface-as-email idea into the Inbox. See
+  // lib/articles/resurface.ts for the eligibility criteria.
+  articles_resurface_weekly: async () => {
+    const { runResurfacingTick } = await import('./lib/articles/resurface')
+    const r = await runResurfacingTick()
+    console.log(`[resurface] tick: suggested=${r.suggested}`)
+  },
 }
 
 // Recovery sweep — see lib/worker/stale-cleanup.ts for the policy. The

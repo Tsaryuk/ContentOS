@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Sparkles, Send, Trash2, Archive, ExternalLink, FileText } from 'lucide-react'
+import { Loader2, Sparkles, Send, Trash2, Archive, ExternalLink, FileText, Recycle, Mail } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -38,6 +38,7 @@ interface Idea {
   similar_to: Similar[]
   status: 'new' | 'drafted' | 'archived'
   promoted_article_id: string | null
+  source_article_id: string | null
   created_at: string
 }
 
@@ -100,11 +101,18 @@ export default function IdeaInboxPage() {
         body: JSON.stringify({ title }),
       })
       const data = await res.json()
-      if (!res.ok || !data.article?.id) {
+      if (!res.ok) {
         toast.error(data.error ?? `Ошибка ${res.status}`)
         return
       }
-      router.push(`/articles/${data.article.id}`)
+      // Resurface ideas create newsletter issues; capture-style ideas
+      // create article drafts. The server tells us which by returning
+      // either `issue` or `article`.
+      if (data.issue?.id) {
+        router.push(`/newsletter/editor/${data.issue.id}`)
+      } else if (data.article?.id) {
+        router.push(`/articles/${data.article.id}`)
+      }
     } finally {
       setPromoting(null)
     }
@@ -251,9 +259,16 @@ interface IdeaCardProps {
 function IdeaCard({ idea, promoting, onPromote, onArchive, onUnarchive, onDelete }: IdeaCardProps) {
   const isDrafted = idea.status === 'drafted'
   const isArchived = idea.status === 'archived'
+  const isResurface = Boolean(idea.source_article_id)
 
   return (
-    <Card className={`p-4 ${isArchived ? 'opacity-60' : ''}`}>
+    <Card className={`p-4 ${isArchived ? 'opacity-60' : ''} ${isResurface ? 'border-purple-500/30 bg-purple-500/5' : ''}`}>
+      {isResurface && (
+        <div className="flex items-center gap-1.5 mb-2 text-[10px] uppercase tracking-wider text-purple-500">
+          <Recycle className="w-3 h-3" />
+          Resurface — переотправка письма из старой статьи
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="text-sm text-foreground whitespace-pre-wrap flex-1">{idea.raw_thought}</div>
         <div className="flex items-center gap-1 shrink-0">
@@ -284,7 +299,9 @@ function IdeaCard({ idea, promoting, onPromote, onArchive, onUnarchive, onDelete
       {/* AI titles */}
       {idea.ai_titles.length > 0 && !isDrafted && (
         <div className="space-y-1.5 mb-3">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Заголовки</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            {isResurface ? 'Тема письма' : 'Заголовки'}
+          </div>
           {idea.ai_titles.map((t, i) => (
             <button
               key={i}
@@ -292,7 +309,9 @@ function IdeaCard({ idea, promoting, onPromote, onArchive, onUnarchive, onDelete
               disabled={promoting}
               className="w-full text-left px-3 py-2 rounded-lg border border-border hover:border-accent hover:bg-accent/5 transition-colors text-sm text-foreground disabled:opacity-50 flex items-center gap-2"
             >
-              <Send className="w-3 h-3 text-accent shrink-0" />
+              {isResurface
+                ? <Mail className="w-3 h-3 text-purple-500 shrink-0" />
+                : <Send className="w-3 h-3 text-accent shrink-0" />}
               <span className="flex-1">{t}</span>
             </button>
           ))}
