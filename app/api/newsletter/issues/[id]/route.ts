@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizeNewsletterHtml } from '@/lib/sanitize'
+import { requireProjectAccess } from '@/lib/project-access'
 
 const ISSUE_ALLOWED_FIELDS = new Set([
   'title', 'subtitle', 'body_html', 'cover_url', 'campaign_id',
@@ -39,6 +40,10 @@ export async function GET(
     return NextResponse.json({ error: 'Выпуск не найден' }, { status: 404 })
   }
 
+  // 404 over 403 — don't disclose existence to non-admin users.
+  const denied = await requireProjectAccess(data.project_id)
+  if (denied) return NextResponse.json({ error: 'Выпуск не найден' }, { status: 404 })
+
   // Reverse lookup: find the article that links to this issue (if any).
   // The newsletter editor uses this to surface a "Источник: статья X" badge
   // so the author can jump back to the underlying article. There's at most
@@ -68,6 +73,16 @@ export async function PATCH(
     // Sanitize newsletter body_html at write-time (blocks stored XSS + email payload tampering)
     if (typeof update.body_html === 'string') {
       update.body_html = sanitizeNewsletterHtml(update.body_html)
+    }
+
+    // Authorise the mutation by project_id — load it together with the
+    // version-history fields we'd need anyway. One round-trip.
+    {
+      const { data: scope } = await supabaseAdmin
+        .from('nl_issues').select('project_id').eq('id', id).single()
+      if (!scope) return NextResponse.json({ error: 'Выпуск не найден' }, { status: 404 })
+      const denied = await requireProjectAccess(scope.project_id)
+      if (denied) return denied
     }
 
     // Save version history before update (internal fields, not from user)
@@ -119,6 +134,14 @@ export async function DELETE(
   if (auth instanceof NextResponse) return auth
 
   const { id } = await params
+
+  // Authorise before deleting. Loading project_id is cheap and lets us
+  // 404 on cross-project requests instead of disclosing existence.
+  const { data: scope } = await supabaseAdmin
+    .from('nl_issues').select('project_id').eq('id', id).single()
+  if (!scope) return NextResponse.json({ error: 'Выпуск не найден' }, { status: 404 })
+  const denied = await requireProjectAccess(scope.project_id)
+  if (denied) return denied
 
   // nl_articles.email_issue_id references nl_issues(id) without ON DELETE SET NULL,
   // so deleting the issue is blocked while any article still points to it.

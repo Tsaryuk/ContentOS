@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizeArticleHtml } from '@/lib/sanitize'
+import { requireProjectAccess } from '@/lib/project-access'
 
 // Only these fields may be updated via PATCH — anything else is ignored
 // to prevent mass-assignment (status spoofing, slug injection, created_by tamper).
@@ -39,6 +40,12 @@ export async function GET(
     .single()
 
   if (error || !data) return NextResponse.json({ error: 'Статья не найдена' }, { status: 404 })
+
+  // 404 instead of 403 on cross-project access — don't leak existence
+  // of resources outside the user's scope.
+  const denied = await requireProjectAccess(data.project_id)
+  if (denied) return NextResponse.json({ error: 'Статья не найдена' }, { status: 404 })
+
   return NextResponse.json({ article: data })
 }
 
@@ -71,11 +78,18 @@ export async function PATCH(
 
     update.updated_at = new Date().toISOString()
 
-    // Fetch current article to detect slug changes and track version
+    // Fetch current article to detect slug changes, track version, AND
+    // authorise the mutation against the user's project scope.
     const { data: current } = await supabaseAdmin
-      .from('nl_articles').select('version, blog_slug').eq('id', id).single()
+      .from('nl_articles').select('version, blog_slug, project_id').eq('id', id).single()
 
-    const previousSlug = current?.blog_slug ?? null
+    if (!current) {
+      return NextResponse.json({ error: 'Статья не найдена' }, { status: 404 })
+    }
+    const denied = await requireProjectAccess(current.project_id)
+    if (denied) return denied
+
+    const previousSlug = current.blog_slug ?? null
 
     // Increment version on body_html changes
     if (update.body_html !== undefined) {
@@ -118,9 +132,14 @@ export async function DELETE(
   if (auth instanceof NextResponse) return auth
   const { id } = await params
 
-  // Fetch slug before delete so we can remove HTML file
+  // Fetch slug + project before delete so we can remove HTML file and
+  // authorise the mutation.
   const { data: current } = await supabaseAdmin
-    .from('nl_articles').select('blog_slug').eq('id', id).single()
+    .from('nl_articles').select('blog_slug, project_id').eq('id', id).single()
+  if (!current) return NextResponse.json({ error: 'Статья не найдена' }, { status: 404 })
+
+  const denied = await requireProjectAccess(current.project_id)
+  if (denied) return denied
 
   const { error } = await supabaseAdmin.from('nl_articles').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
