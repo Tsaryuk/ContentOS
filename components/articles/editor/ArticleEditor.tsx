@@ -25,6 +25,7 @@ import {
   Bold, Italic, Heading2, Quote, Link2, Minus, Image as ImageIcon, Play, Lightbulb,
   MessageCircleQuestion, Undo2, Redo2, Sparkles, Upload, Loader2, Code,
 } from 'lucide-react'
+import { toast } from '@/lib/toast'
 
 export interface ArticleEditorHandle {
   getHTML: () => string
@@ -186,7 +187,7 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
         const res = await fetch('/api/articles/image/upload', { method: 'POST', body: fd })
         const data = await res.json()
         if (!res.ok || !data.url) {
-          alert('Ошибка загрузки: ' + (data.error ?? res.status))
+          toast.error('Ошибка загрузки: ' + (data.error ?? res.status))
           return
         }
         editor.chain().focus().insertContent({ type: 'image', attrs: { src: data.url, alt: '' } }).run()

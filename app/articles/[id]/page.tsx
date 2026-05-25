@@ -12,6 +12,7 @@ import { ThreadsPanel } from '@/components/articles/ThreadsPanel'
 import { VideoScriptPanel } from '@/components/articles/VideoScriptPanel'
 import { ArticleEditor, type ArticleEditorHandle } from '@/components/articles/editor/ArticleEditor'
 import { EmailStatusCard } from '@/components/articles/EmailStatusCard'
+import { ContentMultiplier } from '@/components/articles/ContentMultiplier'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
@@ -770,6 +771,7 @@ export default function ArticleEditorPage() {
           {tab === 'distribute' && (
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <h2 className="text-sm font-medium text-foreground mb-4">Дистрибуция из статьи</h2>
+              <ContentMultiplier articleId={article.id} />
               <EmailStatusCard
                 articleId={article.id}
                 onCreateEmail={handleToEmail}
