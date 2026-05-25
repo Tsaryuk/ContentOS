@@ -30,6 +30,7 @@ interface CommentRow {
   yt_comment_id: string
   parent_comment_id: string | null
   ai_reply_yt_id: string | null
+  ai_reply_draft: string | null
 }
 
 interface VideoRow {
@@ -99,7 +100,7 @@ export async function sendCommentReply(input: SendReplyInput): Promise<SendReply
 
   const { data: parentComment } = await supabaseAdmin
     .from('yt_comments')
-    .select('id, yt_comment_id, parent_comment_id, ai_reply_yt_id')
+    .select('id, yt_comment_id, parent_comment_id, ai_reply_yt_id, ai_reply_draft')
     .eq('yt_comment_id', input.ytCommentId)
     .maybeSingle<CommentRow>()
   if (!parentComment) throw new ReplyError(404, 'Comment not found in DB')
@@ -211,10 +212,17 @@ export async function sendCommentReply(input: SendReplyInput): Promise<SendReply
   // also land here as NULL, which is fine — they're not tracked).
   const ctaProjectId = await detectCtaProject(config.cta_project_ids ?? [], input.text)
 
+  // Snapshot the AI draft at send-time. If the author hand-edited or
+  // wrote from scratch the draft might differ from reply_text — that's
+  // exactly what Reply Coach wants to surface as a diff later.
+  // null = no draft was ever generated for this comment (pure manual).
+  const aiDraftSnapshot = parentComment.ai_reply_draft ?? null
+
   await supabaseAdmin.from('comment_reply_log').insert({
     channel_id: video.channel_id,
     comment_id: parentComment.id,
     reply_text: input.text,
+    ai_draft: aiDraftSnapshot,
     mode: input.mode,
     status: 'sent',
     yt_reply_id: reply.id,
