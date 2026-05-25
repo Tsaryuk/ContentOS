@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createCampaign } from '@/lib/unisender'
+import { requireProjectAccess } from '@/lib/project-access'
 
 export async function POST(
   req: NextRequest,
@@ -11,6 +12,15 @@ export async function POST(
   if (auth instanceof NextResponse) return auth
 
   const { id } = await params
+
+  // Scope check — schedule kicks an actual send out to subscribers, so
+  // this is the highest-impact mutation on the issue. Refuse if the
+  // caller is a non-admin scoped to a different project.
+  const { data: scope } = await supabaseAdmin
+    .from('nl_issues').select('project_id').eq('id', id).single()
+  if (!scope) return NextResponse.json({ error: 'Выпуск не найден' }, { status: 404 })
+  const denied = await requireProjectAccess(scope.project_id)
+  if (denied) return denied
 
   try {
     const body = await req.json()

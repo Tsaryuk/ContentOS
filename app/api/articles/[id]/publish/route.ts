@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { publishArticleFiles } from '@/lib/articles/publish'
+import { requireProjectAccess } from '@/lib/project-access'
 
 export async function POST(
   req: NextRequest,
@@ -19,6 +20,11 @@ export async function POST(
       .single()
 
     if (!article) return NextResponse.json({ error: 'Статья не найдена' }, { status: 404 })
+
+    // Publishing pushes content to a public site — refuse cross-project.
+    const denied = await requireProjectAccess(article.project_id)
+    if (denied) return NextResponse.json({ error: 'Статья не найдена' }, { status: 404 })
+
     if (!article.blog_slug) return NextResponse.json({ error: 'Укажите URL slug в SEO' }, { status: 400 })
 
     const { url } = await publishArticleFiles(article)

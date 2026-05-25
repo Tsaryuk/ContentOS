@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createEmailMessage } from '@/lib/unisender'
 import { renderNewsletter } from '@/lib/newsletter/template'
+import { requireProjectAccess } from '@/lib/project-access'
 
 export async function POST(
   req: NextRequest,
@@ -23,6 +24,11 @@ export async function POST(
     if (error || !issue) {
       return NextResponse.json({ error: 'Выпуск не найден' }, { status: 404 })
     }
+
+    // Upload triggers an external Unisender message creation — refuse
+    // for cross-project access.
+    const denied = await requireProjectAccess(issue.project_id)
+    if (denied) return NextResponse.json({ error: 'Выпуск не найден' }, { status: 404 })
 
     if (!issue.subject?.trim()) {
       return NextResponse.json({ error: 'Укажите тему письма' }, { status: 400 })
