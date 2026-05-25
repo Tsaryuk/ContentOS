@@ -8,6 +8,7 @@ import { EditorPanel } from '@/components/newsletter/EditorPanel'
 import { AiChat } from '@/components/newsletter/AiChat'
 import { toast, toastConfirm } from '@/lib/toast'
 import { useUnsavedChanges } from '@/lib/hooks/useUnsavedChanges'
+import { pillClass, statusLabel } from '@/lib/status-colors'
 
 interface Issue {
   id: string
@@ -153,16 +154,7 @@ export default function NewsletterEditorPage() {
         <span className="text-sm font-medium text-cream">
           {issue.issue_number ? `Выпуск #${issue.issue_number}` : 'Письмо'}
         </span>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-          issue.status === 'draft' ? 'bg-white/5 text-dim' :
-          issue.status === 'uploaded' ? 'bg-blue-500/10 text-blue-400' :
-          issue.status === 'scheduled' ? 'bg-yellow-500/10 text-yellow-400' :
-          'bg-green-500/10 text-green-400'
-        }`}>
-          {issue.status === 'draft' ? 'Черновик' :
-           issue.status === 'uploaded' ? 'Загружено' :
-           issue.status === 'scheduled' ? 'Запланировано' : 'Отправлено'}
-        </span>
+        <span className={pillClass(issue.status)}>{statusLabel(issue.status)}</span>
         {sourceArticle && (
           <Link
             href={`/articles/${sourceArticle.id}`}
