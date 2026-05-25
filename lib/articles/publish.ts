@@ -222,22 +222,33 @@ export async function publishArticleFiles(
       await sftp.mkdir(articlesDir, true)
     }
 
-    // New-shape: single JSON per article. /article.php + .htaccess rewrite
-    // turn this into a real page. No per-article HTML is uploaded anymore —
-    // editing the shell in article.php applies to everyone without republish.
+    // Assemble every file we want to write in this publish into a flat
+    // list (final remote path → content). We then upload them all into
+    // a temporary staging directory and rename them into place at the
+    // end — this is the closest SFTP gets to a transaction.
+    //
+    // Why bother: previously a network blip after `articles/{slug}.json`
+    // but before `assets/article.css` left the live site with new content
+    // and outdated styles. Now if any single file fails to land in
+    // staging, NONE of the production files are touched.
+    const indexEntries = await buildIndexFromDb()
+    const indexPath = remotePath(cfg, 'articles', 'index.json')
     const jsonPath = remoteArticleJsonPath(cfg, article.blog_slug!)
-    await writeRemoteString(sftp, jsonPath, JSON.stringify(payload, null, 2))
+    const targets: Array<{ remote: string; content: string }> = [
+      { remote: jsonPath, content: JSON.stringify(payload, null, 2) },
+      { remote: indexPath, content: JSON.stringify(indexEntries, null, 2) },
+      ...collectSiteAssetTargets(cfg),
+    ]
+    await stagedWriteAndPromote(sftp, cfg, targets)
 
-    // Clean up old artifacts for the current slug: any pre-migration .html
-    // would otherwise short-circuit the rewrite (Apache matches filesystem
-    // file before the JSON-based rule because .html is served directly).
-    // Delete it so the canonical path goes through PHP.
+    // Cleanup: legacy .html for the current slug, and renamed-slug
+    // artifacts. These are deletes, not writes — they can't go through
+    // staging the same way. Run them after the writes succeed so the
+    // production page has the new content before the old one disappears.
     const htmlPath = remoteArticlePath(cfg, article.blog_slug!)
     if (await sftp.exists(htmlPath)) {
       try { await sftp.delete(htmlPath) } catch { /* ignore */ }
     }
-
-    // If the slug was renamed, also remove both artifacts under the old slug.
     if (prev && prev !== article.blog_slug) {
       for (const remove of [remoteArticlePath(cfg, prev), remoteArticleJsonPath(cfg, prev)]) {
         try {
@@ -245,23 +256,6 @@ export async function publishArticleFiles(
         } catch { /* previous slug invalid — skip cleanup */ }
       }
     }
-
-    // Rebuild the public index.json from the database on every publish
-    // instead of patching whatever is currently on reg.ru. The DB is the
-    // source of truth; the remote file is just a cached projection. This
-    // means:
-    //   - chronological order is always correct (sorted by published_at desc)
-    //   - renaming a slug, retracting a status, or deleting a row reflects
-    //     immediately
-    //   - the local "unshift then sort" dance can't drift
-    const indexPath = remotePath(cfg, 'articles', 'index.json')
-    const indexEntries = await buildIndexFromDb()
-    await writeRemoteString(sftp, indexPath, JSON.stringify(indexEntries, null, 2))
-
-    // Bootstrap the shell files: .htaccess rewrite rules + article.php
-    // renderer. Overwriting them on every publish keeps the hosting in sync
-    // with the repo so you don't need a separate "deploy letters-site" flow.
-    await syncSiteAssets(sftp, cfg)
   })
 
   log.info({
@@ -272,56 +266,108 @@ export async function publishArticleFiles(
   return { url: `https://letters.tsaryuk.ru/articles/${article.blog_slug}` }
 }
 
-// Upload site-wide static files (.htaccess, article.php) that aren't tied to
-// a single article. Failures are swallowed — the article upload itself
-// already succeeded and we don't want a shell-sync hiccup to fail the
-// publish.
-async function syncSiteAssets(sftp: Client, cfg: SftpConfig): Promise<void> {
-  // Keep these remote paths aligned with repo paths so the hosting is a
-  // mirror of services/letters-site/ after any publish. When you edit the
-  // CSS or the shell PHP, the next publish syncs the change.
-  const assets: Array<{ local: string; remote: string }> = [
-    {
-      local: join(process.cwd(), 'services/letters-site/.htaccess'),
-      remote: remotePath(cfg, '.htaccess'),
-    },
-    {
-      local: join(process.cwd(), 'services/letters-site/article.php'),
-      remote: remotePath(cfg, 'article.php'),
-    },
-    {
-      local: join(process.cwd(), 'services/letters-site/assets/article.css'),
-      remote: remotePath(cfg, 'assets', 'article.css'),
-    },
-    {
-      local: join(process.cwd(), 'services/letters-site/assets/article.js'),
-      remote: remotePath(cfg, 'assets', 'article.js'),
-    },
-    // Landing + archive pages — also synced so edits to the blog nav
-    // (e.g. adding a new rubric tab) don't silently stay local.
-    {
-      local: join(process.cwd(), 'services/letters-site/index.html'),
-      remote: remotePath(cfg, 'index.html'),
-    },
-    {
-      local: join(process.cwd(), 'services/letters-site/archive.html'),
-      remote: remotePath(cfg, 'archive.html'),
-    },
-  ]
-  for (const { local, remote } of assets) {
-    try {
-      if (!existsSync(local)) continue
-      const content = readFileSync(local, 'utf-8')
-      await writeRemoteString(sftp, remote, content)
-    } catch (err) {
-      // Shell-sync is best-effort: the per-article JSON already uploaded.
-      // We log loudly though — silent swallow here is what hid the burger-
-      // menu / CSS regressions in the past.
-      const msg = err instanceof Error ? err.message : String(err)
-      log.error({ local, remote, err: msg }, 'site asset sync failed')
+/**
+ * Upload all targets to a temporary staging directory, then atomically
+ * rename each into its final remote path. If any upload fails, the
+ * production paths are untouched and the staging directory is left for
+ * cleanup (cron should sweep `.publish-staging-*` older than 24h).
+ *
+ * Per-file renames are atomic on POSIX file systems (reg.ru's hosting
+ * is Linux). The window between the first and last rename is on the
+ * order of seconds, not minutes-to-never as before. Cross-file
+ * consistency is now "at most one publish stale" rather than "split-
+ * brain forever".
+ */
+async function stagedWriteAndPromote(
+  sftp: Client,
+  cfg: SftpConfig,
+  targets: Array<{ remote: string; content: string }>,
+): Promise<void> {
+  const stagingId = `.publish-staging-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const stagingRoot = remotePath(cfg, stagingId)
+
+  // Map each target to its staging path. Keep them under stagingRoot so
+  // we can sweep the whole directory in cleanup.
+  const items = targets.map((t) => {
+    const rel = t.remote.startsWith(cfg.remoteDir + '/')
+      ? t.remote.slice(cfg.remoteDir.length + 1)
+      : t.remote
+    return {
+      stage: posix.join(stagingRoot, rel),
+      final: t.remote,
+      content: t.content,
     }
+  })
+
+  try {
+    // 1. mkdir -p for every staging path's directory.
+    const dirs = new Set(items.map((i) => posix.dirname(i.stage)))
+    for (const d of dirs) {
+      if (!(await sftp.exists(d))) {
+        await withRetry(`mkdir ${d}`, () => sftp.mkdir(d, true))
+      }
+    }
+
+    // 2. Upload everything into staging. If any of these throw, we
+    // abort BEFORE touching production paths.
+    for (const it of items) {
+      await writeRemoteString(sftp, it.stage, it.content)
+    }
+
+    // 3. Promote each staged file to its final destination via rename.
+    // rename() over an existing file overwrites atomically on Linux,
+    // but some SFTP servers (including older ProFTPD) refuse — fall
+    // back to delete+rename if the direct rename errors out.
+    for (const it of items) {
+      const finalDir = posix.dirname(it.final)
+      if (!(await sftp.exists(finalDir))) {
+        await withRetry(`mkdir ${finalDir}`, () => sftp.mkdir(finalDir, true))
+      }
+      try {
+        await withRetry(`rename ${it.stage} → ${it.final}`, () => sftp.rename(it.stage, it.final))
+      } catch (err) {
+        // Server doesn't allow rename-over-existing. Drop the live file
+        // first, then rename. Window of "file missing" is on the order
+        // of ms — much smaller than the previous "file inconsistent".
+        const msg = err instanceof Error ? err.message : String(err)
+        log.warn({ stage: it.stage, final: it.final, err: msg }, 'rename failed, falling back to delete+rename')
+        try { if (await sftp.exists(it.final)) await sftp.delete(it.final) } catch { /* ignore */ }
+        await withRetry(`rename-after-delete ${it.stage} → ${it.final}`, () => sftp.rename(it.stage, it.final))
+      }
+    }
+  } finally {
+    // Best-effort cleanup of the staging directory. If we got here via
+    // an upload failure, this also tidies up partial uploads. If rename
+    // failed midway, leftover staged files stay until next cleanup —
+    // they don't break anything.
+    try { await sftp.rmdir(stagingRoot, true) } catch { /* ignore */ }
   }
 }
+
+/** Build the (local → remote) list for shell files. */
+function collectSiteAssetTargets(cfg: SftpConfig): Array<{ remote: string; content: string }> {
+  const sources: Array<{ local: string; remote: string }> = [
+    { local: join(process.cwd(), 'services/letters-site/.htaccess'),
+      remote: remotePath(cfg, '.htaccess') },
+    { local: join(process.cwd(), 'services/letters-site/article.php'),
+      remote: remotePath(cfg, 'article.php') },
+    { local: join(process.cwd(), 'services/letters-site/assets/article.css'),
+      remote: remotePath(cfg, 'assets', 'article.css') },
+    { local: join(process.cwd(), 'services/letters-site/assets/article.js'),
+      remote: remotePath(cfg, 'assets', 'article.js') },
+    { local: join(process.cwd(), 'services/letters-site/index.html'),
+      remote: remotePath(cfg, 'index.html') },
+    { local: join(process.cwd(), 'services/letters-site/archive.html'),
+      remote: remotePath(cfg, 'archive.html') },
+  ]
+  const out: Array<{ remote: string; content: string }> = []
+  for (const s of sources) {
+    if (!existsSync(s.local)) continue
+    out.push({ remote: s.remote, content: readFileSync(s.local, 'utf-8') })
+  }
+  return out
+}
+
 
 export async function unpublishArticleFiles(slug: string): Promise<void> {
   assertSafeSlug(slug)
