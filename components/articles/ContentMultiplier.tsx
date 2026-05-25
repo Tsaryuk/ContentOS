@@ -11,9 +11,10 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Mail, MessageSquare, Video, Image as ImageIcon, Send, Scissors,
-  Headphones, Loader2, Check, Circle, CheckCircle2,
+  Headphones, Check, Circle, CheckCircle2,
 } from 'lucide-react'
 
 type Kind = 'email' | 'threads' | 'video_script' | 'carousel' | 'tg_post' | 'clip' | 'podcast'
@@ -70,11 +71,18 @@ export function ContentMultiplier({ articleId }: Props) {
   }, [articleId])
 
   if (loading || !items) {
+    // Skeleton mirrors the real layout (2-column grid of 7 cards) so the
+    // page doesn't reflow when the data lands.
     return (
       <Card className="p-4">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-medium text-foreground">Контент из статьи</span>
-          <Loader2 className="w-3 h-3 animate-spin text-muted-foreground/60" />
+          <Skeleton className="h-3 w-8" />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Skeleton key={i} className="h-7" />
+          ))}
         </div>
       </Card>
     )

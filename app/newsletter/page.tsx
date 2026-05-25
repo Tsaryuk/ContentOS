@@ -9,6 +9,7 @@ import {
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { toast, toastConfirm } from '@/lib/toast'
+import { pillClass, statusLabel } from '@/lib/status-colors'
 
 interface Campaign {
   total_sent: number
@@ -33,16 +34,9 @@ interface Issue {
   campaign: Campaign[]
 }
 
-const STATUS_META: Record<string, { label: string; className: string }> = {
-  draft:     { label: 'Черновик',        className: 'bg-muted/60 text-muted-foreground' },
-  uploaded:  { label: 'Загружено',        className: 'bg-sky-500/10 text-sky-600 dark:text-sky-300' },
-  scheduled: { label: 'Запланировано',    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-300' },
-  sent:      { label: 'Отправлено',       className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300' },
-}
-
-function statusMeta(status: string) {
-  return STATUS_META[status] ?? STATUS_META.draft
-}
+// Status colours and labels live in lib/status-colors.ts — single source
+// of truth across the app. Keep imports consistent so a 'draft' badge
+// here looks identical to the one in the newsletter editor header.
 
 export default function NewsletterPage() {
   const router = useRouter()
@@ -243,7 +237,6 @@ export default function NewsletterPage() {
             const campaign = issue.campaign?.[0]
             const prevIssue = issues[idx + 1]
             const prevCampaign = prevIssue?.campaign?.[0]
-            const meta = statusMeta(issue.status)
 
             return (
               <Card
@@ -263,8 +256,8 @@ export default function NewsletterPage() {
                     <span className="text-sm font-medium text-foreground truncate">
                       {issue.subject || 'Без темы'}
                     </span>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${meta.className}`}>
-                      {meta.label}
+                    <span className={`${pillClass(issue.status)} shrink-0`}>
+                      {statusLabel(issue.status)}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
