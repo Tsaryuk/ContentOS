@@ -11,6 +11,7 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, ThumbsUp, ThumbsDown, Loader2, MessageSquare } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface LogItem {
   id: string
@@ -115,16 +116,16 @@ export default function ReplyCoachPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <Card className="p-12 flex flex-col items-center text-center">
-          <MessageSquare className="w-8 h-8 text-muted-foreground mb-3" />
-          <p className="text-foreground font-medium mb-1">Нечего показывать</p>
-          <p className="text-xs text-muted-foreground">
-            {filter === 'edited' && 'Ты пока ничего не правил руками — все ответы ушли как AI их написал.'}
-            {filter === 'unrated' && 'Все ответы уже оценены.'}
-            {filter === 'auto' && 'Auto-reply не отправлял ответов в последние 30 дней.'}
-            {filter === 'all' && 'История пустая за последние 30 дней.'}
-          </p>
-        </Card>
+        <EmptyState
+          icon={<MessageSquare />}
+          title="Нечего показывать"
+          description={
+            filter === 'edited' ? 'Ты пока ничего не правил руками — все ответы ушли как AI их написал.'
+              : filter === 'unrated' ? 'Все ответы уже оценены.'
+              : filter === 'auto' ? 'Auto-reply не отправлял ответов в последние 30 дней.'
+              : 'История пустая за последние 30 дней.'
+          }
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((it) => (

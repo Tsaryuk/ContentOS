@@ -104,10 +104,52 @@
   --info: #60a5fa;
 }
 
+/* ── Typography ──
+ * Manrope is the workhorse — modern grotesque, narrow apertures, reads
+ * dense at small sizes. Numbers use tabular-nums so list rows with
+ * counts/percentages line up without jitter. Headings inherit the same
+ * family by default; long-form prose contexts (e.g. .display-serif on
+ * article previews) can opt into Fraunces — also already pre-loaded in
+ * the root layout. */
+html {
+  font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numbers in cards / metrics / status pills look stable when the cell
+ * width doesn't shift between '111' and '999'. */
+.tabular-nums, [class*='tabular-nums'], code, kbd, samp, time, .font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Display serif for long-form contexts: article preview cards on the
+ * dashboard, the welcome hero, anything that wants to read more "edited
+ * magazine" than "admin tool". Opt-in — UI by default stays sans. */
+.display-serif {
+  font-family: 'Fraunces', 'Lora', Georgia, 'Times New Roman', serif;
+  font-feature-settings: 'liga', 'kern';
+  letter-spacing: -0.012em;
+}
+
+/* Headings tighten a touch on tracking — keeps them feeling editorial
+ * without looking cramped on small viewports. */
+h1, h2, h3, h4 {
+  letter-spacing: -0.011em;
+}
+
+/* Focus visible: subtle but unmistakable ring. Skips on mouse-only so
+ * pointer users don't see permanent outlines. */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 
 * {
@@ -118,3 +160,30 @@ body {
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.4); }
+
+/* Shimmer animation for Skeleton — costs more design love than a
+ * straight opacity pulse but reads as "actively loading" instead of
+ * "broken placeholder". 1.6s cycle, gentle highlight band. */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+.dark .shimmer {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 100%
+  );
+}

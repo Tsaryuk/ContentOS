@@ -12,10 +12,13 @@ interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function Skeleton({ className, ...props }: SkeletonProps) {
+  // Base block has a flat tinted background; the inner `.shimmer` layer
+  // adds a moving highlight (see globals.css). Costs no extra DOM nodes
+  // because the gradient lives in a CSS animation rule.
   return (
     <div
       className={cn(
-        'animate-pulse rounded bg-muted/30',
+        'shimmer rounded bg-muted/25',
         className,
       )}
       aria-busy="true"

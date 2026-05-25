@@ -175,7 +175,7 @@ export default function NewsletterPage() {
             <span className="w-1 h-1 rounded-full bg-border" />
             <span className="normal-case tracking-normal">Email-рассылка</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight">Рассылка</h1>
+          <h1 className="display-serif text-3xl md:text-4xl font-normal text-foreground tracking-tight">Рассылка</h1>
           <p className="text-sm text-muted-foreground mt-2">
             {loading
               ? 'Загружаем…'
