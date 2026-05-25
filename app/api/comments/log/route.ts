@@ -5,6 +5,8 @@ import { requireAuth } from '@/lib/auth'
 interface LogRow {
   id: string
   reply_text: string
+  ai_draft: string | null
+  feedback: 'good' | 'bad' | 'neutral' | null
   mode: 'auto' | 'manual'
   status: 'sent' | 'failed' | 'skipped'
   yt_reply_id: string | null
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data, error } = await supabaseAdmin
     .from('comment_reply_log')
     .select(
-      'id, reply_text, mode, status, yt_reply_id, error, created_at, comment_id, yt_comments!inner(id, yt_comment_id, text, author_name, yt_videos(id, yt_video_id, current_title))',
+      'id, reply_text, ai_draft, feedback, mode, status, yt_reply_id, error, created_at, comment_id, yt_comments!inner(id, yt_comment_id, text, author_name, yt_videos(id, yt_video_id, current_title))',
     )
     .eq('channel_id', channelId)
     .gte('created_at', since)
@@ -52,6 +54,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const items = rows.map((row) => ({
     id: row.id,
     reply_text: row.reply_text,
+    ai_draft: row.ai_draft,
+    feedback: row.feedback,
     mode: row.mode,
     status: row.status,
     yt_reply_id: row.yt_reply_id,
