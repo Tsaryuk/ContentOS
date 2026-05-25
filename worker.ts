@@ -14,6 +14,8 @@ import { decryptSecret } from './lib/crypto-secrets'
 import { initWorkerSentry, captureWorkerError } from './lib/worker-sentry'
 import { logger } from './lib/logger'
 import { trackUsage, type Task } from './lib/cost'
+import { registerCronSchedules } from './lib/worker/cron-schedules'
+import { createStaleCleanup } from './lib/worker/stale-cleanup'
 import { enqueueProcessJob } from './lib/process/enqueue'
 
 // Initialize Sentry once at process start — safe no-op if SENTRY_DSN is unset.
@@ -1701,55 +1703,10 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   },
 }
 
-// --- Stale job cleanup ---
-// Only "actively running" statuses get a timeout. `generating` is a waiting
-// state after transcribe completes (user must click "Generate"/"Produce") —
-// it must NOT be killed by cleanup, otherwise videos with finished transcripts
-// silently rot to error after 15 min if the user steps away.
-// Transcribing can take 15+ min for long podcasts (Whisper chunks), so use 30 min timeout.
-const STALE_TIMEOUT: Record<string, number> = {
-  transcribing: 30 * 60 * 1000,
-  producing: 15 * 60 * 1000,
-  publishing: 10 * 60 * 1000,
-}
-
-async function cleanupStaleJobs() {
-  for (const [status, timeout] of Object.entries(STALE_TIMEOUT)) {
-    const cutoff = new Date(Date.now() - timeout).toISOString()
-    const { data: stale } = await supabase
-      .from('yt_videos')
-      .select('id, status, current_title')
-      .eq('status', status)
-      .lt('updated_at', cutoff)
-
-    if (stale?.length) {
-      for (const v of stale) {
-        const mins = Math.round(timeout / 60000)
-        console.log(`[cleanup] Resetting stale ${v.status} (>${mins}min): ${v.current_title?.slice(0, 50)}`)
-        await updateStatus(v.id, 'error', `Таймаут: зависло на "${v.status}" более ${mins} минут`)
-      }
-    }
-  }
-
-  // Clear stuck thumbnail_generating flags (>5 min old)
-  const thumbCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-  const { data: thumbStale } = await supabase
-    .from('yt_videos')
-    .select('id, producer_output, current_title')
-    .not('producer_output->thumbnail_generating', 'is', null)
-    .lt('updated_at', thumbCutoff)
-
-  if (thumbStale?.length) {
-    for (const v of thumbStale) {
-      const po = { ...(v.producer_output ?? {}), thumbnail_generating: null }
-      await supabase.from('yt_videos').update({
-        producer_output: po,
-        updated_at: new Date().toISOString(),
-      }).eq('id', v.id)
-      console.log(`[cleanup] Cleared stuck thumbnail_generating: ${v.current_title?.slice(0, 50)}`)
-    }
-  }
-}
+// Recovery sweep — see lib/worker/stale-cleanup.ts for the policy. The
+// factory shape lets us hand over the worker-local supabase client and
+// updateStatus closure without leaking module-globals out of this file.
+const cleanupStaleJobs = createStaleCleanup({ supabase, updateStatus })
 
 const worker = new Worker(
   'contentos',
@@ -1814,103 +1771,12 @@ worker.on('completed', (job) => {
 cleanupStaleJobs()
 setInterval(cleanupStaleJobs, 5 * 60 * 1000)
 
-// Newsletter stats cron — every 6 hours
+// Cron-like jobs (newsletter stats / metrics snapshots / YouTube syncs /
+// auto-reply tick / embeddings backfill). Spec is centralised in
+// lib/worker/cron-schedules.ts so the worker.ts entry-point doesn't
+// need to know individual intervals or jobIds. Adding a new repeating
+// job: edit the SCHEDULES array, that's it.
 const nlQueue = new Queue('contentos', { connection: redis })
-async function scheduleNewsletterStats() {
-  try {
-    await nlQueue.add('newsletter_stats', {}, {
-      repeat: { every: 6 * 60 * 60 * 1000 },
-      jobId: 'newsletter_stats_cron',
-    })
-    console.log('[worker] Newsletter stats cron scheduled (every 6h)')
-  } catch {}
-}
-scheduleNewsletterStats()
-
-// Daily metric snapshot — captures yt_channels + Unisender subscribers once
-// per day. UNIQUE(captured_at, source, entity_id) makes re-runs harmless.
-async function scheduleMetricsSnapshot() {
-  try {
-    await nlQueue.add('metrics_snapshot', {}, {
-      repeat: { every: 24 * 60 * 60 * 1000 },
-      jobId: 'metrics_snapshot_cron',
-    })
-    console.log('[worker] Metrics snapshot cron scheduled (every 24h)')
-  } catch {}
-}
-scheduleMetricsSnapshot()
-
-// Daily YouTube channel stats refresh — fetches fresh subscriber/view/video
-// counts via YouTube Data API per channel, then re-snapshots metric_snapshots
-// so the Dashboard shows real growth instead of stale values.
-// Runs 1 hour after metrics_snapshot so the new numbers land in today's row.
-async function scheduleChannelsRefresh() {
-  try {
-    await nlQueue.add('channels_refresh', {}, {
-      repeat: { every: 24 * 60 * 60 * 1000 },
-      jobId: 'channels_refresh_cron',
-    })
-    console.log('[worker] YouTube channels refresh cron scheduled (every 24h)')
-  } catch {}
-}
-scheduleChannelsRefresh()
-
-// Daily YouTube videos sync — pulls each channel's uploads playlist, upserts
-// new/updated videos, and drops rows whose yt_video_id no longer exists on
-// YouTube. Catches deletes/renames without waiting for a manual sync click.
-async function scheduleVideosSyncAll() {
-  try {
-    await nlQueue.add('videos_sync_all', {}, {
-      repeat: { every: 24 * 60 * 60 * 1000 },
-      jobId: 'videos_sync_all_cron',
-    })
-    console.log('[worker] YouTube videos sync-all cron scheduled (every 24h)')
-  } catch {}
-}
-scheduleVideosSyncAll()
-
-// Daily comments sync — pulls comments for each video published in the last
-// 30 days across every channel with a working OAuth token. Older videos are
-// excluded to keep the daily YouTube quota in budget; manual per-video sync
-// via POST /api/comments/sync still works for anything outside that window.
-async function scheduleCommentsSyncRecent() {
-  try {
-    await nlQueue.add('comments_sync_recent', {}, {
-      repeat: { every: 24 * 60 * 60 * 1000 },
-      jobId: 'comments_sync_recent_cron',
-    })
-    console.log('[worker] YouTube comments sync-recent cron scheduled (every 24h)')
-  } catch {}
-}
-scheduleCommentsSyncRecent()
-
-// Auto-reply tick — every 30 minutes for channels with rules.comments.auto_reply=true.
-// Honours the COMMENTS_AUTO_REPLY_GLOBAL_DISABLE env kill switch and per-channel
-// daily_limit. Sends within the tick are jittered 5–20 min apart by the runner
-// itself to look human; the cron interval just decides "how often we look".
-async function scheduleCommentAutoReply() {
-  try {
-    await nlQueue.add('comment_auto_reply', {}, {
-      repeat: { every: 30 * 60 * 1000 },
-      jobId: 'comment_auto_reply_cron',
-    })
-    console.log('[worker] Comment auto-reply cron scheduled (every 30m)')
-  } catch {}
-}
-scheduleCommentAutoReply()
-
-// Daily backfill of transcript embeddings. Catches videos that pre-date the
-// pgvector rollout or whose embed job failed transiently; processes a small
-// batch each day so we don't blow the OpenAI token budget at once.
-async function scheduleTranscriptEmbeddingsBackfill() {
-  try {
-    await nlQueue.add('transcript_embeddings_backfill', {}, {
-      repeat: { every: 24 * 60 * 60 * 1000 },
-      jobId: 'transcript_embeddings_backfill_cron',
-    })
-    console.log('[worker] Transcript embeddings backfill cron scheduled (every 24h)')
-  } catch {}
-}
-scheduleTranscriptEmbeddingsBackfill()
+void registerCronSchedules(nlQueue)
 
 console.log('[worker] ContentOS worker started (concurrency=4). Waiting for jobs...')
