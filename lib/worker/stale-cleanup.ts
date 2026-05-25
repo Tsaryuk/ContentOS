@@ -1,12 +1,17 @@
-// Background sweep that recovers videos stuck in "actively running" states
-// (transcribing / producing / publishing). If a worker process dies mid-job,
-// the row would otherwise stay in that state until manual intervention —
-// this resets it to 'error' with a clear timeout message, freeing the
-// status machine for the next attempt.
+// Background sweep that recovers videos stuck in "actively running" states.
+// If a worker process dies mid-job (or BullMQ silently drops a continuation
+// via a duplicate-jobId collision), the row would otherwise stay in that
+// state until manual intervention — this resets it to 'error' with a clear
+// timeout message, freeing the status machine for the next attempt.
 //
-// `generating` is intentionally NOT in the list: it's a *waiting* state
-// (transcript done, user must click Generate). Killing it would silently
-// rot videos with finished transcripts if the user steps away for 15+ min.
+// `generating` is in the list with a longer window: handleTranscribe ends
+// by setting status='generating' as a "ready, waiting for the user click
+// or for the scheduled produce retry" marker. In normal operation the
+// retry produce job lands within ~2 minutes; if 90 minutes have passed
+// the user either forgot OR the scheduled job was dropped (an exact
+// scenario we hit before fix #100 in enqueue.ts). Either way, kicking
+// it back to a re-runnable state is better than letting it rot silently.
+// User can manually rerun produce from the UI as before.
 //
 // Built as a factory so it can be unit-tested with a stub supabase client
 // and so worker.ts's bespoke supabase init (env vars at boot time, not
@@ -17,6 +22,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 const STALE_TIMEOUT: Record<string, number> = {
   // Whisper chunks: long podcasts take 15+ min, so allow 30.
   transcribing: 30 * 60 * 1000,
+  // Producer runs Claude on the full transcript; under retry+rate-limit
+  // can hit ~12 min. 30 covers the worst case with margin.
+  generating: 30 * 60 * 1000,
   producing: 15 * 60 * 1000,
   publishing: 10 * 60 * 1000,
 }

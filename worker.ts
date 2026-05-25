@@ -1012,13 +1012,18 @@ async function handleProduce(videoId: string) {
 
   try {
     // Step 1: If no transcript, queue transcribe + delayed re-produce.
-    // Uses enqueueProcessJob so multiple user clicks don't fan out into
-    // parallel transcribe+produce jobs that race on updateStatus.
+    //
+    // Important: the delayed `produce` here is THIS handler's
+    // continuation. Its deterministic jobId would clash with the
+    // currently-active produce job and silently get dropped — that's
+    // the "video stuck in generating forever" bug we hit (see comment
+    // on EnqueueOptions.force in lib/process/enqueue.ts). `force: true`
+    // gives it a unique retry suffix.
     if (!video.transcript) {
       console.log('[produce] No transcript, queueing transcribe first...')
       await updateProgress(videoId, 'Транскрипт не найден, запускаем расшифровку...')
       await enqueueProcessJob('transcribe', videoId, { videoId }, { attempts: 1 })
-      await enqueueProcessJob('produce', videoId, { videoId }, { attempts: 1, delay: 120000 })
+      await enqueueProcessJob('produce', videoId, { videoId }, { attempts: 1, delay: 120000, force: true })
       return
     }
 
