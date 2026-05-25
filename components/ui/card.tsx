@@ -2,11 +2,15 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
+  // `transition-shadow duration-200` so click-targets that override
+  // hover styles (e.g. `hover:shadow-card-hover` on the list cards in
+  // /articles and /newsletter) animate smoothly instead of snapping.
+  // Non-clickable cards inherit this for free.
   return (
     <div
       data-slot="card"
       className={cn(
-        "bg-card text-card-foreground rounded-2xl border border-border shadow-card",
+        "bg-card text-card-foreground rounded-2xl border border-border shadow-card transition-shadow duration-200",
         className
       )}
       {...props}

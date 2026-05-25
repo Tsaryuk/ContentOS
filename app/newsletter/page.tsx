@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { toast, toastConfirm } from '@/lib/toast'
 import { pillClass, statusLabel } from '@/lib/status-colors'
+import { PageHeader } from '@/components/ui/page-header'
 
 interface Campaign {
   total_sent: number
@@ -168,40 +169,34 @@ export default function NewsletterPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto">
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
-            <span>ContentOS</span>
-            <span className="w-1 h-1 rounded-full bg-border" />
-            <span className="normal-case tracking-normal">Email-рассылка</span>
-          </div>
-          <h1 className="display-serif text-3xl md:text-4xl font-normal text-foreground tracking-tight">Рассылка</h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            {loading
-              ? 'Загружаем…'
-              : `${issues.length} ${issues.length === 1 ? 'выпуск' : issues.length < 5 ? 'выпуска' : 'выпусков'} · Unisender`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleImport} disabled={importing} title="Импорт кампаний из Unisender">
-            {importing ? <Loader2 className="animate-spin" /> : <Download />}
-            Импорт
-          </Button>
-          {issues.length > 0 && (
-            <Button variant="ghost" onClick={handleDeleteAll} className="text-destructive hover:bg-destructive/10">
-              <Trash2 />
-              Удалить все
+      <PageHeader
+        eyebrow={['ContentOS', 'Email-рассылка']}
+        title="Рассылка"
+        description={loading
+          ? 'Загружаем…'
+          : `${issues.length} ${issues.length === 1 ? 'выпуск' : issues.length < 5 ? 'выпуска' : 'выпусков'} · Unisender`}
+        actions={
+          <>
+            <Button variant="outline" onClick={handleImport} disabled={importing} title="Импорт кампаний из Unisender">
+              {importing ? <Loader2 className="animate-spin" /> : <Download />}
+              Импорт
             </Button>
-          )}
-          <Button variant="outline" size="icon" onClick={() => { fetchIssues(); fetchStats() }} title="Обновить">
-            <RefreshCw />
-          </Button>
-          <Button variant="brand" onClick={handleCreate}>
-            <Plus />
-            Новый выпуск
-          </Button>
-        </div>
-      </header>
+            {issues.length > 0 && (
+              <Button variant="ghost" onClick={handleDeleteAll} className="text-destructive hover:bg-destructive/10">
+                <Trash2 />
+                Удалить все
+              </Button>
+            )}
+            <Button variant="outline" size="icon" onClick={() => { fetchIssues(); fetchStats() }} title="Обновить">
+              <RefreshCw />
+            </Button>
+            <Button variant="brand" onClick={handleCreate}>
+              <Plus />
+              Новый выпуск
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {stats.map((s, i) => (

@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 import { toastConfirm } from '@/lib/toast'
 
 interface Article {
@@ -53,28 +54,22 @@ export default function ArticlesPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto">
-      <header className="mb-8 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
-            <span>ContentOS</span>
-            <span className="w-1 h-1 rounded-full bg-border" />
-            <span className="normal-case tracking-normal">Блог</span>
-          </div>
-          <h1 className="display-serif text-3xl md:text-4xl font-normal text-foreground tracking-tight">Статьи</h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            {loading ? 'Загружаем…' : `${articles.length} ${articles.length === 1 ? 'статья' : articles.length < 5 ? 'статьи' : 'статей'} · публикуются на letters.tsaryuk.ru`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={fetchArticles} title="Обновить">
-            <RefreshCw />
-          </Button>
-          <Button variant="brand" onClick={handleCreate}>
-            <Plus />
-            Новая статья
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow={['ContentOS', 'Блог']}
+        title="Статьи"
+        description={loading ? 'Загружаем…' : `${articles.length} ${articles.length === 1 ? 'статья' : articles.length < 5 ? 'статьи' : 'статей'} · публикуются на letters.tsaryuk.ru`}
+        actions={
+          <>
+            <Button variant="outline" size="icon" onClick={fetchArticles} title="Обновить">
+              <RefreshCw />
+            </Button>
+            <Button variant="brand" onClick={handleCreate}>
+              <Plus />
+              Новая статья
+            </Button>
+          </>
+        }
+      />
 
       {loading ? (
         // Mirror the real card shape (cover + two text rows) so the

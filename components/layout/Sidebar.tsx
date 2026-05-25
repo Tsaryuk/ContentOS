@@ -67,18 +67,30 @@ function NavItem({
   label: string
   active: boolean
 }) {
+  // Visual contract:
+  //  - rest: muted foreground, no background
+  //  - hover: full foreground + subtle surface tint, icon brightens
+  //  - active: brand-accent rail on the left edge, slightly stronger
+  //    surface, icon turns accent. The 200ms transition makes the
+  //    sidebar feel responsive rather than snappy-stale.
   return (
     <Link
       href={href}
       data-active={active || undefined}
-      className="group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors
-        text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent
+      className="group relative w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200
+        text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/70
         data-[active]:bg-sidebar-accent data-[active]:text-sidebar-foreground"
     >
       {active && (
-        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-accent" />
+        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-accent shadow-[0_0_8px_var(--accent)]" />
       )}
-      <span className={`shrink-0 ${active ? 'text-accent' : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80'}`}>
+      <span
+        className={`shrink-0 transition-colors duration-200 ${
+          active
+            ? 'text-accent'
+            : 'text-sidebar-foreground/45 group-hover:text-sidebar-foreground/85'
+        }`}
+      >
         {icon}
       </span>
       <span>{label}</span>

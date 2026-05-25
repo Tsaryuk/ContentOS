@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { PageHeader } from '@/components/ui/page-header'
 import { toast, toastConfirm } from '@/lib/toast'
 
 interface Similar {
@@ -146,17 +147,11 @@ export default function IdeaInboxPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-5xl mx-auto">
-      <header className="mb-8">
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2 uppercase tracking-wider">
-          <span>ContentOS</span>
-          <span className="w-1 h-1 rounded-full bg-border" />
-          <span className="normal-case tracking-normal">Идеи</span>
-        </div>
-        <h1 className="display-serif text-3xl md:text-4xl font-normal text-foreground tracking-tight">Идея-инбокс</h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          Кинь сюда сырую мысль — AI предложит 3 заголовка, теги и углы. Потом одним кликом разверни в статью.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={['ContentOS', 'Идеи']}
+        title="Идея-инбокс"
+        description="Кинь сюда сырую мысль — AI предложит 3 заголовка, теги и углы. Потом одним кликом разверни в статью."
+      />
 
       {/* Capture */}
       <Card className="p-4 mb-6">
