@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Sparkles, X, Loader2, ArrowRight, Maximize2, Minimize2, MessageSquare, Mic, MicOff, Send } from 'lucide-react'
 import { useVoiceDictation } from '@/lib/hooks/useVoiceDictation'
 import { useInsertAtCaret } from '@/lib/hooks/useInsertAtCaret'
+import { toast } from '@/lib/toast'
 
 interface WhitePaperProps {
   articleId: string
@@ -143,10 +144,10 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
       })
       if (!res.ok) {
         const t = await res.text().catch(() => '')
-        alert(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
+        toast.error(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
         return
       }
-      if (!res.body) { alert('Пустой ответ сервера'); return }
+      if (!res.body) { toast.error('Пустой ответ сервера'); return }
 
       // Stream chunks as they arrive so Safari's ~60s fetch timeout can't
       // abort the connection while Anthropic is still generating. The server
@@ -169,12 +170,12 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
 
       const errMatch = accumulated.match(/\n\n\[\[STYLE_EDIT_ERROR\]\] ([\s\S]+)$/)
       if (errMatch) {
-        alert('Ошибка: ' + errMatch[1].trim())
+        toast.error('Ошибка: ' + errMatch[1].trim())
         return
       }
 
       const finalText = accumulated.replace(/\u200B/g, '').trim()
-      if (!finalText) { alert('Модель вернула пустой текст'); return }
+      if (!finalText) { toast.error('Модель вернула пустой текст'); return }
       setText(finalText)
       setInstruction('')
       setShowInstruction(false)
@@ -184,12 +185,12 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
         body: JSON.stringify({ draft_text: finalText }),
       }).catch(() => {})
     } catch (e) {
-      alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
     } finally { setStyleRunning(false) }
   }
 
   async function askNextQuestion(history: DiscussMessage[] = messages): Promise<void> {
-    if (!text.trim()) { alert('Сначала напиши хоть немного черновика'); return }
+    if (!text.trim()) { toast.error('Сначала напиши хоть немного черновика'); return }
     setDialogAsking(true)
     try {
       const res = await fetch('/api/articles/discuss', {
@@ -234,7 +235,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
   async function handleIntegrate(): Promise<void> {
     if (integrating || !text.trim()) return
     if (messages.filter(m => m.role === 'user').length === 0) {
-      alert('Сначала ответь хотя бы на один вопрос')
+      toast.error('Сначала ответь хотя бы на один вопрос')
       return
     }
     if (!confirm('Встроить ответы в черновик? Текущий текст будет заменён переработанной версией.')) return
@@ -247,10 +248,10 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
       })
       if (!res.ok) {
         const t = await res.text().catch(() => '')
-        alert(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
+        toast.error(`Ошибка ${res.status}: ${t.slice(0, 300)}`)
         return
       }
-      if (!res.body) { alert('Пустой ответ сервера'); return }
+      if (!res.body) { toast.error('Пустой ответ сервера'); return }
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -267,12 +268,12 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
 
       const errMatch = accumulated.match(/\n\n\[\[DISCUSS_ERROR\]\] ([\s\S]+)$/)
       if (errMatch) {
-        alert('Ошибка: ' + errMatch[1].trim())
+        toast.error('Ошибка: ' + errMatch[1].trim())
         return
       }
 
       const finalText = accumulated.replace(/\u200B/g, '').trim()
-      if (!finalText) { alert('Модель вернула пустой текст'); return }
+      if (!finalText) { toast.error('Модель вернула пустой текст'); return }
       setText(finalText)
       setMessages(prev => [...prev, { role: 'assistant', content: 'Ответы встроены в черновик ↓ — проверь в левой части.' }])
       fetch(`/api/articles/${articleId}/draft`, {
@@ -281,7 +282,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
         body: JSON.stringify({ draft_text: finalText }),
       }).catch(() => {})
     } catch (e) {
-      alert('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error('Ошибка: ' + (e instanceof Error ? e.message : String(e)))
     } finally { setIntegrating(false) }
   }
 
@@ -381,7 +382,7 @@ export function WhitePaper({ articleId, initialText, onDone, onClose, onDraftSav
 
           <button
             onClick={() => {
-              if (!text.trim()) { alert('Черновик пустой'); return }
+              if (!text.trim()) { toast.error('Черновик пустой'); return }
               if (!confirm('Перенести черновик в редактор?\n\nТекущее содержимое редактора будет ЗАМЕНЕНО черновиком.\nЧерновик сохранится — можешь вернуться в чистый лист и продолжить.')) return
               handleSendToEditor()
             }}

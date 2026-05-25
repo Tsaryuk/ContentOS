@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Image, Eye, Smartphone, Monitor, Play, Loader2 } from 'lucide-react'
+import { toast } from '@/lib/toast'
 
 interface ArticlePanelProps {
   articleHtml: string
@@ -50,7 +51,7 @@ export function ArticlePanel({ articleHtml, coverUrl, youtubeUrl, subject, subti
         setCoverOptions(data.urls)
         onUpdate({ cover_url: data.urls[0] })
       } else if (data.error) {
-        alert(data.error)
+        toast.error(data.error)
       }
     } finally {
       setGenerating(false)

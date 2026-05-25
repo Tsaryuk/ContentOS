@@ -12,6 +12,7 @@ import { Megaphone } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ProjectCtaEditor } from '@/components/settings/ProjectCtaEditor'
+import { toast } from '@/lib/toast'
 
 interface Project {
   id: string
@@ -180,7 +181,7 @@ export default function SettingsPage() {
       setPodcasts(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
     } else {
       const data = await res.json().catch(() => ({}))
-      alert('Не удалось обновить шоу: ' + (data.error ?? res.status))
+      toast.error('Не удалось обновить шоу: ' + (data.error ?? res.status))
     }
     setSavingPodcastId(null)
   }
@@ -222,7 +223,7 @@ export default function SettingsPage() {
       setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))
     } else {
       const data = await res.json().catch(() => ({}))
-      alert('Не удалось обновить проект: ' + (data.error ?? res.status))
+      toast.error('Не удалось обновить проект: ' + (data.error ?? res.status))
     }
     setSavingProjectId(null)
   }
@@ -296,7 +297,7 @@ export default function SettingsPage() {
       const res = await fetch(`/api/channels/${channelId}/transcripts/zip`)
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        alert(`Не удалось скачать транскрипты: ${data.error ?? res.status}`)
+        toast.error(`Не удалось скачать транскрипты: ${data.error ?? res.status}`)
         return
       }
       const blob = await res.blob()
@@ -311,7 +312,7 @@ export default function SettingsPage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (err) {
-      alert(`Ошибка: ${err instanceof Error ? err.message : 'unknown'}`)
+      toast.error(err instanceof Error ? err.message : 'unknown')
     } finally {
       setDownloadingChannel(null)
     }
