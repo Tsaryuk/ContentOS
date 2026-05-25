@@ -38,12 +38,15 @@ import { join } from 'path'
 // --- Graceful shutdown & unhandled errors ---
 
 process.on('unhandledRejection', (reason) => {
+  const stack = reason instanceof Error ? reason.stack : undefined
   console.error('[worker] Unhandled rejection:', reason)
+  if (stack) console.error(stack)
   captureWorkerError(reason, { jobName: 'unhandled_rejection' })
 })
 
 process.on('uncaughtException', (err) => {
   console.error('[worker] Uncaught exception:', err.message)
+  if (err.stack) console.error(err.stack)
   captureWorkerError(err, { jobName: 'uncaught_exception' })
   process.exit(1)
 })
@@ -230,7 +233,12 @@ async function logJob(videoId: string, jobType: string, status: string, result?:
   if (error) row.error = error
   if (status === 'running') row.started_at = new Date().toISOString()
   if (status === 'done' || status === 'failed') row.finished_at = new Date().toISOString()
-  await supabase.from('yt_jobs').insert(row)
+  const { error: insertErr } = await supabase.from('yt_jobs').insert(row)
+  if (insertErr) {
+    // Was silently swallowed before — masked a CHECK-constraint mismatch
+    // on job_type for the entire produce pipeline.
+    logger.error({ videoId, jobType, status, err: insertErr.message }, 'logJob insert failed')
+  }
 }
 
 async function logChange(videoId: string, field: string, oldVal: string | null, newVal: string | null) {
@@ -658,14 +666,18 @@ async function cleanup(ytVideoId: string) {
   try { if (existsSync(d)) await rm(d, { recursive: true }) } catch {}
 }
 
-async function handleTranscribe(videoId: string) {
+async function handleTranscribe(videoId: string, data?: { chainProduce?: boolean }) {
   const video = await getVideo(videoId)
   const channel = await getChannel(video.channel_id)
+  const chainProduce = data?.chainProduce === true
 
   // Skip if transcript already exists (re-queued by produce flow)
   if (video.transcript) {
     console.log(`[transcribe] Transcript already exists for ${video.yt_video_id}, skipping`)
     await updateStatus(videoId, 'generating')
+    if (chainProduce) {
+      await enqueueProcessJob('produce', videoId, { videoId }, { attempts: 1 })
+    }
     return
   }
 
@@ -729,6 +741,9 @@ async function handleTranscribe(videoId: string) {
     await updateStatus(videoId, 'generating')
     await logJob(videoId, 'transcribe', 'done', { length: transcript.length, chunks: transcriptChunks.length })
     console.log(`[transcribe] OK: ${video.yt_video_id} (${transcriptChunks.length} segments)`)
+    if (chainProduce) {
+      await enqueueProcessJob('produce', videoId, { videoId }, { attempts: 1 })
+    }
   } catch (err: any) {
     console.error(`[transcribe] FAIL:`, err.message)
     await updateStatus(videoId, 'error', err.message)
@@ -1011,14 +1026,14 @@ async function handleProduce(videoId: string) {
   const stopHeartbeat = startHeartbeat(videoId)
 
   try {
-    // Step 1: If no transcript, queue transcribe + delayed re-produce.
-    // Uses enqueueProcessJob so multiple user clicks don't fan out into
-    // parallel transcribe+produce jobs that race on updateStatus.
+    // Step 1: If no transcript, queue transcribe with chainProduce flag.
+    // handleTranscribe enqueues a fresh produce job on success — no self
+    // re-enqueue here, which would silently no-op (the running produce
+    // job owns the produce--<videoId> jobId and dedup returns 'already_queued').
     if (!video.transcript) {
       console.log('[produce] No transcript, queueing transcribe first...')
       await updateProgress(videoId, 'Транскрипт не найден, запускаем расшифровку...')
-      await enqueueProcessJob('transcribe', videoId, { videoId }, { attempts: 1 })
-      await enqueueProcessJob('produce', videoId, { videoId }, { attempts: 1, delay: 120000 })
+      await enqueueProcessJob('transcribe', videoId, { videoId, chainProduce: true }, { attempts: 1 })
       return
     }
 
