@@ -96,6 +96,8 @@ a:hover{color:var(--text)}
 .archive-body h4{font-family:var(--serif);font-size:16px;font-weight:500;margin-bottom:3px}
 .archive-body span{font-size:12px;color:var(--dim)}
 .archive-empty{text-align:center;padding:24px 0;color:var(--dim);font-size:14px}
+.gated-badge{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:2px 8px;border:1px solid #2d5a3f;color:#2d5a3f;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;vertical-align:middle}
+.gated-badge svg{width:9px;height:9px}
 .all-link{display:block;text-align:center;margin-top:20px;font-size:13px;color:var(--dim)}
 .all-link:hover{color:var(--text)}
 
@@ -298,7 +300,8 @@ function renderArchive(cat){
   filtered.forEach(a=>{
     const el=document.createElement('a');el.href='/articles/'+a.slug;el.className='archive-item';
     const label=articleLabel(a);
-    el.innerHTML=`${a.cover?`<img class="archive-cover" src="${a.cover}" alt="">`:`<div class="archive-cover"></div>`}<div class="archive-body"><h4>${a.title}</h4><span>${a.date}${label?' &middot; '+label:''}</span></div>`;
+    const badge=a.gated?`<span class="gated-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>NomadMind</span>`:'';
+    el.innerHTML=`${a.cover?`<img class="archive-cover" src="${a.cover}" alt="">`:`<div class="archive-cover"></div>`}<div class="archive-body"><h4>${a.title}${badge}</h4><span>${a.date}${label?' &middot; '+label:''}</span></div>`;
     list.appendChild(el);
   });
 }

@@ -53,6 +53,37 @@ $showCover   = !isset($data['show_cover_in_article']) || $data['show_cover_in_ar
 // body_html is sanitized by lib/sanitize.ts on the server before upload;
 // we echo it as-is here.
 $bodyHtml    = isset($data['body_html'])   ? (string)$data['body_html']   : '';
+$gated       = !empty($data['gated']);
+
+// NomadMind paywall: when the author inserts the literal `[NOMADMIND]`
+// marker in the editor, split the body at that point and never emit the
+// second half. Splitting matches either a standalone <p>[NOMADMIND]</p>
+// (the common case — the Lock toolbar button wraps the marker in a paragraph)
+// or the bare marker inline. Anything after the marker stays server-side.
+$paywallCta = '';
+if ($gated) {
+  $parts = preg_split(
+    '/<p[^>]*>\s*\[NOMADMIND\]\s*<\/p>|\[NOMADMIND\]/iu',
+    $bodyHtml,
+    2
+  );
+  $bodyHtml = is_array($parts) ? (string)$parts[0] : $bodyHtml;
+  $paywallCta = '<aside class="paywall">'
+    . '<div class="paywall-fade" aria-hidden="true"></div>'
+    . '<div class="paywall-body">'
+    . '<div class="paywall-lock" aria-hidden="true">'
+    . '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">'
+    . '<rect x="5" y="11" width="14" height="10" rx="2"/>'
+    . '<path d="M8 11V8a4 4 0 018 0v3"/>'
+    . '</svg>'
+    . '</div>'
+    . '<h3 class="paywall-title">Продолжение — в закрытом сообществе NomadMind</h3>'
+    . '<p class="paywall-desc">Полные версии таких писем выходят только для членов сообщества. Присоединяйтесь, чтобы дочитать.</p>'
+    . '<a class="paywall-btn" href="https://nomadmind.ru" target="_blank" rel="noopener">Открыть NomadMind →</a>'
+    . '<p class="paywall-hint">Уже состоите? Просто войдите в чат — следующие письма приходят туда напрямую.</p>'
+    . '</div>'
+    . '</aside>';
+}
 
 function esc(string $s): string {
   return htmlspecialchars($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -110,8 +141,9 @@ $ogImage   = $coverUrl;
     <img class="article-cover" src="<?= esc($coverUrl) ?>" alt="<?= esc($title) ?>">
   <?php endif; ?>
 
-  <div class="article-body">
+  <div class="article-body<?= $gated ? ' is-gated' : '' ?>">
     <?= $bodyHtml ?>
+    <?= $paywallCta ?>
   </div>
 
   <div class="share-bar">

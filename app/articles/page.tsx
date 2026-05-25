@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, FileText, Loader2, RefreshCw, Trash2, Eye } from 'lucide-react'
+import { Plus, FileText, Loader2, RefreshCw, Trash2, Eye, Upload } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { toastConfirm } from '@/lib/toast'
+import { toast, toastConfirm } from '@/lib/toast'
 
 interface Article {
   id: string; title: string; subtitle: string; category: string | null
@@ -20,12 +20,35 @@ export default function ArticlesPage() {
   const router = useRouter()
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
 
   const fetchArticles = useCallback(async () => {
     const res = await fetch('/api/articles')
     const data = await res.json()
     if (data.articles) setArticles(data.articles)
   }, [])
+
+  // Pushes shell files (article.php, CSS, index.html…) to the host without
+  // publishing an article. Use after editing the PHP shell or styles when
+  // you don't want to bump any article's modified date.
+  async function handleSyncAssets() {
+    if (syncing) return
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/articles/sync-assets', { method: 'POST' })
+      const data = await res.json()
+      if (data.error) {
+        toast.error('Ошибка синхронизации: ' + data.error)
+      } else {
+        const n = (data.uploaded ?? []).length
+        toast.success(`Файлы сайта обновлены (${n})`)
+      }
+    } catch {
+      toast.error('Ошибка соединения')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   useEffect(() => { fetchArticles().then(() => setLoading(false)) }, [fetchArticles])
 
@@ -60,6 +83,15 @@ export default function ArticlesPage() {
         description={loading ? 'Загружаем…' : `${articles.length} ${articles.length === 1 ? 'статья' : articles.length < 5 ? 'статьи' : 'статей'} · публикуются на letters.tsaryuk.ru`}
         actions={
           <>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSyncAssets}
+              disabled={syncing}
+              title="Синхронизировать шелл-файлы сайта (article.php, CSS, index.html) на хостинг без публикации статьи"
+            >
+              {syncing ? <Loader2 className="animate-spin" /> : <Upload />}
+            </Button>
             <Button variant="outline" size="icon" onClick={fetchArticles} title="Обновить">
               <RefreshCw />
             </Button>

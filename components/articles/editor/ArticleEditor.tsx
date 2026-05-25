@@ -23,7 +23,7 @@ import { VideoEmbed } from './extensions/VideoEmbed'
 import { Divider } from './extensions/Divider'
 import {
   Bold, Italic, Heading2, Quote, Link2, Minus, Image as ImageIcon, Play, Lightbulb,
-  MessageCircleQuestion, Undo2, Redo2, Sparkles, Upload, Loader2, Code,
+  MessageCircleQuestion, Undo2, Redo2, Sparkles, Upload, Loader2, Code, Lock,
 } from 'lucide-react'
 import { toast } from '@/lib/toast'
 
@@ -267,6 +267,15 @@ export const ArticleEditor = forwardRef<ArticleEditorHandle, ArticleEditorProps>
             className={btnBase}><MessageCircleQuestion className="w-4 h-4" /></button>
           <button title="Разделитель" onClick={() => editor.chain().focus().setHorizontalRule().run()}
             className={btnBase}><Minus className="w-4 h-4" /></button>
+          {/* Paywall marker — everything after `[NOMADMIND]` is hidden on the
+              public site and replaced with a CTA to join NomadMind. The marker
+              is plain text in a paragraph so it survives sanitize-html and
+              ProseMirror's schema; PHP splits on it at render time. */}
+          <button
+            title="Граница NomadMind — всё после этого блока видно только в закрытом сообществе"
+            onClick={() => editor.chain().focus().insertContent('<p>[NOMADMIND]</p>').run()}
+            className={btnBase}
+          ><Lock className="w-4 h-4" /></button>
           <span className="w-px h-5 bg-border mx-1" />
           <button title="Отмена (⌘Z)" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}
             className={btnBase}><Undo2 className="w-4 h-4" /></button>

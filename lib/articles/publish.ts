@@ -71,7 +71,18 @@ interface IndexEntry {
    *  backward compat with older filters that only look at `category`. */
   tags?: string[]
   cover: string | null
+  /** True when the article body contains the [NOMADMIND] paywall marker —
+   *  the second half is hidden server-side at render time and a CTA to the
+   *  closed NomadMind community is shown instead. Used by index.html /
+   *  archive.html to render a lock badge on the card. */
+  gated?: boolean
 }
+
+// Author types this literal in the editor at the cut point (via the Lock
+// toolbar button in ArticleEditor). Survives sanitization as plain text —
+// the sanitizer keeps text nodes untouched. PHP splits on it at render time
+// and never emits the second half to the client.
+const PAYWALL_MARKER_RE = /\[NOMADMIND\]/i
 
 interface SftpConfig {
   host: string
@@ -145,7 +156,11 @@ function formatDateRu(iso: string | null): string {
 async function buildIndexFromDb(): Promise<IndexEntry[]> {
   const { data, error } = await supabaseAdmin
     .from('nl_articles')
-    .select('blog_slug, title, published_at, category, tags, cover_url')
+    // body_html is selected only to detect the [NOMADMIND] marker — it is
+    // NOT echoed into the index payload. Without a dedicated `gated` column
+    // we derive the flag at index-build time so existing posts get reclassified
+    // automatically when the author adds/removes the marker.
+    .select('blog_slug, title, published_at, category, tags, cover_url, body_html')
     .eq('status', 'published')
     .not('blog_slug', 'is', null)
     .order('published_at', { ascending: false, nullsFirst: false })
@@ -158,6 +173,7 @@ async function buildIndexFromDb(): Promise<IndexEntry[]> {
     category: (a.category as string | null) ?? null,
     tags: Array.isArray(a.tags) ? (a.tags as string[]) : [],
     cover: (a.cover_url as string | null) ?? null,
+    gated: PAYWALL_MARKER_RE.test((a.body_html as string | null) ?? ''),
   }))
 }
 
@@ -176,6 +192,9 @@ interface ArticlePayload {
   show_cover_in_article: boolean
   body_html: string
   published_at: string | null
+  /** True when the body contains the [NOMADMIND] paywall marker. PHP uses
+   *  this to render only the preview portion and append the community CTA. */
+  gated: boolean
 }
 
 // Build the per-article JSON that /article.php on the hosting reads and
@@ -183,6 +202,7 @@ interface ArticlePayload {
 // here, before it ever leaves the server — PHP trusts the field.
 function buildArticlePayload(article: Article): ArticlePayload {
   const tags = (article.tags ?? []).filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+  const rawBody = article.body_html ?? ''
   return {
     slug: article.blog_slug!,
     title: article.title,
@@ -193,8 +213,9 @@ function buildArticlePayload(article: Article): ArticlePayload {
     date: formatDateRu(article.published_at),
     cover_url: article.cover_url ?? '',
     show_cover_in_article: article.show_cover_in_article !== false,
-    body_html: sanitizeArticleHtml(article.body_html),
+    body_html: sanitizeArticleHtml(rawBody),
     published_at: article.published_at,
+    gated: PAYWALL_MARKER_RE.test(rawBody),
   }
 }
 
@@ -342,6 +363,30 @@ async function stagedWriteAndPromote(
     // they don't break anything.
     try { await sftp.rmdir(stagingRoot, true) } catch { /* ignore */ }
   }
+}
+
+/**
+ * Push shell files (article.php, article.css, index.html, archive.html…)
+ * from the local letters-site/ to the host WITHOUT publishing an article.
+ * Used by the "Sync site files" button in /articles — handy after editing
+ * the PHP shell or CSS, when republishing an article would otherwise bump
+ * its date for no reason.
+ *
+ * Goes through the same staged-write + atomic-rename pipeline as a real
+ * publish, so a failed sync never leaves the live site half-updated.
+ */
+export async function syncSiteAssetsOnly(): Promise<{ uploaded: string[] }> {
+  let uploaded: string[] = []
+  await withSftp(async (sftp, cfg) => {
+    const targets = collectSiteAssetTargets(cfg)
+    if (!targets.length) return
+    await stagedWriteAndPromote(sftp, cfg, targets)
+    uploaded = targets.map((t) =>
+      t.remote.startsWith(cfg.remoteDir + '/') ? t.remote.slice(cfg.remoteDir.length + 1) : t.remote,
+    )
+  })
+  log.info({ uploaded }, 'site assets synced (standalone)')
+  return { uploaded }
 }
 
 /** Build the (local → remote) list for shell files. */
