@@ -20,6 +20,7 @@ import { Loader2, Sparkles, Send, Trash2, Archive, ExternalLink, FileText, Recyc
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import { toast, toastConfirm } from '@/lib/toast'
 
 interface Similar {
@@ -151,7 +152,7 @@ export default function IdeaInboxPage() {
           <span className="w-1 h-1 rounded-full bg-border" />
           <span className="normal-case tracking-normal">Идеи</span>
         </div>
-        <h1 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight">Идея-инбокс</h1>
+        <h1 className="display-serif text-3xl md:text-4xl font-normal text-foreground tracking-tight">Идея-инбокс</h1>
         <p className="text-sm text-muted-foreground mt-2">
           Кинь сюда сырую мысль — AI предложит 3 заголовка, теги и углы. Потом одним кликом разверни в статью.
         </p>
@@ -219,15 +220,11 @@ export default function IdeaInboxPage() {
           ))}
         </div>
       ) : ideas.length === 0 ? (
-        <Card className="p-12 flex flex-col items-center justify-center text-center">
-          <Sparkles className="w-8 h-8 text-muted-foreground mb-3" />
-          <p className="text-foreground font-medium mb-1">
-            {filter === 'new' ? 'Идей нет — кинь что-то в инбокс' : 'Пусто'}
-          </p>
-          {filter === 'archived' && (
-            <p className="text-xs text-muted-foreground">Архив пока пустой.</p>
-          )}
-        </Card>
+        <EmptyState
+          icon={<Sparkles />}
+          title={filter === 'new' ? 'Идей нет — кинь что-то в инбокс' : 'Пусто'}
+          description={filter === 'archived' ? 'Архив пока пустой.' : undefined}
+        />
       ) : (
         <div className="space-y-3">
           {ideas.map((idea) => (

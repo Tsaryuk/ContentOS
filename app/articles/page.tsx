@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Plus, FileText, Loader2, RefreshCw, Trash2, Eye } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import { toastConfirm } from '@/lib/toast'
 
 interface Article {
@@ -58,7 +60,7 @@ export default function ArticlesPage() {
             <span className="w-1 h-1 rounded-full bg-border" />
             <span className="normal-case tracking-normal">Блог</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-semibold text-foreground tracking-tight">Статьи</h1>
+          <h1 className="display-serif text-3xl md:text-4xl font-normal text-foreground tracking-tight">Статьи</h1>
           <p className="text-sm text-muted-foreground mt-2">
             {loading ? 'Загружаем…' : `${articles.length} ${articles.length === 1 ? 'статья' : articles.length < 5 ? 'статьи' : 'статей'} · публикуются на letters.tsaryuk.ru`}
           </p>
@@ -75,19 +77,31 @@ export default function ArticlesPage() {
       </header>
 
       {loading ? (
-        <div className="py-24 flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        // Mirror the real card shape (cover + two text rows) so the
+        // page doesn't collapse-and-reflow when data lands.
+        <div className="grid gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="flex items-center gap-4 p-4">
+              <Skeleton className="w-16 h-16 rounded-lg shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            </Card>
+          ))}
         </div>
       ) : articles.length === 0 ? (
-        <Card className="p-12 flex flex-col items-center justify-center text-center">
-          <FileText className="w-10 h-10 text-muted-foreground mb-3" />
-          <p className="text-foreground font-medium mb-1">Пока нет статей</p>
-          <p className="text-sm text-muted-foreground mb-6">Создай первую статью для блога</p>
-          <Button variant="brand" onClick={handleCreate}>
-            <Plus />
-            Создать статью
-          </Button>
-        </Card>
+        <EmptyState
+          icon={<FileText />}
+          title="Пока нет статей"
+          description="Создай первую статью для блога — или зайди в Идеи, там AI поможет начать."
+          action={
+            <Button variant="brand" onClick={handleCreate}>
+              <Plus />
+              Создать статью
+            </Button>
+          }
+        />
       ) : (
         <div className="grid gap-3">
           {articles.map(a => (
