@@ -4,7 +4,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  // `transition-all` (was: transition-colors) so the active:scale press
+  // animates smoothly. 180ms is long enough to feel intentional, short
+  // enough to not feel laggy on touch.
+  // `active:scale-[0.97]` adds a tactile press feedback — half a pixel
+  // visually, big perceptual difference. Disabled state opts out.
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -19,9 +24,12 @@ const buttonVariants = cva(
         ghost:
           "text-foreground hover:bg-accent-surface",
         link:
-          "text-foreground underline-offset-4 hover:underline",
+          "text-foreground underline-offset-4 hover:underline active:scale-100",
         brand:
-          "bg-accent text-white hover:bg-accent/90",
+          // Slight brightness lift on hover + drop-shadow tint in accent
+          // colour so the brand button reads as "primary action" without
+          // shouting.
+          "bg-accent text-white hover:bg-accent/90 shadow-[0_1px_2px_rgba(99,102,241,0.25)] hover:shadow-[0_2px_8px_rgba(99,102,241,0.35)]",
       },
       size: {
         default: "h-9 px-4 py-2",

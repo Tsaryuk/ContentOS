@@ -84,9 +84,13 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       boxShadow: {
+        // Softer than before — two-layer micro-shadow that reads more
+        // like a tinted edge than an actual drop shadow. Cards on a
+        // tinted background were getting a hairline halo on the previous
+        // values; the new numbers are lower-alpha + smaller blur.
         'surface':    'var(--shadow)',
-        'card':       '0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06)',
-        'card-hover': '0 6px 16px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04)',
+        'card':       '0 1px 2px rgba(0,0,0,0.02), 0 1px 1.5px rgba(0,0,0,0.04)',
+        'card-hover': '0 4px 14px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.04)',
         'pop':        '0 8px 32px rgba(0,0,0,0.12)',
       },
     },
