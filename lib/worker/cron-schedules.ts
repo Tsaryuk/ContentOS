@@ -65,6 +65,12 @@ const SCHEDULES: CronSpec[] = [
     everyMs: 24 * 60 * 60 * 1000,
     description: 'каждые 24 часа — backfill pgvector эмбеддингов',
   },
+  {
+    name: 'articles_resurface_weekly',
+    jobId: 'articles_resurface_weekly_cron',
+    everyMs: 7 * 24 * 60 * 60 * 1000,
+    description: 'раз в неделю — предложить resurface старой статьи в Idea Inbox',
+  },
 ]
 
 export async function registerCronSchedules(queue: Queue): Promise<void> {
