@@ -12,10 +12,25 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+        # The webhook on the VPS runs deploy.sh (pull → build → pm2 restart)
+        # and returns its exit status as the HTTP code. Capture the status
+        # and fail the workflow on non-2xx so we don't show green when the
+        # VPS actually rejected the deploy (e.g. dirty working tree blocking
+        # git pull). Body is printed too, so the deploy script's "Deploy
+        # failed" message is visible in the run logs.
         run: |
-          curl -s -X POST "${DEPLOY_HOST}/deploy" \
+          set -euo pipefail
+          response=$(mktemp)
+          status=$(curl -s -o "$response" -w "%{http_code}" -X POST "${DEPLOY_HOST}/deploy" \
             -H "Content-Type: application/json" \
             -H "X-Hub-Signature-256: sha256=$(echo -n '{}' | openssl dgst -sha256 -hmac "${DEPLOY_WEBHOOK_SECRET}" | awk '{print $2}')" \
             -d '{}' \
-            --max-time 180 \
-            -w "\nHTTP Status: %{http_code}\n"
+            --max-time 600)
+          echo "HTTP Status: $status"
+          echo "--- Response body ---"
+          cat "$response"
+          echo
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Deploy webhook returned HTTP $status — see body above"
+            exit 1
+          fi
