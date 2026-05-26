@@ -3,9 +3,6 @@
 // newsletter editor, etc. Selects style by id, kicks off the parallel
 // fal.ai run via lib/covers/generate, returns the cover_generations id +
 // variant URLs.
-//
-// Rate-limit shared with the legacy /api/articles/cover so a runaway loop
-// across both endpoints still trips the same bucket.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -42,8 +39,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
 
-  // Same bucket as legacy /api/articles/cover so the cost cap stays
-  // ~$12/hour even if a client alternates between the two endpoints.
+  // Each call fires N parallel fal.ai generations (~$0.04 per variant).
+  // 5/min keeps the cost cap at ~$12/hour worst case even if a client loops.
   const rl = await rateLimit('ai:cover', clientIp(req), 5, 60)
   if (!rl.allowed) return rateLimitResponse(rl)
 

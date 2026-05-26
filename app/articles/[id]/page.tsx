@@ -7,6 +7,7 @@ import {
   ArrowLeft, Loader2, Save, Image, Play, Globe, Sparkles,
   Send, Mic, MicOff, ExternalLink, Smartphone, Monitor, Upload, FileText
 } from 'lucide-react'
+import { CoverGenerator } from '@/components/covers/CoverGenerator'
 import { WhitePaper } from '@/components/articles/WhitePaper'
 import { ThreadsPanel } from '@/components/articles/ThreadsPanel'
 import { VideoScriptPanel } from '@/components/articles/VideoScriptPanel'
@@ -57,13 +58,7 @@ export default function ArticleEditorPage() {
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState<Tab>('edit')
   const [preview, setPreview] = useState<Preview>('editor')
-  const [genCover, setGenCover] = useState(false)
-  const [coverOptions, setCoverOptions] = useState<string[]>([])
-  const [coverVariantLabels, setCoverVariantLabels] = useState<string[]>([])
-  const [selectedCoverIdx, setSelectedCoverIdx] = useState<number | null>(null)
-  const [coverPrompt, setCoverPrompt] = useState('')
-  const [showCoverSettings, setShowCoverSettings] = useState(false)
-  const [persistingCover, setPersistingCover] = useState(false)
+  const [coverBusy, setCoverBusy] = useState(false)
   const [showImageDialog, setShowImageDialog] = useState(false)
   const [imagePrompt, setImagePrompt] = useState('')
   const [genImage, setGenImage] = useState(false)
@@ -281,78 +276,6 @@ export default function ArticleEditorPage() {
     } finally { setGenImage(false) }
   }
 
-  // Cover generation — API now returns 3 variants with different prompts
-  // (светлая / тёмная / полная гравюра). Keep the order server-sent so the
-  // label under each thumbnail matches the layout you'll actually get.
-  async function generateCover() {
-    if (!article?.title.trim()) return
-    setGenCover(true); setCoverOptions([]); setCoverVariantLabels([])
-    try {
-      const res = await fetch('/api/articles/cover', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: article.title,
-          description: article.subtitle,
-          customPrompt: coverPrompt.trim() || undefined,
-        }),
-      })
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        toast.error(`Ошибка ${res.status}: ${text.slice(0, 200)}`)
-        return
-      }
-
-      const data = await res.json()
-      if (data.error) {
-        toast.error(data.error)
-      } else if (Array.isArray(data.variants) && data.variants.length > 0) {
-        const urls = data.variants.map((v: { url: string }) => v.url)
-        const labels = data.variants.map((v: { label: string }) => v.label)
-        setCoverOptions(urls)
-        setCoverVariantLabels(labels)
-        setSelectedCoverIdx(0)
-        await selectCover(urls[0])
-      } else if (data.urls?.length) {
-        // Back-compat: older server response shape without labels.
-        setCoverOptions(data.urls)
-        setCoverVariantLabels([])
-        setSelectedCoverIdx(0)
-        await selectCover(data.urls[0])
-      } else {
-        toast.error('Модель не вернула изображений')
-      }
-    } catch (e) {
-      toast.error('Не удалось загрузить: ' + (e instanceof Error ? e.message : String(e)))
-    } finally { setGenCover(false) }
-  }
-
-  // Persist fal.ai URL → Supabase storage, then save as cover_url
-  async function selectCover(falUrl: string) {
-    if (!article) return
-    setPersistingCover(true)
-    try {
-      // If it's already our storage URL, just use it
-      if (falUrl.includes('/storage/v1/object/public/articles/')) {
-        updateLocal({ cover_url: falUrl })
-        return
-      }
-      const res = await fetch('/api/articles/cover', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fal_url: falUrl, article_id: article.id }),
-      })
-      const data = await res.json()
-      if (data.url) {
-        updateLocal({ cover_url: data.url })
-      } else {
-        // Fallback: keep fal.ai URL even if persist failed
-        updateLocal({ cover_url: falUrl })
-      }
-    } finally { setPersistingCover(false) }
-  }
-
   // Cover upload via file input. Previously this dumped the file as a
   // base-64 data: URL straight into article.cover_url which then went
   // into the DB on every save — a 500 KB cover bloated body fetches and
@@ -544,48 +467,16 @@ export default function ArticleEditorPage() {
                       <Upload className="w-3 h-3" /> Загрузить
                       <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
                     </label>
-                    <button onClick={generateCover} disabled={genCover || !article.title.trim()}
-                      className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs hover:bg-accent/20 disabled:opacity-50 flex items-center gap-1.5">
-                      {genCover ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />} Генерировать
-                    </button>
-                    <button onClick={() => setShowCoverSettings(v => !v)}
-                      className="px-2 py-1.5 border border-border rounded-lg text-xs text-muted-foreground/60 hover:text-foreground"
-                      title="Настроить промпт">⚙</button>
                   </div>
-                  {showCoverSettings && (
-                    <textarea
-                      value={coverPrompt}
-                      onChange={e => setCoverPrompt(e.target.value)}
-                      placeholder="Промпт для сцены (на английском). Например: A lone figure standing at a crossroads in a misty forest, ancient stone pillars. Wide cinematic composition, 16:9. Пусто = сгенерируется из темы."
-                      rows={3}
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[11px] text-muted-foreground transition-colors duration-150 focus:outline-none focus:border-accent resize-none font-mono" />
-                  )}
-                  {coverOptions.length > 0 && (
-                    <div className="flex gap-2">
-                      {coverOptions.map((url, i) => {
-                        const label = coverVariantLabels[i] ?? `Вариант ${i + 1}`
-                        return (
-                          <button key={i}
-                            onClick={async () => {
-                              setSelectedCoverIdx(i)
-                              await selectCover(url)
-                            }}
-                            disabled={persistingCover}
-                            className={`relative flex flex-col items-stretch gap-1 rounded-lg overflow-hidden border-2 transition-colors ${selectedCoverIdx === i ? 'border-accent' : 'border-border hover:border-muted'} disabled:cursor-wait`}
-                            title={label}>
-                            <img src={url} className="w-28 h-16 object-cover" alt={label} />
-                            <span className="px-1 pb-1 text-[9px] text-muted-foreground/80 text-center tabular-nums">{label}</span>
-                            {selectedCoverIdx === i && (
-                              <div className="absolute top-1 right-1 bg-accent text-white text-[9px] px-1.5 py-0.5 rounded">
-                                {persistingCover ? '...' : '✓'}
-                              </div>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                  {article.cover_url && !coverOptions.length && (
+                  <CoverGenerator
+                    targetKind="article"
+                    targetId={article.id}
+                    title={article.title}
+                    description={article.subtitle}
+                    onSelect={(url) => updateLocal({ cover_url: url })}
+                    onBusyChange={setCoverBusy}
+                  />
+                  {article.cover_url && !coverBusy && (
                     <img src={article.cover_url} className="w-full h-28 object-cover rounded-lg" alt="" />
                   )}
                   {article.cover_url && (
