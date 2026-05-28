@@ -71,6 +71,12 @@ const SCHEDULES: CronSpec[] = [
     everyMs: 7 * 24 * 60 * 60 * 1000,
     description: 'раз в неделю — предложить resurface старой статьи в Idea Inbox',
   },
+  {
+    name: 'covers_cleanup_weekly',
+    jobId: 'covers_cleanup_weekly_cron',
+    everyMs: 7 * 24 * 60 * 60 * 1000,
+    description: 'раз в неделю — удалить невыбранные cover-генерации старше 30 дней',
+  },
 ]
 
 export async function registerCronSchedules(queue: Queue): Promise<void> {
