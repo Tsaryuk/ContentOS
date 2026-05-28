@@ -1,7 +1,17 @@
 'use client'
 
+// Video (YouTube) cover generator — the "video arm" of the covers system.
+// Ported from the old ThumbnailStudio onto the new /api/covers/video/* routes.
+// Capabilities preserved: face photos, style reference, solo/duo/custom
+// templates, channel style presets, content-type, 2-line text overlay,
+// 4 emotion variants, refinement, prompt preview.
+//
+// Added vs the old studio: "Взять с YouTube" — sets the video's current live
+// YouTube thumbnail as the selected cover, so you can re-publish (e.g. update
+// the description) without generating or picking a new cover.
+
 import { useState, useRef, useEffect, DragEvent } from 'react'
-import { Wand2, Loader2, X, Plus, Check, Image as ImageIcon, Download, Eye, ChevronDown } from 'lucide-react'
+import { Wand2, Loader2, X, Plus, Check, Image as ImageIcon, Download, Eye, ChevronDown, Play } from 'lucide-react'
 import { DEFAULT_STYLE_PRESETS, type ThumbnailStylePreset } from '@/lib/thumbnail/style-presets'
 
 type Template = 'solo' | 'duo' | 'custom'
@@ -73,11 +83,11 @@ async function downloadImage(url: string, filename: string) {
 function SoloIcon() {
   return (
     <svg viewBox="0 0 64 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-      <rect width="64" height="36" rx="2" fill="#0f1a10"/>
-      <rect x="4" y="10" width="22" height="3" rx="1" fill="white" opacity="0.9"/>
-      <rect x="4" y="15" width="18" height="3" rx="1" fill="#4CAF50" opacity="0.9"/>
-      <ellipse cx="48" cy="12" rx="7" ry="8" fill="#2d4a2f"/>
-      <path d="M34 36 Q41 20 48 20 Q55 20 62 36Z" fill="#2d4a2f"/>
+      <rect width="64" height="36" rx="2" fill="#0f1a10" />
+      <rect x="4" y="10" width="22" height="3" rx="1" fill="white" opacity="0.9" />
+      <rect x="4" y="15" width="18" height="3" rx="1" fill="#4CAF50" opacity="0.9" />
+      <ellipse cx="48" cy="12" rx="7" ry="8" fill="#2d4a2f" />
+      <path d="M34 36 Q41 20 48 20 Q55 20 62 36Z" fill="#2d4a2f" />
     </svg>
   )
 }
@@ -85,13 +95,13 @@ function SoloIcon() {
 function DuoIcon() {
   return (
     <svg viewBox="0 0 64 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-      <rect width="64" height="36" rx="2" fill="#0f1a10"/>
-      <ellipse cx="12" cy="11" rx="6" ry="7" fill="#2d4a2f"/>
-      <path d="M2 36 Q7 20 12 20 Q17 20 22 36Z" fill="#2d4a2f"/>
-      <rect x="22" y="12" width="20" height="3" rx="1" fill="white" opacity="0.9"/>
-      <rect x="22" y="17" width="16" height="3" rx="1" fill="#4CAF50" opacity="0.9"/>
-      <ellipse cx="52" cy="11" rx="6" ry="7" fill="#2d4a2f"/>
-      <path d="M42 36 Q47 20 52 20 Q57 20 62 36Z" fill="#2d4a2f"/>
+      <rect width="64" height="36" rx="2" fill="#0f1a10" />
+      <ellipse cx="12" cy="11" rx="6" ry="7" fill="#2d4a2f" />
+      <path d="M2 36 Q7 20 12 20 Q17 20 22 36Z" fill="#2d4a2f" />
+      <rect x="22" y="12" width="20" height="3" rx="1" fill="white" opacity="0.9" />
+      <rect x="22" y="17" width="16" height="3" rx="1" fill="#4CAF50" opacity="0.9" />
+      <ellipse cx="52" cy="11" rx="6" ry="7" fill="#2d4a2f" />
+      <path d="M42 36 Q47 20 52 20 Q57 20 62 36Z" fill="#2d4a2f" />
     </svg>
   )
 }
@@ -99,22 +109,22 @@ function DuoIcon() {
 function CustomIcon() {
   return (
     <svg viewBox="0 0 64 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-      <rect width="64" height="36" rx="2" fill="#0f1a10"/>
-      <rect x="2" y="2" width="60" height="32" rx="2" stroke="#4b5563" strokeWidth="1.5" strokeDasharray="4 2"/>
-      <path d="M28 14 L32 10 L36 14" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M32 10 L32 22" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round"/>
-      <path d="M24 26 L28 22 L34 28 L38 24 L42 28" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <rect width="64" height="36" rx="2" fill="#0f1a10" />
+      <rect x="2" y="2" width="60" height="32" rx="2" stroke="#4b5563" strokeWidth="1.5" strokeDasharray="4 2" />
+      <path d="M28 14 L32 10 L36 14" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M32 10 L32 22" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M24 26 L28 22 L34 28 L38 24 L42 28" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
 const TEMPLATES: { id: Template; label: string; icon: React.ReactNode }[] = [
   { id: 'solo', label: 'Гость', icon: <SoloIcon /> },
-  { id: 'duo',  label: 'Я + Гость', icon: <DuoIcon /> },
+  { id: 'duo', label: 'Я + Гость', icon: <DuoIcon /> },
   { id: 'custom', label: 'Свой реф', icon: <CustomIcon /> },
 ]
 
-export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumbnail, savedUrlsByTemplate, savedUrlsByTemplateByStyle, savedPhotos, savedReference, thumbnailGenerating, contentType, stylePresets, onSelect }: Props) {
+export function VideoCoverGenerator({ videoId, channelId, textVariants, currentThumbnail, savedUrlsByTemplate, savedUrlsByTemplateByStyle, savedPhotos, savedReference, thumbnailGenerating, contentType, stylePresets, onSelect }: Props) {
   const presets = stylePresets && stylePresets.length > 0 ? stylePresets : DEFAULT_STYLE_PRESETS
   const [template, setTemplate] = useState<Template>('solo')
   const [activeContentType, setActiveContentType] = useState<ContentType>(contentType ?? 'podcast')
@@ -129,7 +139,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
-  // B-03 preview panel state
+  // Prompt preview panel state
   const [preview, setPreview] = useState<PromptPreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -142,17 +152,14 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
   const refRef = useRef<HTMLInputElement>(null)
 
   // Generating state comes from DB (survives navigation).
-  // New format: `${template}__${styleId}`. Legacy (just template) is still
-  // treated as "generating" for backwards compatibility with in-flight jobs.
+  // Format: `${template}__${styleId}`. Legacy (just template) still counts.
   const activeKey = `${template}__${styleId}`
-  const isGenerating = !!thumbnailGenerating && (
-    thumbnailGenerating === activeKey || thumbnailGenerating === template
-  )
+  const isGenerating = !!thumbnailGenerating && (thumbnailGenerating === activeKey || thumbnailGenerating === template)
   const isAnyGenerating = !!thumbnailGenerating
 
   useEffect(() => {
     if (savedPhotos?.length && photos.length === 0) {
-      setPhotos(savedPhotos.map(url => ({ preview: url })))
+      setPhotos(savedPhotos.map((url) => ({ preview: url })))
     }
     if (savedReference && !reference) {
       setReference({ preview: savedReference })
@@ -160,24 +167,18 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
   }, [savedPhotos, savedReference])
 
   // Results for the currently selected (template, styleId) pair.
-  // Prefer the new per-style nested structure; fall back to the legacy flat one
-  // so videos generated before the style axis existed still render.
-  const currentUrls =
-    savedUrlsByTemplateByStyle?.[template]?.[styleId]
-    ?? savedUrlsByTemplate?.[template]
-    ?? []
-  const currentResults = currentUrls.map(u => ({ url: u, model: '' }))
+  // Prefer the new per-style nested structure; fall back to the legacy flat one.
+  const currentUrls = savedUrlsByTemplateByStyle?.[template]?.[styleId] ?? savedUrlsByTemplate?.[template] ?? []
+  const currentResults = currentUrls.map((u) => ({ url: u, model: '' }))
 
   const addPhotos = (files: FileList | null) => {
     if (!files) return
-    const added = Array.from(files).slice(0, 3 - photos.length).map(f => ({
-      file: f, preview: URL.createObjectURL(f),
-    }))
-    setPhotos(prev => [...prev, ...added].slice(0, 3))
+    const added = Array.from(files).slice(0, 3 - photos.length).map((f) => ({ file: f, preview: URL.createObjectURL(f) }))
+    setPhotos((prev) => [...prev, ...added].slice(0, 3))
   }
 
   const removePhoto = (i: number) => {
-    setPhotos(prev => {
+    setPhotos((prev) => {
       if (prev[i].file) URL.revokeObjectURL(prev[i].preview)
       return prev.filter((_, idx) => idx !== i)
     })
@@ -199,12 +200,10 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
     if (!activeText || isAnyGenerating || submitting) return
     setSubmitting(true)
     setError(null)
-
     try {
-      // Upload new files first
-      const existingPhotoUrls = photos.filter(p => !p.file).map(p => p.preview)
-      const newPhotoFiles = photos.filter(p => p.file).map(p => p.file!)
-      const existingRefUrl = (!reference?.file && reference?.preview) ? reference.preview : ''
+      const existingPhotoUrls = photos.filter((p) => !p.file).map((p) => p.preview)
+      const newPhotoFiles = photos.filter((p) => p.file).map((p) => p.file!)
+      const existingRefUrl = !reference?.file && reference?.preview ? reference.preview : ''
       const newRefFile = reference?.file
 
       let photoUrls: string[] = [...existingPhotoUrls]
@@ -215,7 +214,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         const fd = new FormData()
         fd.set('videoId', videoId)
         allNewFiles.forEach((f, i) => fd.set(`file${i}`, f))
-        const upRes = await fetch(apiUrl('/api/thumbnail/upload'), { method: 'POST', body: fd })
+        const upRes = await fetch(apiUrl('/api/covers/video/upload'), { method: 'POST', body: fd })
         const upData = await upRes.json()
         if (upData.urls) {
           if (newRefFile) {
@@ -227,18 +226,16 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         }
       }
 
-      // Save assets
       if (photoUrls.length > 0 || refUrl) {
-        fetch(apiUrl('/api/thumbnail/save-assets'), {
+        fetch(apiUrl('/api/covers/video/save-assets'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ videoId, photos: photoUrls, reference: refUrl || undefined }),
         }).catch(() => {})
       }
 
-      // Fire-and-forget: start generation on server
-      // Server marks thumbnail_generating in DB, page polling picks it up
-      const res = await fetch(apiUrl('/api/thumbnail/generate'), {
+      // Fire-and-forget: server marks thumbnail_generating, page polling picks it up.
+      const res = await fetch(apiUrl('/api/covers/video/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -260,25 +257,21 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
       } else {
         setRefinement('')
       }
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setSubmitting(false)
     }
   }
 
-  // B-03: fetch the final prompt + image URL list that will be sent to fal.ai,
-  // WITHOUT actually running a generation. Uses dryRun=true on the same endpoint.
-  // Note: only works with already-uploaded assets (photos/reference URLs) —
-  // new files are uploaded only when user clicks Generate.
   async function loadPreview(): Promise<void> {
     if (!activeText || previewLoading) return
     setPreviewLoading(true)
     setError(null)
     try {
-      const photoUrls = photos.filter(p => !p.file).map(p => p.preview)
-      const refUrl = (!reference?.file && reference?.preview) ? reference.preview : undefined
-      const res = await fetch(apiUrl('/api/thumbnail/generate'), {
+      const photoUrls = photos.filter((p) => !p.file).map((p) => p.preview)
+      const refUrl = !reference?.file && reference?.preview ? reference.preview : undefined
+      const res = await fetch(apiUrl('/api/covers/video/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -302,8 +295,8 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
       const data = await res.json()
       setPreview(data)
       setPreviewOpen(true)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setPreviewLoading(false)
     }
@@ -323,6 +316,29 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         )}
       </div>
 
+      {/* Use the current live YouTube thumbnail as-is — for re-publishing
+          (e.g. updated description) without generating or picking a new cover. */}
+      {currentThumbnail && (
+        <button
+          onClick={() => { setSelectedUrl(currentThumbnail); onSelect(currentThumbnail) }}
+          className={`w-full flex items-center gap-2 rounded-lg border p-2 transition-colors text-left ${
+            selectedUrl === currentThumbnail ? 'border-emerald-500 bg-emerald-500/5' : 'border-border hover:border-accent/30'
+          }`}
+          title="Поставить текущую обложку с YouTube как выбранную"
+        >
+          <img src={currentThumbnail} alt="" className="w-16 h-9 rounded object-cover flex-shrink-0" />
+          <span className="flex-1 min-w-0 text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <Play className="w-3.5 h-3.5 text-red-500/80 flex-shrink-0 fill-current" />
+            Текущая обложка с YouTube — взять как есть
+          </span>
+          {selectedUrl === currentThumbnail && (
+            <span className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <Check className="w-3 h-3 text-white" />
+            </span>
+          )}
+        </button>
+      )}
+
       {/* Results */}
       {currentResults.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
@@ -339,10 +355,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                 alt=""
                 className="w-full aspect-video object-cover"
                 loading="eager"
-                onError={e => {
-                  // Exponential backoff retry — Supabase Storage CDN warmup can
-                  // take longer for larger images (duo template vs solo), and the
-                  // single 2s retry wasn't enough. Retries at 1.5s, 4s, 9s.
+                onError={(e) => {
                   const img = e.target as HTMLImageElement
                   const attempt = Number(img.dataset.attempt ?? '0') + 1
                   img.dataset.attempt = String(attempt)
@@ -355,14 +368,13 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
                   }
                 }}
               />
-              {r.model && <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/70 backdrop-blur-sm rounded text-[10px] text-muted-foreground">{r.model}</span>}
               {selectedUrl === r.url && (
                 <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
                   <Check className="w-3 h-3 text-white" />
                 </div>
               )}
               <button
-                onClick={e => { e.stopPropagation(); downloadImage(r.url, `thumbnail_${i + 1}.jpg`) }}
+                onClick={(e) => { e.stopPropagation(); downloadImage(r.url, `thumbnail_${i + 1}.jpg`) }}
                 className="absolute top-1.5 left-1.5 w-6 h-6 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
                 title="Скачать"
               >
@@ -376,7 +388,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
       {/* Generating placeholder */}
       {isGenerating && currentResults.length === 0 && (
         <div className="grid grid-cols-2 gap-2">
-          {[0, 1, 2, 3].map(i => (
+          {[0, 1, 2, 3].map((i) => (
             <div key={i} className="aspect-video rounded-lg bg-accent-surface border border-border flex items-center justify-center">
               <Loader2 className="w-5 h-5 animate-spin text-purple-400/40" />
             </div>
@@ -387,22 +399,20 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
       {/* Input panel */}
       <div
         className={`rounded-xl border p-3 space-y-3 transition-colors ${dragOver ? 'border-purple-500/50 bg-purple-500/5' : 'border-border bg-card'}`}
-        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e: DragEvent) => { e.preventDefault(); setDragOver(false); addPhotos(e.dataTransfer.files) }}
       >
-        {/* Content type selector (B-04) — picks per-type style preset from channel.rules */}
+        {/* Content type selector */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Тип контента</span>
           <div className="flex gap-1">
-            {(Object.keys(CONTENT_TYPE_LABELS) as ContentType[]).map(ct => (
+            {(Object.keys(CONTENT_TYPE_LABELS) as ContentType[]).map((ct) => (
               <button
                 key={ct}
                 onClick={() => setActiveContentType(ct)}
                 className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
-                  activeContentType === ct
-                    ? 'bg-accent text-white'
-                    : 'bg-background text-muted-foreground hover:text-foreground'
+                  activeContentType === ct ? 'bg-accent text-white' : 'bg-background text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {CONTENT_TYPE_LABELS[ct]}
@@ -411,21 +421,17 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           </div>
         </div>
 
-        {/* Style preset selector — third axis alongside template and content_type.
-            Presets come from channel.rules.thumbnail_style_presets, falling back to
-            DEFAULT_STYLE_PRESETS in code when a channel hasn't customized them. */}
+        {/* Style preset selector */}
         <div className="flex items-start gap-2">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 pt-0.5 shrink-0">Стиль</span>
           <div className="flex gap-1 flex-wrap">
-            {presets.map(p => (
+            {presets.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setStyleId(p.id)}
                 title={p.description}
                 className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
-                  styleId === p.id
-                    ? 'bg-accent text-white'
-                    : 'bg-background text-muted-foreground hover:text-foreground'
+                  styleId === p.id ? 'bg-accent text-white' : 'bg-background text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {p.name}
@@ -436,14 +442,12 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
 
         {/* Template selector */}
         <div className="flex gap-2">
-          {TEMPLATES.map(t => (
+          {TEMPLATES.map((t) => (
             <button
               key={t.id}
               onClick={() => setTemplate(t.id)}
               className={`flex-1 flex flex-col items-center gap-1 rounded-lg border p-1.5 transition-all ${
-                template === t.id
-                  ? 'border-purple-500/60 bg-purple-500/10'
-                  : 'border-border bg-background hover:border-border/80'
+                template === t.id ? 'border-purple-500/60 bg-purple-500/10' : 'border-border bg-background hover:border-border/80'
               }`}
             >
               <div className="w-full aspect-video rounded overflow-hidden">{t.icon}</div>
@@ -483,8 +487,8 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
               <span className="text-[8px] leading-none">Стиль</span>
             </button>
           )}
-          <input ref={photoRef} type="file" accept="image/*" multiple style={hiddenInput} onChange={e => { addPhotos(e.target.files); e.target.value = '' }} />
-          <input ref={refRef} type="file" accept="image/*" style={hiddenInput} onChange={e => { if (e.target.files?.[0]) setRef(e.target.files[0]); e.target.value = '' }} />
+          <input ref={photoRef} type="file" accept="image/*" multiple style={hiddenInput} onChange={(e) => { addPhotos(e.target.files); e.target.value = '' }} />
+          <input ref={refRef} type="file" accept="image/*" style={hiddenInput} onChange={(e) => { if (e.target.files?.[0]) setRef(e.target.files[0]); e.target.value = '' }} />
         </div>
 
         {/* Text chips */}
@@ -494,9 +498,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
               key={i}
               onClick={() => { setSelectedText(t); setCustomText('') }}
               className={`px-2.5 py-1 rounded-full text-[11px] transition-colors ${
-                selectedText === t && !customText
-                  ? 'bg-accent/15 text-accent border border-accent/30'
-                  : 'bg-card text-muted-foreground border border-border hover:text-foreground'
+                selectedText === t && !customText ? 'bg-accent/15 text-accent border border-accent/30' : 'bg-card text-muted-foreground border border-border hover:text-foreground'
               }`}
             >
               {t}
@@ -509,17 +511,17 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           <input
             type="text"
             value={customText}
-            onChange={e => setCustomText(e.target.value)}
+            onChange={(e) => setCustomText(e.target.value)}
             placeholder="Свой текст..."
             className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-accent/40"
-            onKeyDown={e => e.key === 'Enter' && generate()}
+            onKeyDown={(e) => e.key === 'Enter' && generate()}
           />
           <button
             onClick={generate}
             disabled={isAnyGenerating || submitting || !activeText}
             className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-30 text-white text-sm font-medium flex items-center gap-1.5 transition-colors whitespace-nowrap flex-shrink-0"
           >
-            {(isAnyGenerating || submitting) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+            {isAnyGenerating || submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
             {isAnyGenerating ? 'Генерация...' : submitting ? 'Отправка...' : 'Создать'}
           </button>
         </div>
@@ -529,18 +531,18 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
           <input
             type="text"
             value={refinement}
-            onChange={e => setRefinement(e.target.value)}
+            onChange={(e) => setRefinement(e.target.value)}
             placeholder="Доработать: темнее, крупнее текст..."
             className="w-full px-3 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-accent/40"
-            onKeyDown={e => e.key === 'Enter' && refinement && generate()}
+            onKeyDown={(e) => e.key === 'Enter' && refinement && generate()}
           />
         )}
 
-        {/* B-03: prompt preview toggle */}
+        {/* Prompt preview toggle */}
         <button
           type="button"
           onClick={() => {
-            if (!preview) { void loadPreview() } else { setPreviewOpen(v => !v) }
+            if (!preview) { void loadPreview() } else { setPreviewOpen((v) => !v) }
           }}
           disabled={!activeText || previewLoading}
           className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors disabled:opacity-40"
@@ -553,7 +555,7 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
         {preview && previewOpen && (
           <div className="rounded-lg bg-background/80 border border-border p-3 space-y-2 text-[11px]">
             <div className="grid grid-cols-2 gap-2 text-muted-foreground/60">
-              <div><span className="text-muted-foreground">Тип:</span> <span className="text-foreground">{CONTENT_TYPE_LABELS[(preview.contentType as ContentType)] ?? preview.contentType}</span></div>
+              <div><span className="text-muted-foreground">Тип:</span> <span className="text-foreground">{CONTENT_TYPE_LABELS[preview.contentType as ContentType] ?? preview.contentType}</span></div>
               <div><span className="text-muted-foreground">Шаблон:</span> <span className="text-foreground">{preview.template}</span></div>
               <div><span className="text-muted-foreground">Фото лиц:</span> <span className="text-foreground">{preview.facePhotos}</span></div>
               <div><span className="text-muted-foreground">Стилевой реф:</span> <span className={preview.styleReference ? 'text-emerald-400' : 'text-muted-foreground/60'}>{preview.styleReference ? 'да' : 'нет'}</span></div>
@@ -564,21 +566,17 @@ export function ThumbnailStudio({ videoId, channelId, textVariants, currentThumb
               <div className="text-muted-foreground/60">
                 <span className="text-muted-foreground">Стиль:</span>{' '}
                 <span className="text-foreground">{preview.styleName}</span>
-                {preview.stylePresetPrompt && (
-                  <span className="text-muted-foreground/60"> — {preview.stylePresetPrompt}</span>
-                )}
+                {preview.stylePresetPrompt && <span className="text-muted-foreground/60"> — {preview.stylePresetPrompt}</span>}
               </div>
             )}
             {preview.channelStylePrompt && (
               <div className="text-muted-foreground/60">
-                <span className="text-muted-foreground">Стиль канала:</span>{' '}
-                <span className="text-foreground">{preview.channelStylePrompt}</span>
+                <span className="text-muted-foreground">Стиль канала:</span> <span className="text-foreground">{preview.channelStylePrompt}</span>
               </div>
             )}
             {preview.refinement && (
               <div className="text-muted-foreground/60">
-                <span className="text-muted-foreground">Замечание:</span>{' '}
-                <span className="text-foreground">{preview.refinement}</span>
+                <span className="text-muted-foreground">Замечание:</span> <span className="text-foreground">{preview.refinement}</span>
               </div>
             )}
             {preview.imageUrls.length > 0 && (

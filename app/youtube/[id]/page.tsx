@@ -12,7 +12,7 @@ import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
 import { VariantSelector } from '@/components/youtube/VariantSelector'
 import { ThumbnailGallery } from '@/components/youtube/ThumbnailGallery'
-import { ThumbnailStudio } from '@/components/youtube/ThumbnailStudio'
+import { VideoCoverGenerator } from '@/components/covers/VideoCoverGenerator'
 import { resolveStylePresets } from '@/lib/thumbnail/style-presets'
 import { ClipList } from '@/components/youtube/ClipList'
 import { SocialPreview } from '@/components/youtube/SocialPreview'
@@ -645,10 +645,10 @@ export default function VideoDetailPage() {
               )}
             </Card>
 
-            {/* Thumbnail Studio */}
+            {/* Cover generator (video arm of the covers system) */}
             {po && (
               <Card className="p-4">
-                <ThumbnailStudio
+                <VideoCoverGenerator
                   videoId={video.id}
                   channelId={video.channel_id}
                   textVariants={po.thumbnail_spec?.text_overlay_variants ?? []}

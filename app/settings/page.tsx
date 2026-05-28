@@ -1073,7 +1073,7 @@ export default function SettingsPage() {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className={labelClass}>Промпт для обложки эпизода (используется в ThumbnailStudio)</label>
+                      <label className={labelClass}>Промпт для обложки эпизода (используется в генераторе обложек)</label>
                       <textarea
                         defaultValue={show.cover_style_prompt ?? ''}
                         onBlur={e => updatePodcast(show.id, { cover_style_prompt: e.target.value || null })}
