@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Send, Clock, Image, Link, X, Loader2, Sparkles, Eye, Code } from 'lucide-react'
 import type { TgChannelRow } from '@/lib/telegram/types'
 import { sanitizeTelegramPostHtml } from '@/lib/sanitize'
+import { CoverGenerator } from '@/components/covers/CoverGenerator'
 
 interface PostEditorProps {
   channels: TgChannelRow[]
@@ -282,6 +283,14 @@ export function PostEditor({
                 Добавить изображение или видео
               </button>
             )}
+          </div>
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <CoverGenerator
+              targetKind="telegram_post"
+              targetId={postId ?? null}
+              title={content.slice(0, 200) || 'Telegram-пост'}
+              onSelect={(url) => setMediaUrls((prev) => [...prev, url])}
+            />
           </div>
         </div>
 

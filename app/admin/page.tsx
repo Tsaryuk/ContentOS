@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { DollarSign, Users, Activity, ArrowRight } from 'lucide-react'
+import { DollarSign, Users, Activity, ArrowRight, Image as ImageIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 
 export const metadata = { title: 'Админка · ContentOS' }
@@ -27,6 +27,13 @@ const CARDS: CardItem[] = [
     description: 'Статус подключённых сервисов: Supabase, Redis, AI-провайдеры',
     icon: <Activity className="w-5 h-5" />,
     accent: 'text-sky-500',
+  },
+  {
+    href: '/admin/cover-styles',
+    title: 'Стили обложек',
+    description: 'Промпт-шаблоны для универсального генератора обложек — статьи, видео, рассылки, посты',
+    icon: <ImageIcon className="w-5 h-5" />,
+    accent: 'text-amber-500',
   },
   {
     href: '#',
