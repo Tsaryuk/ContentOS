@@ -1714,6 +1714,13 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const r = await runResurfacingTick()
     console.log(`[resurface] tick: suggested=${r.suggested}`)
   },
+  // Weekly sweep of abandoned cover generations (picked_url IS NULL,
+  // older than 30 days). See lib/covers/cleanup.ts.
+  covers_cleanup_weekly: async () => {
+    const { runCoverCleanup } = await import('./lib/covers/cleanup')
+    const r = await runCoverCleanup()
+    console.log(`[covers-cleanup] deleted=${r.deleted}`)
+  },
 }
 
 // Recovery sweep — see lib/worker/stale-cleanup.ts for the policy. The
