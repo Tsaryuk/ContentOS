@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AI_MODELS } from '@/lib/ai-models'
 import { buildVoiceTrainingPrompt } from '@/lib/carousel/prompts'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  const rl = await rateLimit('ai:carousel', clientIp(req), 15, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   try {
     const body = await req.json()
@@ -88,7 +93,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/carousel/train-voice')
   }
 
   return NextResponse.json({ voices: data ?? [] })

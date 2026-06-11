@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { sanitizeArticleHtml } from '@/lib/sanitize'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth()
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
   query = query.order('created_at', { ascending: false })
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/articles')
 
   return NextResponse.json({ articles: data ?? [] })
 }
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return dbErrorResponse(error, '/api/articles')
     return NextResponse.json({ article: data })
   } catch {
     return NextResponse.json({ error: 'Ошибка сервера' }, { status: 500 })

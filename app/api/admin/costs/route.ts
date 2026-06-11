@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // GET /api/admin/costs?days=30
 // Joins ai_usage with yt_videos → yt_channels → projects to attribute cost
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('created_at', { ascending: false })
     .limit(10000)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/admin/costs')
 
   interface Row {
     provider: string

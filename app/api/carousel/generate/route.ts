@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildCarouselSystemPrompt, buildCarouselUserPrompt } from '@/lib/carousel/prompts'
@@ -11,6 +12,9 @@ export const maxDuration = 60
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  const rl = await rateLimit('ai:carousel', clientIp(req), 15, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   try {
     const body = await req.json()

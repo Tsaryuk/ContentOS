@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 interface LogRow {
   id: string
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/comments/log')
 
   const rows = (data as unknown as LogRow[] | null) ?? []
   const items = rows.map((row) => ({

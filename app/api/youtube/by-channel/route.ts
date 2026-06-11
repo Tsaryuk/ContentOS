@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 const FULL_SELECT =
   'id, yt_video_id, current_title, current_thumbnail, current_description, duration_seconds, published_at, view_count, like_count, status, ai_score, is_approved, is_published_back, generated_title, generated_description, privacy_status, guest_name, guest_title, parent_video_id, shorts_status'
@@ -28,6 +29,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/youtube/by-channel')
   return NextResponse.json({ videos: data ?? [] })
 }
