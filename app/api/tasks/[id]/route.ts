@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { dbErrorResponse } from '@/lib/api-error'
 
 const TASK_SELECT = '*, assignee:users!assignee_id(id, name, email), creator:users!creator_id(id, name), project:projects!project_id(id, name, color)'
 
@@ -31,6 +32,31 @@ export async function PATCH(
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
 
+  const { data: task } = await supabaseAdmin
+    .from('tasks')
+    .select('creator_id, assignee_id')
+    .eq('id', params.id)
+    .single()
+
+  if (!task) {
+    return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 })
+  }
+
+  // Редактировать может создатель, исполнитель или админ.
+  // Задачи без исполнителя открыты всем — иначе менеджер не сможет
+  // взять/передвинуть неназначенную задачу на канбане.
+  if (
+    task.assignee_id !== null &&
+    task.creator_id !== auth.userId &&
+    task.assignee_id !== auth.userId &&
+    auth.userRole !== 'admin'
+  ) {
+    return NextResponse.json(
+      { error: 'Редактировать задачу может создатель, исполнитель или админ' },
+      { status: 403 }
+    )
+  }
+
   try {
     const body = await req.json()
     const update: Record<string, unknown> = {}
@@ -59,7 +85,7 @@ export async function PATCH(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return dbErrorResponse(error, '/api/tasks/[id]')
     }
 
     return NextResponse.json({ task: data })
@@ -95,7 +121,7 @@ export async function DELETE(
     .eq('id', params.id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/tasks/[id]')
   }
 
   return NextResponse.json({ success: true })

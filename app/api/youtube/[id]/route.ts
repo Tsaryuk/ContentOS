@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { handleApiError } from '@/lib/api-error'
+import { handleApiError, dbErrorResponse } from '@/lib/api-error'
 
 // GET /api/youtube/[id] — fetch a single yt_videos row
 export async function GET(
@@ -29,7 +29,7 @@ export async function GET(
     .eq('id', id)
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/youtube/[id]')
   if (!data) return NextResponse.json({ error: 'Видео не найдено' }, { status: 404 })
   return NextResponse.json(data)
 }
@@ -73,7 +73,7 @@ export async function PATCH(
     .update(update)
     .eq('id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/youtube/[id]')
   return NextResponse.json({ ok: true })
 }
 

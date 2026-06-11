@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // GET /api/comments?videoId=X&status=new&limit=50
 export async function GET(req: NextRequest) {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
   query = query.is('parent_comment_id', null)
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/comments')
 
   return NextResponse.json({ comments: data ?? [] })
 }

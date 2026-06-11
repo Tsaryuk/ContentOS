@@ -15,7 +15,6 @@ const PUBLIC_PATHS = [
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/callback',
-  '/api/auth/start',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
   '/api/youtube/oauth/callback',

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/auth'
 import { buildUniqueProjectSlug } from '@/lib/projects/slug'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function PATCH(
   req: NextRequest,
@@ -69,7 +70,7 @@ export async function PATCH(
     .select('id, name, color, slug, cta_url, cta_description, cta_audience_keywords, cta_priority')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/projects/[id]')
   if (!data) return NextResponse.json({ error: 'Проект не найден' }, { status: 404 })
   return NextResponse.json(data)
 }
@@ -90,6 +91,6 @@ export async function DELETE(
     .delete()
     .eq('id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/projects/[id]')
   return NextResponse.json({ ok: true })
 }

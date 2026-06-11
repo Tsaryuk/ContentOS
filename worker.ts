@@ -1388,18 +1388,33 @@ async function handleNewsletterStats() {
 
   for (const campaign of campaigns) {
     try {
-      // Check campaign status
-      const statusRes = await fetch(
-        `${API_BASE}/getCampaignStatus?format=json&api_key=${apiKey}&campaign_id=${campaign.unisender_campaign_id}`
-      )
+      // Check campaign status. api_key уходит в POST-теле, не в query string —
+      // иначе ключ оседает в access-логах и Sentry breadcrumbs.
+      const statusRes = await fetch(`${API_BASE}/getCampaignStatus`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          format: 'json',
+          api_key: apiKey,
+          campaign_id: String(campaign.unisender_campaign_id),
+        }),
+        signal: AbortSignal.timeout(30000),
+      })
       const statusData = await statusRes.json()
       const campStatus = statusData.result?.status
 
       if (campStatus === 'completed' || campStatus === 'analysed') {
         // Fetch stats
-        const statsRes = await fetch(
-          `${API_BASE}/getCampaignCommonStats?format=json&api_key=${apiKey}&campaign_id=${campaign.unisender_campaign_id}`
-        )
+        const statsRes = await fetch(`${API_BASE}/getCampaignCommonStats`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            format: 'json',
+            api_key: apiKey,
+            campaign_id: String(campaign.unisender_campaign_id),
+          }),
+          signal: AbortSignal.timeout(30000),
+        })
         const statsData = await statsRes.json()
         const stats = statsData.result
 

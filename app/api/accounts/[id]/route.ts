@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // DELETE /api/accounts/[id] — disconnect Google account (destructive, admin only)
 export async function DELETE(
@@ -24,6 +25,6 @@ export async function DELETE(
     .delete()
     .eq('id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/accounts/[id]')
   return NextResponse.json({ ok: true })
 }
