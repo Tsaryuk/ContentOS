@@ -132,6 +132,11 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
 
+  // Bulk link update (per expanded channel)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [replaceFrom, setReplaceFrom] = useState('')
+  const [replaceTo, setReplaceTo] = useState('')
+
   // Per-project CTA editor expand state
   const [expandedProjectCta, setExpandedProjectCta] = useState<string | null>(null)
 
@@ -372,6 +377,31 @@ export default function SettingsPage() {
       setSaved(channelId)
       setTimeout(() => setSaved(null), 2000)
     } finally { setSaving(null) }
+  }
+
+  // Bulk-update descriptions of already-published videos on a channel: rebuild
+  // the managed link block from the channel rules, or swap one URL for another.
+  async function bulkUpdateLinks(
+    channelId: string,
+    op: 'rebuild_block' | 'replace_url',
+    extra?: { fromUrl?: string; toUrl?: string },
+  ) {
+    setBulkBusy(true)
+    try {
+      const res = await fetch('/api/youtube/bulk-update-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId, op, ...extra }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Не удалось запустить: ' + (data.error ?? res.status))
+      } else {
+        toast.success(`В очередь: ${data.enqueued} видео. Описания обновятся постепенно (~1 видео / 3с).`)
+      }
+    } finally {
+      setBulkBusy(false)
+    }
   }
 
   const SECTIONS = [
@@ -930,6 +960,44 @@ export default function SettingsPage() {
                         placeholder={'▶︎ конспекты подкастов — https://t.me/...\n▶︎ Instagram — https://instagram.com/...\nРеклама: hi@example.com'}
                         className={`${textareaClass} font-mono text-xs`}
                       />
+                    </div>
+
+                    <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+                      <label className={labelClass}>Массово обновить описания (уже опубликованные видео)</label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={bulkBusy}
+                        onClick={() => bulkUpdateLinks(ch.id, 'rebuild_block')}
+                      >
+                        {bulkBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                        Обновить блок ссылок во всех видео
+                      </Button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input
+                          value={replaceFrom}
+                          onChange={e => setReplaceFrom(e.target.value)}
+                          placeholder="старая ссылка (A)"
+                          className={`${inputClass} flex-1 min-w-[160px] font-mono text-xs`}
+                        />
+                        <input
+                          value={replaceTo}
+                          onChange={e => setReplaceTo(e.target.value)}
+                          placeholder="новая ссылка (B)"
+                          className={`${inputClass} flex-1 min-w-[160px] font-mono text-xs`}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={bulkBusy || !replaceFrom.trim()}
+                          onClick={() => bulkUpdateLinks(ch.id, 'replace_url', { fromUrl: replaceFrom, toUrl: replaceTo })}
+                        >
+                          Заменить A→B
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Пишет описания прямо в YouTube без ре-аппрува, ~1 видео в 3с. Блок ссылок берётся из полей выше.
+                      </p>
                     </div>
 
                     <div className="space-y-1.5">
