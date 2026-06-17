@@ -77,6 +77,12 @@ const SCHEDULES: CronSpec[] = [
     everyMs: 7 * 24 * 60 * 60 * 1000,
     description: 'раз в неделю — удалить невыбранные cover-генерации старше 30 дней',
   },
+  {
+    name: 'podcast_auto_publish',
+    jobId: 'podcast_auto_publish_cron',
+    everyMs: 60 * 60 * 1000,
+    description: 'каждый час — авто-публикация готовых подкаст-эпизодов в RSS (shows с auto_publish)',
+  },
 ]
 
 export async function registerCronSchedules(queue: Queue): Promise<void> {
