@@ -1721,6 +1721,21 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const r = await runCoverCleanup()
     console.log(`[covers-cleanup] deleted=${r.deleted}`)
   },
+  // Publish one finished podcast video as an episode (audio extract + upload +
+  // podcast_episodes insert). Enqueued manually (/api/podcasts/publish) or by
+  // the auto-publish cron. Idempotent on the source video.
+  podcast_publish: async (videoId) => {
+    const { publishEpisode } = await import('./lib/podcasts/publish-episode')
+    const r = await publishEpisode(videoId)
+    console.log(`[podcast_publish] ${videoId}: ${r.status}${r.reason ? ` (${r.reason})` : ''}`)
+  },
+  // Hourly tick — finds done podcast videos on auto_publish shows without an
+  // episode yet and enqueues a podcast_publish per video.
+  podcast_auto_publish: async () => {
+    const { runPodcastAutoPublish } = await import('./lib/podcasts/publish-episode')
+    const r = await runPodcastAutoPublish()
+    console.log(`[podcast] auto-publish: enqueued=${r.enqueued} skipped=${r.skipped}`)
+  },
 }
 
 // Recovery sweep — see lib/worker/stale-cleanup.ts for the policy. The
