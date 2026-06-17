@@ -997,6 +997,66 @@ async function handlePublish(videoId: string, overrides?: { title?: string; thum
   }
 }
 
+// Description-only update for an already-published video. Unlike handlePublish
+// it preserves the live title/tags/categoryId and never touches is_approved —
+// used by the bulk link-update flow. Throws on failure so BullMQ records it.
+async function handleUpdateDescription(
+  videoId: string,
+  data?: { op?: 'rebuild_block' | 'replace_url'; linkBlock?: string; fromUrl?: string; toUrl?: string },
+): Promise<void> {
+  if (!data?.op) return
+  const video = await getVideo(videoId)
+  if (!video.yt_video_id) return
+  const { applyLinkBlock, replaceUrl } = await import('./lib/youtube/description-links')
+
+  const token = await getChannelAccessToken(video.channel_id)
+  const getRes = await fetch(
+    `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${video.yt_video_id}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  const getData = await getRes.json()
+  if (!getRes.ok) throw new Error(`YouTube API: ${getData.error?.message ?? `HTTP ${getRes.status}`}`)
+  const snippet = getData.items?.[0]?.snippet
+  if (!snippet) throw new Error('Video not found on YouTube')
+
+  const oldDescription: string = snippet.description ?? ''
+  let newDescription = oldDescription
+  if (data.op === 'rebuild_block') {
+    newDescription = applyLinkBlock(oldDescription, data.linkBlock ?? '')
+  } else if (data.op === 'replace_url') {
+    if (!data.fromUrl) return
+    newDescription = replaceUrl(oldDescription, data.fromUrl, data.toUrl ?? '')
+  }
+
+  if (newDescription === oldDescription) {
+    console.log(`[update_desc] ${video.yt_video_id}: no change`)
+    return
+  }
+
+  const updatedSnippet: Record<string, unknown> = {
+    title: snippet.title,
+    description: newDescription,
+    tags: snippet.tags ?? [],
+    categoryId: snippet.categoryId,
+  }
+  if (snippet.defaultLanguage) updatedSnippet.defaultLanguage = snippet.defaultLanguage
+  if (snippet.defaultAudioLanguage) updatedSnippet.defaultAudioLanguage = snippet.defaultAudioLanguage
+
+  const putRes = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: video.yt_video_id, snippet: updatedSnippet }),
+  })
+  if (!putRes.ok) throw new Error(humanizeYouTubeError(putRes.status, await putRes.text()))
+
+  await logChange(videoId, 'description', oldDescription, newDescription)
+  await supabase
+    .from('yt_videos')
+    .update({ current_description: newDescription, updated_at: new Date().toISOString() })
+    .eq('id', videoId)
+  console.log(`[update_desc] OK ${video.yt_video_id} (${data.op})`)
+}
+
 // --- Produce (Master Producer Agent) ---
 
 import { buildProducerSystemPrompt, buildProducerUserPrompt } from './lib/process/prompts'
@@ -1737,6 +1797,9 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
     const r = await runPodcastAutoPublish()
     console.log(`[podcast] auto-publish: enqueued=${r.enqueued} skipped=${r.skipped}`)
   },
+  // Description-only bulk update (link-block rebuild / URL replace) for
+  // already-published videos. Enqueued by /api/youtube/bulk-update-links.
+  update_description: handleUpdateDescription,
 }
 
 // Recovery sweep — see lib/worker/stale-cleanup.ts for the policy. The
