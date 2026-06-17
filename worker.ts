@@ -1732,7 +1732,7 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   // Hourly tick — finds done podcast videos on auto_publish shows without an
   // episode yet and enqueues a podcast_publish per video.
   podcast_auto_publish: async () => {
-    const { runPodcastAutoPublish } = await import('./lib/podcasts/publish-episode')
+    const { runPodcastAutoPublish } = await import('./lib/podcasts/auto-publish')
     const r = await runPodcastAutoPublish()
     console.log(`[podcast] auto-publish: enqueued=${r.enqueued} skipped=${r.skipped}`)
   },

@@ -115,6 +115,7 @@ export default function SettingsPage() {
   // Podcasts
   const [podcasts, setPodcasts] = useState<PodcastShow[]>([])
   const [savingPodcastId, setSavingPodcastId] = useState<string | null>(null)
+  const [publishingShowId, setPublishingShowId] = useState<string | null>(null)
   const [copiedRssId, setCopiedRssId] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [addChannelId, setAddChannelId] = useState('')
@@ -184,6 +185,30 @@ export default function SettingsPage() {
       toast.error('Не удалось обновить шоу: ' + (data.error ?? res.status))
     }
     setSavingPodcastId(null)
+  }
+
+  // Manually publish all ready (done, no episode yet) podcast videos of a show.
+  // The worker does the audio extraction + upload; episodes appear in the RSS
+  // feed (and Mave) once processed.
+  async function publishReady(showId: string) {
+    setPublishingShowId(showId)
+    try {
+      const res = await fetch('/api/podcasts/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ showId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Не удалось опубликовать: ' + (data.error ?? res.status))
+      } else if (data.enqueued > 0) {
+        toast.success(`В очередь на публикацию: ${data.enqueued} эпизод(ов). Появятся в RSS после обработки.`)
+      } else {
+        toast.info('Нет готовых видео для публикации (все уже опубликованы или ещё обрабатываются).')
+      }
+    } finally {
+      setPublishingShowId(null)
+    }
   }
 
   async function createProject() {
@@ -1008,6 +1033,18 @@ export default function SettingsPage() {
                     </Button>
                     <Button variant="ghost" size="sm" asChild>
                       <a href={`/podcasts/${show.slug}`} target="_blank" rel="noopener noreferrer">Открыть</a>
+                    </Button>
+                    <Button
+                      variant="brand"
+                      size="sm"
+                      disabled={publishingShowId === show.id}
+                      onClick={() => publishReady(show.id)}
+                      title="Опубликовать все готовые подкаст-видео этого канала как эпизоды"
+                    >
+                      {publishingShowId === show.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Mic className="w-3.5 h-3.5" />}
+                      Опубликовать готовые
                     </Button>
                   </div>
 

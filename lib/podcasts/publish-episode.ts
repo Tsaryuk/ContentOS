@@ -18,7 +18,6 @@ import { existsSync, readFileSync, rmSync, statSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { supabaseAdmin } from '@/lib/supabase'
-import { enqueueProcessJob } from '@/lib/process/enqueue'
 
 const AUDIO_BUCKET = 'podcast-audio'
 const PROXY_URL = process.env.PROXY_URL
@@ -143,49 +142,4 @@ export async function publishEpisode(videoId: string): Promise<PublishEpisodeRes
       // best-effort temp cleanup
     }
   }
-}
-
-/**
- * Auto-publish tick (cron). Finds finished podcast videos on shows with
- * auto_publish=true that don't yet have an episode, and enqueues a
- * `podcast_publish` job per video. Enqueue is idempotent (deterministic jobId),
- * so overlapping ticks don't double-publish.
- */
-export async function runPodcastAutoPublish(): Promise<{ enqueued: number; skipped: number }> {
-  const { data: shows } = await supabaseAdmin
-    .from('podcast_shows')
-    .select('channel_id')
-    .eq('auto_publish', true)
-    .eq('is_active', true)
-
-  const channelIds = (shows ?? []).map((s) => s.channel_id).filter(Boolean)
-  if (channelIds.length === 0) return { enqueued: 0, skipped: 0 }
-
-  const { data: videos } = await supabaseAdmin
-    .from('yt_videos')
-    .select('id')
-    .in('channel_id', channelIds)
-    .eq('content_type', 'podcast')
-    .eq('status', 'done')
-
-  if (!videos?.length) return { enqueued: 0, skipped: 0 }
-
-  const videoIds = videos.map((v) => v.id)
-  const { data: episodes } = await supabaseAdmin
-    .from('podcast_episodes')
-    .select('video_id')
-    .in('video_id', videoIds)
-  const alreadyPublished = new Set((episodes ?? []).map((e) => e.video_id))
-
-  let enqueued = 0
-  let skipped = 0
-  for (const v of videos) {
-    if (alreadyPublished.has(v.id)) {
-      skipped++
-      continue
-    }
-    await enqueueProcessJob('podcast_publish', v.id, { videoId: v.id }, { attempts: 1 })
-    enqueued++
-  }
-  return { enqueued, skipped }
 }
