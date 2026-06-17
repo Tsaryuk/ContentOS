@@ -4,8 +4,8 @@
 
 export const AI_MODELS = {
   /** Основная модель для генерации контента (producer, карусели, комментарии) */
-  claude: process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-20250514',
+  claude: process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6',
 
   /** Модель для лёгких задач (если понадобится haiku) */
-  claudeLight: process.env.CLAUDE_MODEL_LIGHT ?? 'claude-sonnet-4-20250514',
+  claudeLight: process.env.CLAUDE_MODEL_LIGHT ?? 'claude-sonnet-4-6',
 } as const
