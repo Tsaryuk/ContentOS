@@ -30,7 +30,7 @@ class ScoringCfg:
 @dataclass
 class GenerationCfg:
     content_types: list[str] = field(default_factory=lambda: ["telegram", "youtube"])
-    claude_model: str = "claude-sonnet-4-20250514"
+    claude_model: str = "claude-sonnet-4-6"
     max_tokens: int = 2000
     max_ideas_per_topic: int = 2
     max_topics_per_run: int = 20

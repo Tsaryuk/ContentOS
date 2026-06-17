@@ -36,7 +36,7 @@ export interface UsageEvent {
 
 /**
  * Price table — matched by regex against the model name so both canonical
- * aliases (`claude-sonnet-4-5`) and API-specific IDs (`claude-sonnet-4-20250514`)
+ * aliases (`claude-sonnet-4-6`) and dated snapshot IDs (e.g. `claude-haiku-4-5-20251001`)
  * resolve to the same row. Order matters — first match wins.
  */
 const PRICING: Array<{

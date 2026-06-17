@@ -1522,14 +1522,14 @@ ${parentTitle ? `Родительский подкаст: "${parentTitle}"` : ''
 }`
 
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: AI_MODELS.claude,
     max_tokens: 500,
     messages: [{ role: 'user', content: prompt }],
   })
 
   trackUsage({
     provider: 'anthropic',
-    model: 'claude-sonnet-4-20250514',
+    model: AI_MODELS.claude,
     task: 'short_title',
     inputTokens: (response as any)?.usage?.input_tokens,
     outputTokens: (response as any)?.usage?.output_tokens,

@@ -16,7 +16,7 @@ generation:
   content_types:
     - telegram
     - youtube
-  claude_model: "claude-sonnet-4-20250514"
+  claude_model: "claude-sonnet-4-6"
   max_tokens: 2000
   max_ideas_per_topic: 2
   max_topics_per_run: 20
