@@ -151,6 +151,17 @@ export async function sendCommentReply(input: SendReplyInput): Promise<SendReply
     }
   }
 
+  // Pre-send content guardrails for unattended auto-mode: never post an empty
+  // or over-long reply. Treated as an expected skip (422) — the worker's
+  // comment_send_reply handler swallows it like 429/409 instead of failing.
+  const replyText = input.text?.trim() ?? ''
+  if (!replyText) {
+    throw new ReplyError(422, 'Empty reply text')
+  }
+  if (replyText.length > config.max_reply_length) {
+    throw new ReplyError(422, `Reply too long (${replyText.length} > ${config.max_reply_length} chars)`)
+  }
+
   let token: string
   try {
     token = await getYouTubeToken({ id: video.channel_id })
@@ -162,7 +173,7 @@ export async function sendCommentReply(input: SendReplyInput): Promise<SendReply
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      snippet: { parentId: input.ytCommentId, textOriginal: input.text },
+      snippet: { parentId: input.ytCommentId, textOriginal: replyText },
     }),
   })
 

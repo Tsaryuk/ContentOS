@@ -1692,9 +1692,10 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
         mode: 'auto',
       })
     } catch (err) {
-      // 429 (daily/thread limit) and 409 (already replied) are expected
-      // race outcomes — log as info, not error, to avoid pager noise.
-      if (err instanceof ReplyError && (err.status === 429 || err.status === 409)) {
+      // 429 (daily/thread limit), 409 (already replied) and 422 (content
+      // guardrail: empty / over-long reply) are expected skip outcomes —
+      // log as info, not error, to avoid pager noise.
+      if (err instanceof ReplyError && (err.status === 429 || err.status === 409 || err.status === 422)) {
         console.log(`[comment_send_reply] skipped ${data.ytCommentId}: ${err.message}`)
         return
       }
