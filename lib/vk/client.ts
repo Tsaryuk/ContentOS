@@ -71,6 +71,20 @@ export async function editVideo(
   return vkApi('video.edit', params, token)
 }
 
+/** Fetch a single video by owner+id, to read its live title/description. */
+export async function getVideoById(
+  ownerId: number,
+  videoId: number,
+  token: string,
+): Promise<VkVideoItem | null> {
+  const res = await vkApi<{ count: number; items: VkVideoItem[] }>(
+    'video.get',
+    { videos: `${ownerId}_${videoId}` },
+    token,
+  )
+  return res.items?.[0] ?? null
+}
+
 export interface VkAdminGroup {
   id: number
   name: string

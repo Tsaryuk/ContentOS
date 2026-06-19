@@ -1057,6 +1057,50 @@ async function handleUpdateDescription(
   console.log(`[update_desc] OK ${video.yt_video_id} (${data.op})`)
 }
 
+// Apply a description op (link-block rebuild / URL replace) to one VK video via
+// video.edit. Reuses the platform-agnostic description-links helpers. VK has no
+// API for covers, and titles are left to a future generation step.
+async function handleVkUpdateVideo(
+  videoId: string,
+  data?: { op?: 'rebuild_block' | 'replace_url'; linkBlock?: string; fromUrl?: string; toUrl?: string },
+): Promise<void> {
+  if (!data?.op) return
+  const { data: video } = await supabase
+    .from('vk_videos')
+    .select('id, channel_id, vk_owner_id, vk_video_id')
+    .eq('id', videoId)
+    .maybeSingle()
+  if (!video) return
+
+  const { getVkChannelToken } = await import('./lib/vk/auth')
+  const { getVideoById, editVideo } = await import('./lib/vk/client')
+  const { applyLinkBlock, replaceUrl } = await import('./lib/youtube/description-links')
+
+  const token = await getVkChannelToken(video.channel_id)
+  const live = await getVideoById(video.vk_owner_id, video.vk_video_id, token)
+  if (!live) return
+
+  const oldDesc = live.description ?? ''
+  let newDesc = oldDesc
+  if (data.op === 'rebuild_block') {
+    newDesc = applyLinkBlock(oldDesc, data.linkBlock ?? '')
+  } else if (data.op === 'replace_url') {
+    if (!data.fromUrl) return
+    newDesc = replaceUrl(oldDesc, data.fromUrl, data.toUrl ?? '')
+  }
+  if (newDesc === oldDesc) {
+    console.log(`[vk_update] ${video.vk_owner_id}_${video.vk_video_id}: no change`)
+    return
+  }
+
+  await editVideo(video.vk_owner_id, video.vk_video_id, { desc: newDesc }, token)
+  await supabase
+    .from('vk_videos')
+    .update({ current_description: newDesc, is_published_back: true, updated_at: new Date().toISOString() })
+    .eq('id', video.id)
+  console.log(`[vk_update] OK ${video.vk_owner_id}_${video.vk_video_id} (${data.op})`)
+}
+
 // --- Produce (Master Producer Agent) ---
 
 import { buildProducerSystemPrompt, buildProducerUserPrompt } from './lib/process/prompts'
@@ -1800,6 +1844,13 @@ const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> =
   // Description-only bulk update (link-block rebuild / URL replace) for
   // already-published videos. Enqueued by /api/youtube/bulk-update-links.
   update_description: handleUpdateDescription,
+  // VK Видео: суточный синк видео + точечное обновление описания (video.edit).
+  vk_sync_all: async () => {
+    const { syncAllVkChannels } = await import('./lib/vk/sync')
+    const r = await syncAllVkChannels()
+    console.log(`[vk] sync: channels=${r.channels} upserted=${r.upserted}`)
+  },
+  vk_update_video: handleVkUpdateVideo,
 }
 
 // Recovery sweep — see lib/worker/stale-cleanup.ts for the policy. The
