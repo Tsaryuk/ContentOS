@@ -247,7 +247,7 @@ export default function VideoDetailPage() {
   const sv = video.selected_variants ?? {}
   const isProcessing = ['transcribing', 'producing', 'generating', 'thumbnail', 'publishing'].includes(video.status)
   const canProduce = video.status === 'pending' || video.status === 'error' || video.status === 'review'
-  const canPublish = (video.status === 'review' || video.status === 'done') && video.is_approved
+  const canPublish = (video.status === 'review' || video.status === 'done' || video.status === 'error') && video.is_approved
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
