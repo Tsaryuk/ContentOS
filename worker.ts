@@ -1061,7 +1061,7 @@ async function handleUpdateDescription(
 
 import { buildProducerSystemPrompt, buildProducerUserPrompt } from './lib/process/prompts'
 
-async function handleProduce(videoId: string) {
+async function handleProduce(videoId: string, data?: { regenNote?: string }) {
   const video = await getVideo(videoId)
   const channel = await getChannel(video.channel_id)
   const rules = channel.rules
@@ -1083,7 +1083,7 @@ async function handleProduce(videoId: string) {
       console.log('[produce] No transcript, queueing transcribe first...')
       await updateProgress(videoId, 'Транскрипт не найден, запускаем расшифровку...')
       await enqueueProcessJob('transcribe', videoId, { videoId }, { attempts: 1 })
-      await enqueueProcessJob('produce', videoId, { videoId }, { attempts: 1, delay: 120000, force: true })
+      await enqueueProcessJob('produce', videoId, { videoId, regenNote: data?.regenNote }, { attempts: 1, delay: 120000, force: true })
       return
     }
 
@@ -1104,6 +1104,7 @@ async function handleProduce(videoId: string) {
             currentDescription: video.current_description,
             transcript: video.transcript!,
             durationSeconds: video.duration_seconds,
+            regenNote: data?.regenNote,
           }),
         }],
       },
