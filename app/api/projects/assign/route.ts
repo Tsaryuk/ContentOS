@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // POST /api/projects/assign — assign channel to project
 export async function POST(req: NextRequest) {
@@ -19,6 +20,6 @@ export async function POST(req: NextRequest) {
     .from(table)
     .update({ project_id: projectId ?? null })
     .eq('id', channelId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/projects/assign')
   return NextResponse.json({ ok: true })
 }

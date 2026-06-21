@@ -4,6 +4,10 @@ import { getSession } from '@/lib/session'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 
+// bcrypt-хэш произвольной строки — нужен, чтобы ветка "юзер не найден"
+// выполняла полноценный bcrypt.compare и не отличалась по таймингу.
+const DUMMY_HASH = '$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW'
+
 export async function POST(req: NextRequest) {
   // 10 login attempts per IP per minute. Brute-force protection.
   const rl = await rateLimit('login', clientIp(req), 10, 60)
@@ -24,6 +28,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error || !user) {
+      await bcrypt.compare(password, DUMMY_HASH)
       return NextResponse.json({ error: 'Неверный email или пароль' }, { status: 401 })
     }
 

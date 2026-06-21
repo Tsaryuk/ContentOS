@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizeArticleHtml } from '@/lib/sanitize'
 import { requireProjectAccess } from '@/lib/project-access'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // Only these fields may be updated via PATCH — anything else is ignored
 // to prevent mass-assignment (status spoofing, slug injection, created_by tamper).
@@ -103,7 +104,7 @@ export async function PATCH(
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return dbErrorResponse(error, '/api/articles/[id]')
 
     // Auto-republish if already published — updates static HTML on letters.tsaryuk.ru
     // Passes previousSlug so old file is removed if slug changed
@@ -142,7 +143,7 @@ export async function DELETE(
   if (denied) return denied
 
   const { error } = await supabaseAdmin.from('nl_articles').delete().eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/articles/[id]')
 
   // Remove static HTML file + index.json entry
   if (current?.blog_slug) {

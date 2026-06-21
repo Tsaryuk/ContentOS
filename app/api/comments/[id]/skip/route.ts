@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // POST /api/comments/[id]/skip — manually hide a comment from the reply queue.
 export async function POST(
@@ -21,6 +22,6 @@ export async function POST(
     .update({ status: 'hidden', skip_reason: reason })
     .eq('id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/comments/[id]/skip')
   return NextResponse.json({ success: true })
 }

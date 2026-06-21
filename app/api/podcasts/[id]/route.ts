@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 const EDITABLE_FIELDS = [
   'slug',
@@ -70,7 +71,7 @@ export async function PATCH(
     if (error.code === '23505') {
       return NextResponse.json({ error: 'Slug уже занят' }, { status: 409 })
     }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/podcasts/[id]')
   }
   if (!data) return NextResponse.json({ error: 'Шоу не найдено' }, { status: 404 })
   return NextResponse.json(data)

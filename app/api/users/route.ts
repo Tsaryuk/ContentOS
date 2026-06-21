@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { requireAdmin } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function GET() {
   const auth = await requireAdmin()
@@ -13,7 +14,7 @@ export async function GET() {
     .order('created_at', { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/users')
   }
 
   return NextResponse.json({ users: data })
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       if (error.code === '23505') {
         return NextResponse.json({ error: 'Пользователь с таким email уже существует' }, { status: 400 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return dbErrorResponse(error, '/api/users')
     }
 
     return NextResponse.json({ user: data })

@@ -54,8 +54,27 @@ export function handleApiError(err: unknown, ctx: ApiErrorContext): NextResponse
     // never let Sentry init issues shadow the real error
   }
 
+  // Полное сообщение уже в логе и Sentry — клиенту только generic-текст,
+  // exception-сообщения могут содержать внутренние детали (хосты, схему БД).
   return NextResponse.json(
-    { error: error.message || 'Ошибка сервера' },
+    { error: 'Ошибка сервера' },
     { status: 500 },
   )
+}
+
+/**
+ * Ответ на ошибку Supabase-запроса: полное сообщение — в серверный лог,
+ * клиенту — generic-текст. Сообщения Supabase содержат имена таблиц,
+ * колонок и constraints — отдавать их наружу нельзя.
+ */
+export function dbErrorResponse(
+  error: { message: string },
+  route: string,
+  status = 500,
+): NextResponse {
+  logger.error(
+    { module: 'api', route, err: error.message },
+    'supabase query failed',
+  )
+  return NextResponse.json({ error: 'Ошибка базы данных' }, { status })
 }
