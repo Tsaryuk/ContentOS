@@ -113,13 +113,17 @@ export default function VideoDetailPage() {
     return () => clearInterval(interval)
   }, [video?.status, video?.producer_output?.thumbnail_generating, loadVideo])
 
+  const [regenNote, setRegenNote] = useState('')
+
   const runProduce = async () => {
     setProcessing('Подготовка выпуска')
+    const note = regenNote.trim()
     fetch('/api/process/produce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ videoId }),
+      body: JSON.stringify({ videoId, note: note || undefined }),
     }).catch(() => {})
+    setRegenNote('')
     setTimeout(loadVideo, 3000)
   }
 
@@ -573,13 +577,21 @@ export default function VideoDetailPage() {
 
               {po ? (
                 <>
+                  <textarea
+                    value={regenNote}
+                    onChange={e => setRegenNote(e.target.value)}
+                    placeholder="Правка перед перегенерацией: что не так с описанием/гостем, на что обратить внимание…"
+                    rows={2}
+                    disabled={isProcessing}
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground/60 resize-none focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-30"
+                  />
                   <button
                     onClick={runProduce}
                     disabled={isProcessing}
                     className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors disabled:opacity-30"
                   >
                     {isProcessing ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
-                    Перегенерировать
+                    {regenNote.trim() ? 'Перегенерировать с правкой' : 'Перегенерировать'}
                   </button>
 
                   <Button
