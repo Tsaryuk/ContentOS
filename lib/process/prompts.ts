@@ -267,6 +267,7 @@ export function buildProducerUserPrompt(params: {
   transcript: string
   durationSeconds: number
   guestInfo?: GuestInfo | null
+  regenNote?: string
 }): string {
   const durationMin = Math.round(params.durationSeconds / 60)
 
@@ -280,6 +281,10 @@ export function buildProducerUserPrompt(params: {
     ? `\n**Known guest info:**\n- Name: ${params.guestInfo.name}\n- Description: ${params.guestInfo.description}\n- Topics: ${params.guestInfo.topics.join(', ')}`
     : ''
 
+  const regenSection = params.regenNote?.trim()
+    ? `\n\n## ВАЖНО — правки пользователя к прошлой генерации\nПредыдущий вариант не подошёл. Обязательно учти и исправь по этим замечаниям:\n${params.regenNote.trim()}\nОсобое внимание удели описанию, имени и регалиям гостя, точности фактов.`
+    : ''
+
   return `## Video to prepare for publication
 
 **Current title:** ${params.currentTitle}
@@ -290,6 +295,7 @@ ${guestSection}
 ## Transcript
 
 ${transcript}
+${regenSection}
 
 ---
 

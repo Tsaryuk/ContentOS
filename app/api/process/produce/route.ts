@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
 
   try {
-    const { videoId } = await req.json()
+    const { videoId, note } = await req.json()
     if (!videoId) return NextResponse.json({ error: 'videoId required' }, { status: 400 })
 
     const { video } = await getVideoWithChannel(videoId)
@@ -19,8 +19,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Cannot produce: status "${video.status}"` }, { status: 400 })
     }
 
+    const regenNote = typeof note === 'string' && note.trim() ? note.trim() : undefined
     await updateVideoStatus(videoId, 'producing')
-    const { status } = await enqueueProcessJob('produce', videoId, { videoId })
+    const { status } = await enqueueProcessJob('produce', videoId, { videoId, regenNote })
 
     return NextResponse.json({ success: true, status })
   } catch (err: unknown) {

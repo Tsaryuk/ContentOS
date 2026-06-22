@@ -901,6 +901,26 @@ function humanizeYouTubeError(status: number, body: string): string {
   return `YouTube API ошибка ${status}: ${body.slice(0, 200)}`
 }
 
+// YouTube rejects tags ("keywords") containing < or >, and the combined tag
+// length must stay under 500 chars (tags with spaces get quoted → +2 each).
+// Producer-generated tags occasionally blow past this and YouTube returns
+// "invalid video keywords" — sanitize and clamp before sending.
+function sanitizeYouTubeTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return []
+  const out: string[] = []
+  let total = 0
+  for (const raw of tags) {
+    if (typeof raw !== 'string') continue
+    const tag = raw.replace(/[<>]/g, '').trim()
+    if (!tag || tag.length > 100) continue
+    const weight = tag.length + (tag.includes(' ') ? 2 : 0)
+    if (total + weight > 480) break
+    out.push(tag)
+    total += weight
+  }
+  return out
+}
+
 async function handlePublish(videoId: string, overrides?: { title?: string; thumbnailUrl?: string }) {
   const video = await getVideo(videoId)
   if (!video.is_approved) throw new Error('Not approved')
@@ -928,7 +948,7 @@ async function handlePublish(videoId: string, overrides?: { title?: string; thum
 
     // Update snippet (title, description, tags)
     const publishDescription = video.generated_description || snippet.description
-    const publishTags = (video.generated_tags?.length ? video.generated_tags : null) ?? snippet.tags ?? []
+    const publishTags = sanitizeYouTubeTags((video.generated_tags?.length ? video.generated_tags : null) ?? snippet.tags ?? [])
 
     console.log(`[publish] title: ${publishTitle?.slice(0, 60)}`)
     console.log(`[publish] desc: ${publishDescription?.length ?? 0} chars`)
@@ -1105,7 +1125,7 @@ async function handleVkUpdateVideo(
 
 import { buildProducerSystemPrompt, buildProducerUserPrompt } from './lib/process/prompts'
 
-async function handleProduce(videoId: string) {
+async function handleProduce(videoId: string, data?: { regenNote?: string }) {
   const video = await getVideo(videoId)
   const channel = await getChannel(video.channel_id)
   const rules = channel.rules
@@ -1127,7 +1147,7 @@ async function handleProduce(videoId: string) {
       console.log('[produce] No transcript, queueing transcribe first...')
       await updateProgress(videoId, 'Транскрипт не найден, запускаем расшифровку...')
       await enqueueProcessJob('transcribe', videoId, { videoId }, { attempts: 1 })
-      await enqueueProcessJob('produce', videoId, { videoId }, { attempts: 1, delay: 120000, force: true })
+      await enqueueProcessJob('produce', videoId, { videoId, regenNote: data?.regenNote }, { attempts: 1, delay: 120000, force: true })
       return
     }
 
@@ -1148,6 +1168,7 @@ async function handleProduce(videoId: string) {
             currentDescription: video.current_description,
             transcript: video.transcript!,
             durationSeconds: video.duration_seconds,
+            regenNote: data?.regenNote,
           }),
         }],
       },
