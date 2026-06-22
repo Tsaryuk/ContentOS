@@ -54,6 +54,16 @@ interface PodcastShow {
   is_active: boolean
 }
 interface GoogleAccount { id: string; email: string; name: string; picture: string | null }
+interface VkChannel {
+  id: string
+  vk_owner_id: number
+  name: string
+  screen_name: string | null
+  photo_url: string | null
+  rules: { required_links?: string[]; channel_links?: string } | null
+  needs_reauth: boolean
+  is_active: boolean
+}
 interface ChannelRules {
   title_format: string; description_template: string
   required_links: string[]; hashtags_fixed: string[]
@@ -101,7 +111,7 @@ export default function SettingsPage() {
   const [tgChannels, setTgChannels] = useState<TgChannel[]>([])
   const [accounts, setAccounts] = useState<GoogleAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeSection, setActiveSection] = useState<'accounts' | 'projects' | 'channels' | 'podcasts'>('accounts')
+  const [activeSection, setActiveSection] = useState<'accounts' | 'projects' | 'channels' | 'podcasts' | 'vk'>('accounts')
   const [sessionRole, setSessionRole] = useState<string | null>(null)
 
   // Project form
@@ -137,6 +147,13 @@ export default function SettingsPage() {
   const [replaceFrom, setReplaceFrom] = useState('')
   const [replaceTo, setReplaceTo] = useState('')
 
+  // VK channels
+  const [vkChannels, setVkChannels] = useState<VkChannel[]>([])
+  const [vkSavingId, setVkSavingId] = useState<string | null>(null)
+  const [vkBulkBusy, setVkBulkBusy] = useState(false)
+  const [vkFrom, setVkFrom] = useState('')
+  const [vkTo, setVkTo] = useState('')
+
   // Per-project CTA editor expand state
   const [expandedProjectCta, setExpandedProjectCta] = useState<string | null>(null)
 
@@ -148,10 +165,11 @@ export default function SettingsPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const [projRes, accRes, podRes] = await Promise.all([
+      const [projRes, accRes, podRes, vkRes] = await Promise.all([
         fetch('/api/projects?all=true'),
         fetch('/api/accounts'),
         fetch('/api/podcasts'),
+        fetch('/api/vk/channels'),
       ])
       const { projects: p, channels: c, tgChannels: tg } = await projRes.json()
       setProjects(p ?? [])
@@ -169,6 +187,11 @@ export default function SettingsPage() {
       if (podRes.ok) {
         const { shows } = await podRes.json()
         setPodcasts(shows ?? [])
+      }
+
+      if (vkRes.ok) {
+        const { channels: vk } = await vkRes.json()
+        setVkChannels(vk ?? [])
       }
     } finally {
       setLoading(false)
@@ -190,6 +213,53 @@ export default function SettingsPage() {
       toast.error('Не удалось обновить шоу: ' + (data.error ?? res.status))
     }
     setSavingPodcastId(null)
+  }
+
+  async function updateVkChannel(id: string, patch: { rules?: VkChannel['rules']; is_active?: boolean }) {
+    setVkSavingId(id)
+    try {
+      const res = await fetch(`/api/vk/channels/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setVkChannels(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c))
+      } else {
+        const d = await res.json().catch(() => ({}))
+        toast.error('Не удалось сохранить: ' + (d.error ?? res.status))
+      }
+    } finally {
+      setVkSavingId(null)
+    }
+  }
+
+  async function bulkUpdateVk(channelId: string, op: 'rebuild_block' | 'replace_url', extra?: { fromUrl?: string; toUrl?: string }) {
+    setVkBulkBusy(true)
+    try {
+      const res = await fetch('/api/vk/bulk-update-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId, op, ...extra }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) toast.error('Не удалось запустить: ' + (d.error ?? res.status))
+      else toast.success(`В очередь: ${d.enqueued} видео. Описания обновятся постепенно (~1 видео / 3с).`)
+    } finally {
+      setVkBulkBusy(false)
+    }
+  }
+
+  async function syncVk() {
+    setVkBulkBusy(true)
+    try {
+      const res = await fetch('/api/vk/sync', { method: 'POST' })
+      if (res.ok) toast.success('Синхронизация ВК запущена — видео подтянутся в фоне.')
+      else toast.error('Не удалось запустить синхронизацию')
+    } finally {
+      setVkBulkBusy(false)
+    }
   }
 
   // Manually publish all ready (done, no episode yet) podcast videos of a show.
@@ -409,6 +479,7 @@ export default function SettingsPage() {
     { id: 'projects' as const, label: 'Проекты', icon: <FolderOpen className="w-3.5 h-3.5" /> },
     { id: 'channels' as const, label: 'Каналы', icon: <Play className="w-3.5 h-3.5" /> },
     { id: 'podcasts' as const, label: 'Подкасты', icon: <Mic className="w-3.5 h-3.5" /> },
+    { id: 'vk' as const, label: 'ВК', icon: <Megaphone className="w-3.5 h-3.5" /> },
   ]
 
   if (loading) return (
@@ -1221,6 +1292,77 @@ export default function SettingsPage() {
                 </Card>
               )
             })
+          )}
+        </div>
+      )}
+
+      {activeSection === 'vk' && (
+        <div className="space-y-4">
+          <Card className="bg-accent/5 border-accent/20 p-4 text-xs text-muted-foreground leading-relaxed">
+            Обновление <b>названий и описаний</b> на ВК Видео через API. <b>Обложки</b> через API менять нельзя — только вручную в студии VK. Подключи ВК-аккаунт админа сообществ (токен не протухает).
+          </Card>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href="/api/vk/oauth/start"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+            >
+              <Megaphone className="w-4 h-4" /> Подключить ВК
+            </a>
+            {vkChannels.length > 0 && (
+              <Button variant="outline" size="sm" disabled={vkBulkBusy} onClick={syncVk}>
+                {vkBulkBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                Синхронизировать видео
+              </Button>
+            )}
+          </div>
+
+          {vkChannels.length === 0 ? (
+            <Card className="p-12 flex flex-col items-center justify-center text-center">
+              <Megaphone className="w-10 h-10 text-muted-foreground mb-3" />
+              <p className="text-foreground font-medium mb-1">Сообщества ещё не подключены</p>
+              <p className="text-sm text-muted-foreground">Нажми «Подключить ВК» и выбери аккаунт админа сообществ.</p>
+            </Card>
+          ) : (
+            vkChannels.map(ch => (
+              <Card key={ch.id} className="p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-semibold tracking-tight text-foreground">{ch.name}</span>
+                  {ch.needs_reauth && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">нужен reauth</span>
+                  )}
+                  {vkSavingId === ch.id && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                  {ch.screen_name && <span className="text-[11px] text-muted-foreground/70 font-mono ml-1">@{ch.screen_name}</span>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Блок ссылок (подставляется в описания)</label>
+                  <textarea
+                    rows={4}
+                    defaultValue={ch.rules?.channel_links ?? ''}
+                    onBlur={e => updateVkChannel(ch.id, { rules: { ...(ch.rules ?? {}), channel_links: e.target.value } })}
+                    placeholder={'▶︎ Telegram — https://t.me/...\n▶︎ Сайт — https://...'}
+                    className={`${textareaClass} font-mono text-xs`}
+                  />
+                </div>
+
+                <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+                  <label className={labelClass}>Массово обновить описания (все видео сообщества)</label>
+                  <Button variant="outline" size="sm" disabled={vkBulkBusy} onClick={() => bulkUpdateVk(ch.id, 'rebuild_block')}>
+                    {vkBulkBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    Обновить блок ссылок во всех видео
+                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input value={vkFrom} onChange={e => setVkFrom(e.target.value)} placeholder="старая ссылка (A)" className={`${inputClass} flex-1 min-w-[160px] font-mono text-xs`} />
+                    <input value={vkTo} onChange={e => setVkTo(e.target.value)} placeholder="новая ссылка (B)" className={`${inputClass} flex-1 min-w-[160px] font-mono text-xs`} />
+                    <Button variant="outline" size="sm" disabled={vkBulkBusy || !vkFrom.trim()} onClick={() => bulkUpdateVk(ch.id, 'replace_url', { fromUrl: vkFrom, toUrl: vkTo })}>
+                      Заменить A→B
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Пишет описания прямо в ВК (video.edit), ~1 видео в 3с. Если видео ещё не подтянуты — нажми «Синхронизировать видео».</p>
+                </div>
+              </Card>
+            ))
           )}
         </div>
       )}
