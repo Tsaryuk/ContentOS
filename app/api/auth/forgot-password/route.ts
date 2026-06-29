@@ -53,10 +53,13 @@ export async function POST(req: NextRequest) {
       return genericOk
     }
 
-    // Build reset URL from request origin (trusted — same-origin).
+    // Prefer the configured public origin (APP_URL) so internal/proxied/cron
+    // calls never emit localhost links in reset emails; fall back to the
+    // forwarded request origin for normal external requests.
     const proto = req.headers.get('x-forwarded-proto') ?? req.nextUrl.protocol.replace(':', '')
     const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? req.nextUrl.host
-    const resetUrl = `${proto}://${host}/reset-password?token=${encodeURIComponent(rawToken)}`
+    const baseUrl = process.env.APP_URL?.replace(/\/+$/, '') || `${proto}://${host}`
+    const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`
 
     const html = `
       <p>Здравствуйте, ${escapeHtml(user.name ?? '')}!</p>
