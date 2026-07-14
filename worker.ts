@@ -1115,7 +1115,10 @@ async function handleProduce(videoId: string, data?: { regenNote?: string }) {
     const msg = await claudeWithRetry(
       {
         model: AI_MODELS.claude,
-        max_tokens: 8192,
+        // Long podcasts produce a large JSON (timecodes over the whole episode +
+        // clips + shorts). Russian text is token-heavy, so 8192 truncated mid-array
+        // and JSON.parse failed ("Expected ',' or ']' ... position N"). 16384 fits.
+        max_tokens: 16384,
         system: buildProducerSystemPrompt(rules, durationMin),
         messages: [{
           role: 'user',
