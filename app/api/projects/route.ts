@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { requireAuth, requireAdmin } from '@/lib/auth'
 import { buildUniqueProjectSlug } from '@/lib/projects/slug'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // GET /api/projects — projects with channels
 // ?all=true returns all channels (for settings), otherwise filters by active project
@@ -63,6 +64,6 @@ export async function POST(req: NextRequest) {
     .insert({ name: name.trim(), color: color ?? '#a67ff0', slug })
     .select('id, name, color, slug')
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/projects')
   return NextResponse.json(data)
 }

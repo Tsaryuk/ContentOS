@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth, requireAdmin } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // GET /api/channels/[id] — fetch channel metadata (id, title, rules)
 export async function GET(
@@ -19,7 +20,7 @@ export async function GET(
     .eq('id', id)
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/channels/[id]')
   if (!data) return NextResponse.json({ error: 'Канал не найден' }, { status: 404 })
   return NextResponse.json(data)
 }
@@ -46,7 +47,7 @@ export async function PATCH(
     .update({ rules })
     .eq('id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/channels/[id]')
   return NextResponse.json({ ok: true })
 }
 
@@ -63,6 +64,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     .delete()
     .eq('id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/channels/[id]')
   return NextResponse.json({ ok: true })
 }

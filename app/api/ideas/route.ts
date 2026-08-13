@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { suggestForIdea } from '@/lib/articles/idea-suggestions'
 import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth()
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/ideas')
   return NextResponse.json({ ideas: data ?? [] })
 }
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
       .select('*')
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return dbErrorResponse(error, '/api/ideas')
     return NextResponse.json({ idea: data })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Ошибка сервера'

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { requireAdmin } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function PATCH(
   req: NextRequest,
@@ -41,7 +42,7 @@ export async function PATCH(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return dbErrorResponse(error, '/api/users/[id]')
     }
 
     return NextResponse.json({ user: data })
@@ -69,7 +70,7 @@ export async function DELETE(
     .eq('id', id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/users/[id]')
   }
 
   return NextResponse.json({ success: true })

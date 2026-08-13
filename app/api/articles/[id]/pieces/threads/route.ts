@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { handleApiError } from '@/lib/api-error'
+import { handleApiError, dbErrorResponse } from '@/lib/api-error'
 import { trackUsage } from '@/lib/cost'
 import { AI_MODELS } from '@/lib/ai-models'
 import { buildThreadsSystemPrompt, buildThreadsUserPrompt } from '@/lib/content/threads-prompt'
@@ -130,7 +130,7 @@ export async function GET(
     .order('created_at', { ascending: false })
     .limit(1)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/articles/[id]/pieces/threads')
 
   return NextResponse.json({ piece: data?.[0] ?? null })
 }

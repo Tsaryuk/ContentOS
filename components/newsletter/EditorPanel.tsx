@@ -381,6 +381,7 @@ export function EditorPanel({ issue, onUpdate, onSave, onUpload, onSchedule, sav
               }`}
             >
               <iframe
+                sandbox=""
                 srcDoc={`
                   <style>
                     body { margin: 0; padding: 0; background: #fff; color: #333; font-family: Georgia, serif; font-size: 18px; line-height: 1.6em; }

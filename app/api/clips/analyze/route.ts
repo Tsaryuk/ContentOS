@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
 import { getQueue } from '@/lib/queue'
+import { handleApiError } from '@/lib/api-error'
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
@@ -25,6 +26,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, status: 'queued' })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return handleApiError(err, { route: '/api/clips/analyze' })
   }
 }

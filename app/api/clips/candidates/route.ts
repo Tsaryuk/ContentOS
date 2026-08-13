@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // GET /api/clips/candidates?videoId=xxx
 export async function GET(req: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     .eq('video_id', videoId)
     .order('scores->virality_potential', { ascending: false })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/clips/candidates')
   return NextResponse.json({ candidates: data ?? [] })
 }
 
@@ -45,6 +46,6 @@ export async function PATCH(req: NextRequest) {
     .update(update)
     .eq('id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/clips/candidates')
   return NextResponse.json({ success: true })
 }

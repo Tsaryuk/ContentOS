@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { dbErrorResponse } from '@/lib/api-error'
 
 const ALLOWED_FEEDBACK = new Set(['good', 'bad', 'neutral'])
 
@@ -34,6 +35,6 @@ export async function PATCH(
     .from('comment_reply_log')
     .update({ feedback })
     .eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/comments/log/[id]')
   return NextResponse.json({ ok: true })
 }

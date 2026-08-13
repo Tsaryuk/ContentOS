@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function GET() {
   const auth = await requireAuth()
@@ -13,7 +14,7 @@ export async function GET() {
     .limit(100)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/youtube/videos-list')
   }
 
   return NextResponse.json({ videos: data })

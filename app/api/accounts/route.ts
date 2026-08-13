@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // GET /api/accounts — list connected Google accounts
 export async function GET(): Promise<NextResponse> {
@@ -12,6 +13,6 @@ export async function GET(): Promise<NextResponse> {
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/accounts')
   return NextResponse.json({ accounts: data ?? [] })
 }

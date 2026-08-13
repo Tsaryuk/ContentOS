@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
 import { decryptSecret } from '@/lib/crypto-secrets'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // POST /api/channels/add — add YouTube channel by ID
 export async function POST(req: NextRequest) {
@@ -89,6 +90,6 @@ export async function POST(req: NextRequest) {
     .select('id, title')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/channels/add')
   return NextResponse.json({ ok: true, channel: data })
 }

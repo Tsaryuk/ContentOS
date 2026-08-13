@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth()
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/telegram/posts')
   }
 
   return NextResponse.json({ posts: data ?? [] })
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return dbErrorResponse(error, '/api/telegram/posts')
     }
 
     // If scheduled, add to BullMQ delayed queue

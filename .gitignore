@@ -10,3 +10,4 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 .claude/scheduled_tasks.lock
+.claude/worktrees/

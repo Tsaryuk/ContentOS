@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth'
+import { dbErrorResponse } from '@/lib/api-error'
 
 // GET /api/carousels/source-videos — videos with transcripts for carousel wizard
 export async function GET(): Promise<NextResponse> {
@@ -14,6 +15,6 @@ export async function GET(): Promise<NextResponse> {
     .order('published_at', { ascending: false })
     .limit(20)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/carousels/source-videos')
   return NextResponse.json({ videos: data ?? [] })
 }

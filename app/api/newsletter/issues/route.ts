@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSession } from '@/lib/session'
 import { nextIssueNumber } from '@/lib/newsletter/issue-number'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuth()
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/newsletter/issues')
   }
 
   return NextResponse.json({ issues: data ?? [] })
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return dbErrorResponse(error, '/api/newsletter/issues')
     }
 
     return NextResponse.json({ issue: data })

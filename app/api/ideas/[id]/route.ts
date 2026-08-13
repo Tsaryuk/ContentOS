@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireProjectAccess } from '@/lib/project-access'
+import { dbErrorResponse } from '@/lib/api-error'
 
 const ALLOWED_STATUSES = new Set(['new', 'drafted', 'archived'])
 
@@ -33,7 +34,7 @@ export async function PATCH(
   const { data, error } = await supabaseAdmin
     .from('nl_article_ideas')
     .update(update).eq('id', id).select('*').single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/ideas/[id]')
   return NextResponse.json({ idea: data })
 }
 
@@ -52,6 +53,6 @@ export async function DELETE(
   if (denied) return denied
 
   const { error } = await supabaseAdmin.from('nl_article_ideas').delete().eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return dbErrorResponse(error, '/api/ideas/[id]')
   return NextResponse.json({ success: true })
 }

@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizeNewsletterHtml } from '@/lib/sanitize'
 import { requireProjectAccess } from '@/lib/project-access'
+import { dbErrorResponse } from '@/lib/api-error'
 
 const ISSUE_ALLOWED_FIELDS = new Set([
   'title', 'subtitle', 'body_html', 'cover_url', 'campaign_id',
@@ -117,7 +118,7 @@ export async function PATCH(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return dbErrorResponse(error, '/api/newsletter/issues/[id]')
     }
 
     return NextResponse.json({ issue: data })
@@ -161,7 +162,7 @@ export async function DELETE(
     .eq('id', id)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/newsletter/issues/[id]')
   }
 
   return NextResponse.json({ success: true })

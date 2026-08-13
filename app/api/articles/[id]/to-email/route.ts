@@ -8,6 +8,7 @@ import { EMAIL_WRITER_PROMPT } from '@/lib/articles/prompts'
 import { nextIssueNumber } from '@/lib/newsletter/issue-number'
 import { requireProjectAccess } from '@/lib/project-access'
 import { renderEmailBody, buildArticleCta, type SectionKind } from '@/lib/newsletter/sections'
+import { dbErrorResponse } from '@/lib/api-error'
 
 const anthropic = new Anthropic()
 
@@ -122,7 +123,7 @@ export async function POST(
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return dbErrorResponse(error, '/api/articles/[id]/to-email')
 
     // Link article to issue
     await supabaseAdmin

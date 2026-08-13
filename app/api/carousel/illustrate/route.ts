@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { fal } from '@fal-ai/client'
 import { supabaseAdmin } from '@/lib/supabase'
 import type { CarouselSlide, CarouselStyle } from '@/lib/carousel/types'
@@ -51,6 +52,9 @@ async function uploadToStorage(carouselId: string, imageUrl: string, name: strin
 export async function POST(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  const rl = await rateLimit('ai:carousel', clientIp(req), 15, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   try {
     fal.config({ credentials: process.env.FAL_KEY ?? '' })

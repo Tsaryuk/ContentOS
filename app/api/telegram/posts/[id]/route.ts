@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { dbErrorResponse } from '@/lib/api-error'
 
 export async function PATCH(
   req: NextRequest,
@@ -16,12 +17,18 @@ export async function PATCH(
     // Only allow editing drafts and scheduled posts
     const { data: existing } = await supabaseAdmin
       .from('tg_posts')
-      .select('status')
+      .select('status, created_by')
       .eq('id', postId)
       .single()
 
     if (!existing) {
       return NextResponse.json({ error: 'Пост не найден' }, { status: 404 })
+    }
+    if (existing.created_by && existing.created_by !== auth.userId && auth.userRole !== 'admin') {
+      return NextResponse.json(
+        { error: 'Редактировать пост может только автор или админ' },
+        { status: 403 }
+      )
     }
     if (existing.status === 'sent' || existing.status === 'sending') {
       return NextResponse.json(
@@ -46,7 +53,7 @@ export async function PATCH(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return dbErrorResponse(error, '/api/telegram/posts/[id]')
     }
 
     // Re-schedule if needed
@@ -75,12 +82,18 @@ export async function DELETE(
 
   const { data: existing } = await supabaseAdmin
     .from('tg_posts')
-    .select('status')
+    .select('status, created_by')
     .eq('id', postId)
     .single()
 
   if (!existing) {
     return NextResponse.json({ error: 'Пост не найден' }, { status: 404 })
+  }
+  if (existing.created_by && existing.created_by !== auth.userId && auth.userRole !== 'admin') {
+    return NextResponse.json(
+      { error: 'Удалить пост может только автор или админ' },
+      { status: 403 }
+    )
   }
   if (existing.status === 'sent') {
     return NextResponse.json(
@@ -95,7 +108,7 @@ export async function DELETE(
     .eq('id', postId)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return dbErrorResponse(error, '/api/telegram/posts/[id]')
   }
 
   return NextResponse.json({ success: true })

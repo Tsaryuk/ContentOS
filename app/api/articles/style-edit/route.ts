@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
+import { rateLimit, clientIp, rateLimitResponse } from '@/lib/rate-limit'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODELS } from '@/lib/ai-models'
 import { STYLE_EDITOR_PROMPT } from '@/lib/articles/prompts'
@@ -22,6 +23,9 @@ interface StyleEditRequest {
 export async function POST(req: NextRequest): Promise<Response> {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
+
+  const rl = await rateLimit('ai:articles', clientIp(req), 30, 60)
+  if (!rl.allowed) return rateLimitResponse(rl)
 
   const { text, instruction }: StyleEditRequest = await req.json()
 
