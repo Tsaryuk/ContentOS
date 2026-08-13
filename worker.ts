@@ -214,8 +214,16 @@ async function updateProgress(videoId: string, message: string) {
 }
 
 /** Periodically touch updated_at so cleanup cron doesn't kill long-running tasks */
-function startHeartbeat(videoId: string, intervalMs = 60000): () => void {
+// Bumps updated_at while a job runs so stale-cleanup doesn't reset a job
+// that's legitimately still working. Capped at maxMs: a genuinely hung job
+// must eventually stop beating, otherwise updated_at stays fresh forever and
+// stale-cleanup (which keys off updated_at) can never recover it. 35 min
+// covers the worst legit case (long-podcast transcribe + producer Claude run)
+// with margin; past that, the 15-min producing window in stale-cleanup wins.
+function startHeartbeat(videoId: string, intervalMs = 60000, maxMs = 35 * 60 * 1000): () => void {
+  const deadline = Date.now() + maxMs
   const timer = setInterval(() => {
+    if (Date.now() > deadline) { clearInterval(timer); return }
     supabase.from('yt_videos')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', videoId)
@@ -558,13 +566,17 @@ async function transcribeChunk(chunkPath: string, offset: number, videoId?: stri
   const MAX_RETRIES = 2
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
+      // Per-attempt timeout: without it a hung connection blocks the chunk
+      // forever — the worker stays "producing", its heartbeat keeps updated_at
+      // fresh, and stale-cleanup never fires (видео зависает навсегда без
+      // транскрипта). maxRetries: 0 — повторы уже даёт внешний цикл.
       const res = await openai.audio.transcriptions.create({
         file: createReadStream(chunkPath),
         model: 'whisper-1',
         response_format: 'verbose_json',
         timestamp_granularities: ['segment'],
         language: 'ru',
-      })
+      }, { timeout: 8 * 60 * 1000, maxRetries: 0 })
       // Whisper is priced per audio-minute. `res.duration` is total seconds.
       const durationSec = Number((res as any).duration ?? 0)
       if (durationSec > 0) {
