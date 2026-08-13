@@ -83,6 +83,12 @@ const SCHEDULES: CronSpec[] = [
     everyMs: 60 * 60 * 1000,
     description: 'каждый час — авто-публикация готовых подкаст-эпизодов в RSS (shows с auto_publish)',
   },
+  {
+    name: 'vk_sync_all',
+    jobId: 'vk_sync_all_cron',
+    everyMs: 24 * 60 * 60 * 1000,
+    description: 'каждые 24 часа — синк видео VK-каналов (video.get)',
+  },
 ]
 
 export async function registerCronSchedules(queue: Queue): Promise<void> {
