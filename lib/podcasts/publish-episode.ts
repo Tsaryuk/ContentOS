@@ -18,9 +18,9 @@ import { existsSync, readFileSync, rmSync, statSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { supabaseAdmin } from '@/lib/supabase'
+import { ytdlpAudioArgs } from '@/lib/ytdlp'
 
 const AUDIO_BUCKET = 'podcast-audio'
-const PROXY_URL = process.env.PROXY_URL
 
 export interface PublishEpisodeResult {
   status: 'published' | 'skipped'
@@ -72,7 +72,7 @@ export async function publishEpisode(videoId: string): Promise<PublishEpisodeRes
     execFileSync(
       'yt-dlp',
       [
-        ...(PROXY_URL ? ['--proxy', PROXY_URL] : []),
+        ...ytdlpAudioArgs(),
         '-x',
         '--audio-format',
         'mp3',

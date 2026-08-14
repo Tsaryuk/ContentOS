@@ -17,6 +17,7 @@ import { trackUsage, type Task } from './lib/cost'
 import { registerCronSchedules } from './lib/worker/cron-schedules'
 import { createStaleCleanup } from './lib/worker/stale-cleanup'
 import { enqueueProcessJob } from './lib/process/enqueue'
+import { ytdlpAudioArgs } from './lib/ytdlp'
 
 // Initialize Sentry once at process start — safe no-op if SENTRY_DSN is unset.
 initWorkerSentry()
@@ -518,7 +519,7 @@ async function downloadAudio(ytVideoId: string): Promise<string> {
   const outPath = join(TMP_DIR, `${ytVideoId}.mp3`)
   const url = `https://www.youtube.com/watch?v=${ytVideoId}`
   const args = [
-    ...(PROXY_URL ? ['--proxy', PROXY_URL] : []),
+    ...ytdlpAudioArgs(),
     '-x', '--audio-format', 'mp3',
     '--postprocessor-args', 'ffmpeg:-ac 1 -ab 48k',
     '-o', outPath,
