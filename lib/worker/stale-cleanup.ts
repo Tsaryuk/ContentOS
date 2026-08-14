@@ -66,7 +66,15 @@ export function createStaleCleanup({ supabase, updateStatus }: Deps): () => Prom
     if (!thumbStale?.length) return
 
     for (const v of thumbStale) {
-      const po = { ...(v.producer_output ?? {}), thumbnail_generating: null }
+      // Delete the key, do NOT set it to null: `producer_output->'x' is null`
+      // is false for a JSON null (that is SQL NULL vs JSON null), so writing
+      // null left every row matching the filter above forever. The sweep then
+      // re-"cleared" the same rows on every tick and bumped their updated_at,
+      // which also destroyed updated_at as a "content changed" signal. It had
+      // logged 564k no-op lines (77 MB) across 55 videos by the time it was
+      // spotted on 2026-08-14.
+      const po = { ...(v.producer_output ?? {}) }
+      delete po.thumbnail_generating
       await supabase.from('yt_videos').update({
         producer_output: po,
         updated_at: new Date().toISOString(),
