@@ -88,7 +88,12 @@ export async function publishEpisode(videoId: string): Promise<PublishEpisodeRes
 
     const buffer = readFileSync(outPath)
     const audioSize = statSync(outPath).size
-    const storagePath = `${show.slug}/${video.yt_video_id}.mp3`
+    // Keyed by show id, NOT slug: every show here is titled in Russian, so the
+    // slug is Cyrillic ("денис-царюк") and Supabase Storage rejects it with
+    // "Invalid key" — object keys must be ASCII. Caught 2026-08-18 on the first
+    // real publish run. The slug stays the public identity of the feed URL;
+    // only the storage path is opaque.
+    const storagePath = `${show.id}/${video.yt_video_id}.mp3`
 
     const { error: uploadErr } = await supabaseAdmin.storage
       .from(AUDIO_BUCKET)
