@@ -1792,6 +1792,16 @@ OUTPUT: JSON only (no markdown fences):
 
 // --- Worker ---
 
+// Jobs that act on an ALREADY-FINISHED video: they distribute it elsewhere or
+// edit metadata on the platform, they do not produce it. A failure here says
+// nothing about the video itself, so it must not roll the row back to 'error'.
+//
+// 2026-08-18: the Webshare proxy started answering 402 Payment Required and the
+// podcast_publish sweep flipped 70 finished videos to 'error' in one run — the
+// dashboard went from 73 done to 3. The audio never downloaded; the videos were
+// fine the whole time.
+const DISTRIBUTION_JOBS = new Set(['podcast_publish', 'update_description', 'vk_update_video'])
+
 const handlers: Record<string, (videoId: string, data?: any) => Promise<void>> = {
   transcribe: handleTranscribe,
   generate: handleGenerate,
@@ -1938,7 +1948,7 @@ const worker = new Worker(
         videoId,
         attempt: job.attemptsMade,
       })
-      if (videoId) {
+      if (videoId && !DISTRIBUTION_JOBS.has(job.name)) {
         try {
           await updateStatus(videoId, 'error', msg.slice(0, 500))
         } catch {}
