@@ -14,6 +14,14 @@ import {
   type PodcastEpisodeForFeed,
 } from '@/lib/podcasts/rss'
 
+// Next 14 кэширует fetch внутри Route Handler по умолчанию, а supabase-js ходит
+// именно через fetch. Без force-dynamic ответ Supabase залипает: 19.08 фид
+// продолжал отдавать пустые description/itunes:email/itunes:category спустя
+// полчаса после того, как поля заполнили в БД, и новые эпизоды так же могли
+// не появляться. Свежесть для подписчиков обеспечиваем HTTP-заголовком ниже,
+// а не невидимым снапшотом на стороне Next.
+export const dynamic = 'force-dynamic'
+
 const CACHE_SECONDS = 300
 
 function absoluteUrl(req: NextRequest, path: string): string {
