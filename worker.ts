@@ -1980,8 +1980,32 @@ worker.on('completed', (job) => {
 })
 
 // Cleanup stale jobs on start and every 5 minutes
-cleanupStaleJobs()
-setInterval(cleanupStaleJobs, 5 * 60 * 1000)
+// Пульс воркера. Пишется в system_heartbeat — таблицу БЕЗ политик RLS, так что
+// эта же запись служит доказательством, что воркер не только жив, но и реально
+// пишет в БД. 29.07–13.08 он бодро крутил задачи с ключом уровня anon, и все
+// записи молча уходили в никуда: RLS отказывает пустым результатом, а не 4xx.
+// /api/health/live считает пульс просроченным через 15 минут.
+async function beat(): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('system_heartbeat')
+      .upsert(
+        { component: 'worker', beat_at: new Date().toISOString(), detail: `pid ${process.pid}` },
+        { onConflict: 'component' },
+      )
+    if (error) console.error('[heartbeat]', error.message)
+  } catch (err: any) {
+    console.error('[heartbeat]', err?.message ?? err)
+  }
+}
+
+async function tick(): Promise<void> {
+  await beat()
+  await cleanupStaleJobs()
+}
+
+tick()
+setInterval(tick, 5 * 60 * 1000)
 
 // Cron-like jobs (newsletter stats / metrics snapshots / YouTube syncs /
 // auto-reply tick / embeddings backfill). Spec is centralised in
