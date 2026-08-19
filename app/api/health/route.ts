@@ -1,40 +1,13 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import IORedis from 'ioredis'
 import { requireAuth } from '@/lib/auth'
-
-interface ServiceCheck {
-  name: string
-  status: 'ok' | 'error' | 'missing'
-  detail?: string
-}
-
-async function checkSupabase(): Promise<ServiceCheck> {
-  const url = process.env.SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_KEY
-  if (!url || !key) return { name: 'Supabase', status: 'missing', detail: 'SUPABASE_URL or SUPABASE_SERVICE_KEY not set' }
-  try {
-    const sb = createClient(url, key)
-    const { count, error } = await sb.from('yt_videos').select('*', { count: 'exact', head: true })
-    if (error) return { name: 'Supabase', status: 'error', detail: error.message }
-    return { name: 'Supabase', status: 'ok', detail: `${count ?? 0} videos` }
-  } catch (e: any) {
-    return { name: 'Supabase', status: 'error', detail: e.message }
-  }
-}
-
-async function checkRedis(): Promise<ServiceCheck> {
-  const url = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'
-  try {
-    const r = new IORedis(url, { connectTimeout: 5000, maxRetriesPerRequest: 1, lazyConnect: true })
-    await r.connect()
-    await r.ping()
-    await r.quit()
-    return { name: 'Redis', status: 'ok', detail: url.replace(/\/\/.*@/, '//***@') }
-  } catch (e: any) {
-    return { name: 'Redis', status: 'error', detail: e.message?.slice(0, 100) }
-  }
-}
+import {
+  checkDbWrite,
+  checkRedis,
+  checkWorkerHeartbeat,
+  checkProxy,
+  checkYouTubeChannels,
+  type ServiceCheck,
+} from '@/lib/health/checks'
 
 async function checkAnthropic(): Promise<ServiceCheck> {
   const key = process.env.ANTHROPIC_API_KEY
@@ -94,13 +67,6 @@ async function checkFal(): Promise<ServiceCheck> {
   }
 }
 
-function checkProxy(): ServiceCheck {
-  const proxy = process.env.YTDLP_PROXY
-  if (!proxy) return { name: 'yt-dlp Proxy', status: 'missing', detail: 'YTDLP_PROXY not set — yt-dlp may be blocked' }
-  const masked = proxy.replace(/:([^@]+)@/, ':***@')
-  return { name: 'yt-dlp Proxy', status: 'ok', detail: masked }
-}
-
 function checkYouTubeOAuth(): ServiceCheck {
   const clientId = process.env.YOUTUBE_CLIENT_ID
   const clientSecret = process.env.YOUTUBE_CLIENT_SECRET
@@ -113,14 +79,24 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth
 
   const checks = await Promise.all([
-    checkSupabase(),
+    checkDbWrite(),
     checkRedis(),
+    checkWorkerHeartbeat(),
+    checkProxy(),
+    checkYouTubeChannels(),
     checkAnthropic(),
     checkOpenAI(),
     checkFal(),
-    Promise.resolve(checkProxy()),
     Promise.resolve(checkYouTubeOAuth()),
   ])
 
-  return NextResponse.json({ services: checks, timestamp: new Date().toISOString() })
+  const brokenCritical = checks.filter((c) => c.critical && c.status === 'error')
+  const overall: 'ok' | 'degraded' | 'down' =
+    brokenCritical.length > 0 ? 'down' : checks.some((c) => c.status === 'error') ? 'degraded' : 'ok'
+
+  return NextResponse.json({
+    overall,
+    services: checks,
+    timestamp: new Date().toISOString(),
+  })
 }
