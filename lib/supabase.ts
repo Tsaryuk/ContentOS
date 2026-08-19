@@ -14,7 +14,25 @@ export const supabaseAdmin: SupabaseClient = new Proxy({} as SupabaseClient, {
     if (!_admin) {
       _admin = createClient(
         process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_KEY!
+        process.env.SUPABASE_SERVICE_KEY!,
+        {
+          // Next 14 держит Data Cache для fetch НА ДИСКЕ (.next/cache), а
+          // supabase-js ходит через fetch. Кэш переживает и pm2 restart, и
+          // деплой: `git reset --hard` его не трогает, он в gitignore.
+          //
+          // 19.08 из-за этого RSS-фид подкаста полчаса отдавал байт в байт
+          // прежний XML с пустыми description/itunes:email/itunes:category
+          // после того, как поля заполнили в БД. Фид другого шоу, чей URL
+          // запрашивался впервые, отдавал всё свежее — так и нашлось.
+          // Для фида это тихий отказ: площадки просто не увидят выпуск.
+          //
+          // На сервере данные всегда берём из БД; кэширование для клиентов
+          // задаём заголовком cache-control там, где оно нужно.
+          global: {
+            fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+              fetch(input, { ...init, cache: 'no-store' }),
+          },
+        }
       )
     }
     return (_admin as any)[prop]
