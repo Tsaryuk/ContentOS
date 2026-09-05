@@ -1136,6 +1136,75 @@ async function handleVkUpdateVideo(
 
 // --- Produce (Master Producer Agent) ---
 
+/** Что возвращает продюсер. Поля необязательные — валидируем после разбора. */
+interface ProducerOutput {
+  title_variants?: { text: string; is_recommended?: boolean }[]
+  description?: string
+  tags?: string[]
+  timecodes?: { time: string; label: string; transcript_quote?: string }[]
+  clip_suggestions?: unknown[]
+  short_suggestions?: unknown[]
+  social_drafts?: { platform: string; content: string }[]
+  ai_score?: unknown
+  [key: string]: unknown
+}
+
+/** `retryable` = осечка генерации, лечится повтором; иначе повторять бессмысленно. */
+class ProducerJsonError extends Error {
+  constructor(message: string, readonly retryable: boolean) {
+    super(message)
+    this.name = 'ProducerJsonError'
+  }
+}
+
+/**
+ * Разбор JSON из ответа продюсера.
+ *
+ * Раньше здесь был жадный `text.match(/\{[\s\S]*\}/)` плюс голый JSON.parse:
+ * любая осечка модели убивала задачу, а пользователь получал в карточке
+ * «Expected ',' or '}' after property value in JSON at position 18908» — по
+ * такому сообщению делать нечего.
+ *
+ * 05.09 так упал подкаст на 97 минут. Повторный прогон ТОГО ЖЕ промпта прошёл
+ * с первого раза (stop_reason end_turn, 8078 токенов из 16384), то есть
+ * обрезания по лимиту не было — модель разово выдала битый JSON. Поэтому лечим
+ * повтором, а не наращиванием max_tokens.
+ *
+ * Обрыв по лимиту токенов — отдельная болезнь: повтор её не вылечит, о ней
+ * нужно сказать прямо, поэтому она помечается неповторяемой.
+ */
+function parseProducerJson(msg: {
+  content: { type: string; text?: string }[]
+  stop_reason?: string | null
+  usage?: { output_tokens?: number }
+}): ProducerOutput {
+  if (msg.stop_reason === 'max_tokens') {
+    throw new ProducerJsonError(
+      `ответ продюсера обрезан по лимиту токенов (${msg.usage?.output_tokens ?? '?'}) — нужен больший max_tokens`,
+      false,
+    )
+  }
+
+  const text = msg.content.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('')
+
+  // Модель обычно оборачивает JSON в ```json ... ``` — снимаем ограду.
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  const candidate = (fenced ? fenced[1] : text).trim()
+  const start = candidate.indexOf('{')
+  const end = candidate.lastIndexOf('}')
+  if (start === -1 || end <= start) {
+    throw new ProducerJsonError('в ответе продюсера нет JSON', true)
+  }
+
+  try {
+    return JSON.parse(candidate.slice(start, end + 1)) as ProducerOutput
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : 'ошибка разбора'
+    throw new ProducerJsonError(`битый JSON от продюсера: ${detail}`, true)
+  }
+}
+
+
 import { buildProducerSystemPrompt, buildProducerUserPrompt } from './lib/process/prompts'
 
 async function handleProduce(videoId: string, data?: { regenNote?: string }) {
@@ -1169,37 +1238,48 @@ async function handleProduce(videoId: string, data?: { regenNote?: string }) {
     console.log('[produce] Calling Claude Producer Agent...')
     const durationMin = Math.round(video.duration_seconds / 60)
 
-    const msg = await claudeWithRetry(
-      {
-        model: AI_MODELS.claude,
-        // Long podcasts produce a large JSON (timecodes over the whole episode +
-        // clips + shorts). Russian text is token-heavy, so 8192 truncated mid-array
-        // and JSON.parse failed ("Expected ',' or ']' ... position N"). 16384 fits.
-        max_tokens: 16384,
-        system: buildProducerSystemPrompt(rules, durationMin),
-        messages: [{
-          role: 'user',
-          content: buildProducerUserPrompt({
-            currentTitle: video.current_title,
-            currentDescription: video.current_description,
-            transcript: video.transcript!,
-            durationSeconds: video.duration_seconds,
-            regenNote: data?.regenNote,
-          }),
-        }],
-      },
-      2, 180000,
-      (attempt, max, reason) => {
-        updateProgress(videoId, `AI анализ (попытка ${attempt}/${max}, ${reason})...`)
-      },
-      { task: 'produce', videoId },
-    )
+    // Две попытки на РАЗБОР ответа. claudeWithRetry уже ретраит сетевые сбои,
+    // но не осечку генерации: модель изредка отдаёт синтаксически битый JSON,
+    // и раньше это сразу роняло видео в error.
+    const PRODUCER_ATTEMPTS = 2
+    let output: ProducerOutput
+    for (let attempt = 1; ; attempt++) {
+      const msg = await claudeWithRetry(
+        {
+          model: AI_MODELS.claude,
+          // Long podcasts produce a large JSON (timecodes over the whole episode +
+          // clips + shorts). Russian text is token-heavy, so 8192 truncated mid-array
+          // and JSON.parse failed ("Expected ',' or ']' ... position N"). 16384 fits.
+          max_tokens: 16384,
+          system: buildProducerSystemPrompt(rules, durationMin),
+          messages: [{
+            role: 'user',
+            content: buildProducerUserPrompt({
+              currentTitle: video.current_title,
+              currentDescription: video.current_description,
+              transcript: video.transcript!,
+              durationSeconds: video.duration_seconds,
+              regenNote: data?.regenNote,
+            }),
+          }],
+        },
+        2, 180000,
+        (a, max, reason) => {
+          updateProgress(videoId, `AI анализ (попытка ${a}/${max}, ${reason})...`)
+        },
+        { task: 'produce', videoId },
+      )
 
-    const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error('No JSON in producer response')
-
-    const output = JSON.parse(jsonMatch[0])
+      try {
+        output = parseProducerJson(msg)
+        break
+      } catch (err: unknown) {
+        const retryable = err instanceof ProducerJsonError && err.retryable
+        if (!retryable || attempt >= PRODUCER_ATTEMPTS) throw err
+        console.warn(`[produce] ${(err as Error).message} — повтор ${attempt + 1}/${PRODUCER_ATTEMPTS}`)
+        await updateProgress(videoId, `AI вернул нечитаемый ответ, повтор ${attempt + 1}/${PRODUCER_ATTEMPTS}...`)
+      }
+    }
 
     // Validate required fields
     if (!output.title_variants?.length || !output.description) {
