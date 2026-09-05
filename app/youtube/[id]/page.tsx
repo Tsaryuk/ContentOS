@@ -6,7 +6,7 @@ import {
   ArrowLeft, Clock, Eye, ThumbsUp, Sparkles, ExternalLink,
   Loader2, FileText, Tag, Scissors, MessageSquare, Image,
   User, Rocket, Check, Copy, Save, GalleryHorizontalEnd, Link as LinkIcon,
-  Trash2,
+  Trash2, ArrowDownToLine,
 } from 'lucide-react'
 import { StatusStepper } from '@/components/youtube/StatusStepper'
 import { TranscriptViewer } from '@/components/youtube/TranscriptViewer'
@@ -125,6 +125,28 @@ export default function VideoDetailPage() {
     }).catch(() => {})
     setRegenNote('')
     setTimeout(loadVideo, 3000)
+  }
+
+  // Взять то, что уже опубликовано на YouTube, как черновик для правки.
+  // Без скачивания и расшифровки: полный конвейер нужен для умножения
+  // (таймкоды, клипы, шортсы, аудио), а не для правки метаданных.
+  const runAdopt = async () => {
+    if (video?.producer_output && !confirm('Заменить сгенерированные заголовок, описание и теги тем, что сейчас на YouTube?')) return
+    setProcessing('Перенос с YouTube')
+    try {
+      const res = await fetch('/api/process/adopt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error ?? 'Не удалось перенести данные с YouTube')
+      }
+    } finally {
+      setProcessing(null)
+      loadVideo()
+    }
   }
 
   const publishVariant = async (variantIndex: number, title: string, thumbnailUrl: string) => {
@@ -318,16 +340,25 @@ export default function VideoDetailPage() {
           )}
         </Card>
 
-        {/* Main action button */}
+        {/* Main action buttons: полный конвейер и лёгкий перенос с YouTube */}
         {!po && (
-          <div className="mb-6">
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={runProduce}
               disabled={!canProduce || isProcessing}
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-medium text-sm hover:from-purple-500 hover:to-purple-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="py-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-medium text-sm hover:from-purple-500 hover:to-purple-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
               Подготовить выпуск
+            </button>
+            <button
+              onClick={runAdopt}
+              disabled={isProcessing || !video.current_title}
+              title="Перенести заголовок, описание и теги с YouTube для правки. Без скачивания и расшифровки."
+              className="py-4 rounded-xl border border-border bg-card text-foreground font-medium text-sm hover:bg-muted transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <ArrowDownToLine className="w-4 h-4" />
+              Взять с YouTube
             </button>
           </div>
         )}
