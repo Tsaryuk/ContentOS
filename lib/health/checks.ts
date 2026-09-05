@@ -15,8 +15,9 @@
 // ходить по сети там, где отказ бывает сетевым.
 
 import net from 'net'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import IORedis from 'ioredis'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export interface ServiceCheck {
   name: string
@@ -28,11 +29,19 @@ export interface ServiceCheck {
 
 const WORKER_STALE_MS = 15 * 60 * 1000
 
+/**
+ * Берём общий supabaseAdmin, а НЕ создаём свой клиент.
+ *
+ * Свой клиент здесь уже подвёл: он шёл без `cache: 'no-store'`, и Next отдавал
+ * SELECT из дискового Data Cache со старым `beat_at`. Проверка записи видела
+ * несовпадение с только что записанной меткой и рапортовала «запись не
+ * применилась», а пульс воркера выглядел просроченным — при том что обе записи
+ * реально проходили. Индикатор поднимал ложную тревогу, что хуже его
+ * отсутствия. Настройки кэша должны жить в одном месте — в lib/supabase.ts.
+ */
 function admin(): SupabaseClient | null {
-  const url = process.env.SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_KEY
-  if (!url || !key) return null
-  return createClient(url, key)
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) return null
+  return supabaseAdmin
 }
 
 /**
